@@ -1,0 +1,7 @@
+# Python dependencies for xai-chess.
+# Install (no venv on this machine):  pip install --target ./.pylibs -r requirements.txt
+# python-chess provides all chess mechanics (pins, legality, cp->win-prob).
+chess==1.11.2
+
+# NOTE: the oracle engine (Stockfish) is NOT a pip package. It is a vendored
+# binary at vendor/stockfish/stockfish-ubuntu-x86-64-avx2 (Stockfish 18, AVX2).
