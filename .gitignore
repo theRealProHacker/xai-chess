@@ -1,0 +1,22 @@
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Local dependency installs (this box has no venv support; deps go in ./.pylibs
+# via `pip install --target ./.pylibs`, see README)
+.pylibs/
+.venv/
+
+# gstack session artifacts
+.gstack/
+
+# Vendored Stockfish build outputs — rebuildable from source (see README
+# "The rule-level patch"); the engine source itself is left untracked, not
+# ignored, so it can be committed deliberately if desired.
+vendor/stockfish/src/*.o
+vendor/stockfish/src/.depend
+vendor/stockfish/src/stockfish
+vendor/stockfish/src/*.nnue
+vendor/stockfish/stockfish-ubuntu-x86-64-avx2
+vendor/stockfish/stockfish-xai-rulelevel
