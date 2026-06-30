@@ -1,0 +1,124 @@
+diff --git a/src/engine.cpp b/src/engine.cpp
+index dfd2099..f48f448 100644
+--- a/src/engine.cpp
++++ b/src/engine.cpp
+@@ -113,6 +113,13 @@ Engine::Engine(std::optional<std::string> path) :
+ 
+     options.add("nodestime", Option(0, 0, 10000));
+ 
++    // xai-chess rule-level intervention: square index (0..63) of the slider whose
++    // pin is suspended, or 64 (=SQ_NONE, the default) to disable. See position.h.
++    options.add("MaskPinner", Option(int(SQ_NONE), 0, int(SQ_NONE), [](const Option& o) {
++                    maskPinnerSq = Square(int(o));
++                    return std::nullopt;
++                }));
++
+     options.add("UCI_Chess960", Option(false));
+ 
+     options.add("UCI_LimitStrength", Option(false));
+diff --git a/src/movegen.cpp b/src/movegen.cpp
+index e63707a..8e991ae 100644
+--- a/src/movegen.cpp
++++ b/src/movegen.cpp
+@@ -241,6 +241,12 @@ Move* generate_all(const Position& pos, Move* moveList) {
+                : Type == CAPTURES     ? pos.pieces(~Us)
+                                       : ~pos.pieces();  // QUIETS
+ 
++        // xai-chess: with a suspended pin the enemy king can be left "exposed"
++        // along the severed ray; never generate a move that captures it, which
++        // would corrupt the position. A no-op in any legal (unmasked) position.
++        if (maskPinnerSq != SQ_NONE)
++            target &= ~pos.pieces(~Us, KING);
++
+         moveList = generate_pawn_moves<Us, Type>(pos, moveList, target);
+         moveList = generate_moves<Us, KNIGHT>(pos, moveList, target);
+         moveList = generate_moves<Us, BISHOP>(pos, moveList, target);
+diff --git a/src/position.cpp b/src/position.cpp
+index 907dfde..8b6d9f6 100644
+--- a/src/position.cpp
++++ b/src/position.cpp
+@@ -43,6 +43,15 @@ using std::string;
+ 
+ namespace Stockfish {
+ 
++// xai-chess rule-level intervention (see position.h). Single-threaded use only.
++Square maskPinnerSq = SQ_NONE;
++
++namespace {
++// Bitboard of the suspended pinner, or empty when no mask is active. Avoids
++// square_bb(SQ_NONE), which asserts.
++inline Bitboard mask_bb() { return maskPinnerSq != SQ_NONE ? (1ULL << maskPinnerSq) : 0ULL; }
++}
++
+ namespace Zobrist {
+ 
+ Key psq[PIECE_NB][SQUARE_NB];
+@@ -345,7 +354,7 @@ void Position::set_state() const {
+     st->nonPawnKey[WHITE] = st->nonPawnKey[BLACK] = 0;
+     st->pawnKey                                   = Zobrist::noPawns;
+     st->nonPawnMaterial[WHITE] = st->nonPawnMaterial[BLACK] = VALUE_ZERO;
+-    st->checkersBB = attackers_to(square<KING>(sideToMove)) & pieces(~sideToMove);
++    st->checkersBB = attackers_to(square<KING>(sideToMove)) & pieces(~sideToMove) & ~mask_bb();
+ 
+     set_check_info();
+ 
+@@ -526,6 +535,13 @@ bool Position::legal(Move m) const {
+     assert(color_of(moved_piece(m)) == us);
+     assert(piece_on(square<KING>(us)) == make_piece(us, KING));
+ 
++    // xai-chess: under a suspended pin the enemy king can be left "exposed" along the
++    // severed ray. Never allow it to be captured -- such a move can reach legal() via the
++    // TT-move path (which bypasses the king-capture guard in movegen), and capturing a king
++    // corrupts the position and crashes the search. Guards every move-validation path.
++    if (maskPinnerSq != SQ_NONE && piece_on(to) == make_piece(~us, KING))
++        return false;
++
+     // En passant captures are a tricky special case. Because they are rather
+     // uncommon, we do it simply by testing whether the king is attacked after
+     // the move is made.
+@@ -569,7 +585,18 @@ bool Position::legal(Move m) const {
+ 
+     // A non-king move is legal if and only if it is not pinned or it
+     // is moving along the ray towards or away from the king.
+-    return !(blockers_for_king(us) & from) || line_bb(from, to) & pieces(us, KING);
++    if (!(blockers_for_king(us) & from) || (line_bb(from, to) & pieces(us, KING)))
++        return true;
++
++    // xai-chess: a piece pinned specifically by the suspended pinner may leave
++    // the ray. The masked pinner cannot then check or capture the king (see the
++    // checkersBB masking in set_state/do_move and the king-capture guard in
++    // movegen), so the "exposure" along that one ray is safe by construction.
++    if (maskPinnerSq != SQ_NONE && (pieces(~us) & square_bb(maskPinnerSq))
++        && (between_bb(square<KING>(us), maskPinnerSq) & from))
++        return true;
++
++    return false;
+ }
+ 
+ 
+@@ -900,7 +927,7 @@ void Position::do_move(Move                      m,
+     st->capturedPiece = captured;
+ 
+     // Calculate checkers bitboard (if move gives check)
+-    st->checkersBB = givesCheck ? attackers_to(square<KING>(them)) & pieces(us) : 0;
++    st->checkersBB = givesCheck ? attackers_to(square<KING>(them)) & pieces(us) & ~mask_bb() : 0;
+ 
+     sideToMove = ~sideToMove;
+ 
+diff --git a/src/position.h b/src/position.h
+index a136c07..24baf68 100644
+--- a/src/position.h
++++ b/src/position.h
+@@ -70,6 +70,12 @@ struct StateInfo {
+ // elements are not invalidated upon list resizing.
+ using StateListPtr = std::unique_ptr<std::deque<StateInfo>>;
+ 
++// xai-chess rule-level intervention: when set to a real square, the slider on
++// that square is treated as a "suspended pinner" -- pieces it pins may leave the
++// ray, and it can neither check nor capture the king along that ray. SQ_NONE
++// (the default) makes the engine byte-for-byte identical to stock Stockfish.
++extern Square maskPinnerSq;
++
+ // Position class stores information regarding the board representation as
+ // pieces, side to move, hash keys, castling info, etc. Important methods are
+ // do_move() and undo_move(), used by the search to update node info when
