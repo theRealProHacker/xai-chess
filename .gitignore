@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments / local libs
+.venv/
+.pylibs/
+
+# Tooling
+.gstack/
+
+# Vendored binaries / build artifacts (exceed GitHub's 100MB limit)
+vendor/
