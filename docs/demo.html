@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zugzwang Demo &middot; xai-chess</title>
+<link rel="stylesheet" href="style.css">
+<!-- chessground: the board widget Lichess uses -->
+<link rel="stylesheet" href="vendor/chessground/chessground.base.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.brown.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.cburnett.css">
+<style>
+  /* demo-specific styles (base theme comes from style.css) */
+  a.back{color:#8a8a8a;text-decoration:none;font-size:.9rem}
+  a.back:hover{color:#0b5fa5}
+
+  #board{width:min(92vw,448px);height:min(92vw,448px);margin:1.25rem auto .75rem;
+         box-shadow:0 1px 4px rgba(0,0,0,.12);border-radius:4px}
+
+  .status{color:#8a8a8a;font-size:.85rem;text-align:center;margin:0 0 .75rem}
+  .status b{color:#1a1a1a;font-weight:600}
+
+  .fenrow{display:flex;gap:.4rem;margin:.75rem 0}
+  .fenrow input{flex:1;min-width:0;font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      padding:.5rem .6rem;border:1px solid #e4e4e4;border-radius:8px;color:#1a1a1a}
+  .fenrow input:focus{outline:none;border-color:#0b5fa5}
+
+  .btns{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;margin-bottom:.5rem}
+  button{font:inherit;font-size:.9rem;padding:.5rem .9rem;border:1px solid #e4e4e4;border-radius:8px;
+      background:#fff;color:#1a1a1a;cursor:pointer;transition:border-color .12s,background .12s}
+  button:hover:not(:disabled){border-color:#0b5fa5;background:#fafafa}
+  button:disabled{opacity:.5;cursor:default}
+  button.primary{background:#0b5fa5;border-color:#0b5fa5;color:#fff}
+  button.primary:hover:not(:disabled){background:#0a5390;border-color:#0a5390}
+
+  .err{color:#b00020;font-size:.85rem;text-align:center;min-height:1.1em;margin:.1rem 0 .4rem}
+
+  .result{border:1px solid #e4e4e4;border-radius:10px;padding:.9rem 1.05rem;margin-top:1rem}
+  .result .eval{font:14px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#555;margin-bottom:.35rem}
+  .result .eval b{color:#1a1a1a}
+  .result .verdict{font-size:1.25rem;font-weight:600;letter-spacing:-.01em;margin-bottom:.35rem}
+  .result .verdict.zug{color:#b00020}
+  .result .verdict.asset{color:#0b7a2f}
+  .result .verdict.neutral{color:#8a6d00}
+  .result .verdict.na,.result .verdict.thinking{color:#555}
+  .result .detail{color:#555;font-size:.92rem}
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; xai-chess</a>
+  <h1>Zugzwang Demo</h1>
+  <p class="intro">A Lichess-style analysis board (rendered with <em>chessground</em>, the board
+  Lichess uses). Load any position by FEN, play legal moves, then press <b>Detect Zugzwang</b> to
+  run the project's <em>tempo operator</em> (nullzug): it compares Stockfish's evaluation after the
+  best move against its evaluation after a <em>null move</em> (the side to move passes). If passing
+  would be better, the position is zugzwang.</p>
+
+  <div id="board" class="cg-wrap"></div>
+  <p class="status"><b id="turn">&nbsp;</b> &middot; <span id="engineStatus">Engine: loading&hellip;</span></p>
+
+  <div class="fenrow">
+    <input id="fen" spellcheck="false" aria-label="FEN">
+    <button id="loadBtn">Load</button>
+  </div>
+  <p class="err" id="err"></p>
+
+  <div class="btns">
+    <button id="detectBtn" class="primary" disabled>Detect Zugzwang</button>
+    <button id="flipBtn">Flip board</button>
+    <button id="resetBtn">Reset to demo</button>
+  </div>
+
+  <div class="result" id="result" hidden>
+    <div class="eval" id="rEval"></div>
+    <div class="verdict" id="rVerdict"></div>
+    <div class="detail" id="rDetail"></div>
+  </div>
+
+<script type="module">
+import { Chess } from './vendor/chess.js';
+import { Chessground } from './vendor/chessground/chessground.min.js';
+
+// --- constants --------------------------------------------------------------
+const DEMO_FEN = '8/4k3/8/4K3/4P3/8/8/8 b - - 0 1'; // Black to move loses the opposition
+const SEARCH   = 'movetime 1500';   // per-position engine budget
+const EPS      = 0.05;              // win-prob threshold for a decisive tempo verdict
+
+// --- state ------------------------------------------------------------------
+let chess = new Chess(DEMO_FEN);
+
+// --- elements ---------------------------------------------------------------
+const turnEl    = document.getElementById('turn');
+const engineEl  = document.getElementById('engineStatus');
+const fenInput  = document.getElementById('fen');
+const errEl     = document.getElementById('err');
+const detectBtn = document.getElementById('detectBtn');
+const resultEl  = document.getElementById('result');
+const rEval     = document.getElementById('rEval');
+const rVerdict  = document.getElementById('rVerdict');
+const rDetail   = document.getElementById('rDetail');
+
+// --- board (chessground) ----------------------------------------------------
+const colorOf = () => (chess.turn() === 'w' ? 'white' : 'black');
+
+// legal moves grouped by origin square -> chessground's dests Map
+function dests(){
+  const map = new Map();
+  chess.moves({verbose: true}).forEach(m => {
+    if(!map.has(m.from)) map.set(m.from, []);
+    map.get(m.from).push(m.to);
+  });
+  return map;
+}
+
+const ground = Chessground(document.getElementById('board'), {
+  fen: chess.fen(),
+  turnColor: colorOf(),
+  movable: {free: false, color: colorOf(), dests: dests(), showDests: true, events: {after: onMove}},
+  draggable: {showGhost: true},
+});
+syncStatus();
+
+function onMove(orig, dest){
+  const p = chess.get(orig);
+  const promotion = (p && p.type === 'p' && (dest[1] === '8' || dest[1] === '1')) ? 'q' : undefined;
+  chess.move({from: orig, to: dest, promotion});
+  clearResult();
+  applyBoard([orig, dest]);
+}
+
+function applyBoard(lastMove){
+  ground.set({
+    fen: chess.fen(),
+    turnColor: colorOf(),
+    check: chess.in_check() ? colorOf() : false,
+    lastMove: lastMove || null,
+    movable: {color: colorOf(), dests: dests()},
+  });
+  syncStatus();
+}
+
+function syncStatus(){
+  fenInput.value = chess.fen();
+  turnEl.textContent = (chess.turn() === 'w' ? 'White' : 'Black') + ' to move';
+}
+
+// --- controls ---------------------------------------------------------------
+function loadFen(fen){
+  const test = new Chess();
+  if(!test.load(fen)){ errEl.textContent = 'Invalid FEN.'; return false; }
+  errEl.textContent = '';
+  chess = test;
+  clearResult();
+  applyBoard(null);
+  return true;
+}
+
+document.getElementById('loadBtn').addEventListener('click', () => loadFen(fenInput.value.trim()));
+fenInput.addEventListener('keydown', e => { if(e.key === 'Enter') loadFen(fenInput.value.trim()); });
+document.getElementById('flipBtn').addEventListener('click', () => ground.toggleOrientation());
+document.getElementById('resetBtn').addEventListener('click', () => { fenInput.value = DEMO_FEN; loadFen(DEMO_FEN); });
+detectBtn.addEventListener('click', detect);
+
+// --- result panel -----------------------------------------------------------
+function clearResult(){ resultEl.hidden = true; }
+function showResult({evalStr = '', cls = '', title = '', detail = ''}){
+  resultEl.hidden = false;
+  rEval.innerHTML = evalStr ? ('Evaluation (White): <b>' + evalStr + '</b>') : '';
+  rEval.style.display = evalStr ? 'block' : 'none';
+  rVerdict.textContent = title;
+  rVerdict.className = 'verdict ' + cls;
+  rDetail.textContent = detail;
+}
+
+// --- engine (single-threaded Stockfish over a Web Worker, UCI) --------------
+const engine = new Worker('vendor/stockfish/stockfish.js');
+function lineOf(e){ return typeof e.data === 'string' ? e.data : (e.data && e.data.data) || ''; }
+
+function initEngine(){
+  return new Promise(resolve => {
+    function onMsg(e){
+      const line = lineOf(e);
+      if(line === 'uciok') engine.postMessage('isready');
+      else if(line === 'readyok'){ engine.removeEventListener('message', onMsg); resolve(); }
+    }
+    engine.addEventListener('message', onMsg);
+    engine.postMessage('uci');
+  });
+}
+
+// Analyse one position; resolves {score:{cp,mate}, bestmove}. Score is from the
+// side-to-move POV (UCI convention). Callers run these one at a time.
+function analyse(fen, limit){
+  return new Promise(resolve => {
+    let score = null, settled = false;
+    function finish(result){
+      if(settled) return;
+      settled = true;
+      clearTimeout(timer);
+      engine.removeEventListener('message', onMsg);
+      resolve(result);
+    }
+    function onMsg(e){
+      const line = lineOf(e);
+      if(line.startsWith('info')){
+        const m = line.match(/score (cp|mate) (-?\d+)/);
+        if(m) score = m[1] === 'cp' ? {cp: parseInt(m[2], 10), mate: null}
+                                    : {cp: null, mate: parseInt(m[2], 10)};
+      } else if(line.startsWith('bestmove')){
+        finish({score, bestmove: line.split(' ')[1]});
+      }
+    }
+    // Safety net: if the worker crashes or never emits `bestmove`, resolve with a
+    // null bestmove so detect()'s `finally` re-enables the button (no permanent hang).
+    const timer = setTimeout(() => finish({score, bestmove: null}), 15000);
+    engine.addEventListener('message', onMsg);
+    engine.postMessage('position fen ' + fen);
+    engine.postMessage('go ' + limit);
+  });
+}
+
+engine.onerror = () => { engineEl.textContent = 'Engine failed to load'; };
+initEngine().then(() => { engineEl.textContent = 'Engine: ready'; detectBtn.disabled = false; });
+
+// --- evaluation helpers -----------------------------------------------------
+function winProb(score){           // {cp,mate} from some POV -> win expectation
+  if(!score) return null;
+  if(score.mate !== null) return score.mate > 0 ? 0.9999 : 0.0001;
+  // logistic approximation of python-chess's wdl(model="lichess")
+  const p = 1 / (1 + Math.exp(-0.00368208 * score.cp));
+  return Math.min(Math.max(p, 1e-4), 1 - 1e-4);
+}
+function negate(score){
+  if(!score) return null;
+  return {cp: score.cp === null ? null : -score.cp,
+          mate: score.mate === null ? null : -score.mate};
+}
+function whitePovEval(score, stm){  // headline eval string, White's POV
+  if(!score) return '—';
+  const flip = stm === 'b' ? -1 : 1;
+  if(score.mate !== null){ const m = score.mate * flip; return (m > 0 ? '+M' : '-M') + Math.abs(m); }
+  const pawns = (score.cp * flip) / 100;
+  return (pawns >= 0 ? '+' : '-') + Math.abs(pawns).toFixed(2);
+}
+function uciToSan(fen, uci){
+  if(!uci || uci.length < 4) return uci || '—';
+  const g = new Chess(fen);
+  const mv = g.move({from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || 'q'});
+  return mv ? mv.san : uci;
+}
+const pct = x => (x * 100).toFixed(1) + '%';
+
+// --- zugzwang detection (nullzug, ported from tempo_op.py) -------------------
+async function detect(){
+  if(chess.game_over()){
+    showResult({cls: 'na', title: 'Not applicable',
+      detail: 'This position is checkmate, stalemate or a draw — the zugzwang (null-move) test does not apply.'});
+    return;
+  }
+  if(chess.in_check()){
+    showResult({cls: 'na', title: 'Not applicable',
+      detail: 'The side to move is in check, so it cannot pass. The null-move (zugzwang) test is undefined here.'});
+    return;
+  }
+
+  detectBtn.disabled = true;
+  showResult({cls: 'thinking', title: 'Analysing…',
+    detail: 'Running Stockfish on the position and on the null move (pass)…'});
+
+  try{
+    const fen = chess.fen();
+    const stm = chess.turn();
+    const sideName = stm === 'w' ? 'White' : 'Black';
+
+    const posEval = await analyse(fen, SEARCH);
+    if(posEval.bestmove == null){          // engine timed out / crashed
+      showResult({cls: 'na', title: 'Engine unavailable',
+        detail: 'Stockfish did not respond. Reload the page and try again.'});
+      return;
+    }
+
+    // null move: flip the side to move and clear en passant; board is untouched
+    const parts = fen.split(' ');
+    parts[1] = stm === 'w' ? 'b' : 'w';
+    parts[3] = '-';
+    const nullFen = parts.join(' ');
+    const passEval = new Chess().load(nullFen) ? await analyse(nullFen, SEARCH) : null;
+
+    const wpBest = winProb(posEval.score);
+    const wpPass = passEval ? winProb(negate(passEval.score)) : null; // negate: back to stm POV
+    const evalStr = whitePovEval(posEval.score, stm);
+    const bestSan = uciToSan(fen, posEval.bestmove);
+
+    if(wpBest === null || wpPass === null){
+      showResult({evalStr, cls: 'na', title: 'Could not evaluate',
+        detail: 'The engine did not return a usable score for one of the positions.'});
+      return;
+    }
+
+    const eff = wpPass - wpBest;              // >0: would rather pass -> zugzwang
+    const dpct = (Math.abs(eff) * 100).toFixed(1) + '%';
+    let cls, title, detail;
+    if(eff > EPS){
+      cls = 'zug'; title = 'Zugzwang';
+      detail = `${sideName} is in zugzwang: passing would be worth ${pct(wpPass)}, `
+             + `but the best legal move (${bestSan}) only reaches ${pct(wpBest)} — `
+             + `being forced to move costs ${dpct}.`;
+    } else if(eff < -EPS){
+      cls = 'asset'; title = 'Not zugzwang — tempo is an asset';
+      detail = `Having the move helps ${sideName}: the best move (${bestSan}) reaches ${pct(wpBest)}, `
+             + `versus ${pct(wpPass)} if forced to pass (+${dpct} for holding the move).`;
+    } else {
+      cls = 'neutral'; title = 'Tempo not decisive';
+      detail = `Passing (${pct(wpPass)}) and the best move ${bestSan} (${pct(wpBest)}) are within ${dpct} — `
+             + `the obligation to move does not materially change ${sideName}'s outcome.`;
+    }
+    showResult({evalStr, cls, title, detail});
+  } catch(err){
+    showResult({cls: 'na', title: 'Error', detail: String(err)});
+  } finally {
+    detectBtn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>

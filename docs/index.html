@@ -3,78 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>xai-chess — documents</title>
-<style>
-  :root{
-    --bg:#0f1115; --panel:#171a21; --panel2:#1d212a; --line:#2a2f3a;
-    --ink:#e9ecf1; --mut:#9aa3b2; --accent:#5fd0a3; --accent2:#7aa2ff;
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0}
-  body{
-    background:radial-gradient(1200px 600px at 50% -10%, #1a2030 0%, var(--bg) 60%);
-    color:var(--ink); min-height:100vh;
-    font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    -webkit-font-smoothing:antialiased;
-  }
-  .wrap{max-width:760px;margin:0 auto;padding:5rem 1.4rem 4rem}
-  .eyebrow{letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;color:var(--accent);font-weight:600;margin:0 0 .9rem}
-  h1{font-family:Georgia,"Times New Roman",serif;font-size:2.9rem;line-height:1.1;margin:0 0 .5rem;font-weight:700}
-  .tag{font-size:1.15rem;color:var(--mut);margin:0 0 1.6rem}
-  .lede{color:#c7cdd8;font-size:1.02rem;max-width:62ch;margin:0 0 3rem}
-  .lede code{background:var(--panel2);padding:.08em .35em;border-radius:4px;font-size:.9em;color:var(--accent)}
-  h2{font-size:.8rem;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);font-weight:600;
-     margin:0 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--line)}
-  .cards{display:grid;gap:1rem;margin:0 0 3rem}
-  a.card{
-    display:block;text-decoration:none;color:inherit;background:var(--panel);
-    border:1px solid var(--line);border-radius:14px;padding:1.25rem 1.4rem;
-    transition:transform .12s ease,border-color .12s ease,background .12s ease;
-  }
-  a.card:hover{transform:translateY(-2px);border-color:var(--accent);background:var(--panel2)}
-  .card .ct{display:flex;align-items:baseline;justify-content:space-between;gap:1rem}
-  .card h3{margin:0;font-size:1.18rem;font-weight:650}
-  .card .arrow{color:var(--accent);font-size:1.1rem;flex:none}
-  .card p{margin:.45rem 0 0;color:var(--mut);font-size:.95rem}
-  .card .meta{margin-top:.7rem;font-size:.78rem;color:#727b8a;font-variant-numeric:tabular-nums}
-  footer{border-top:1px solid var(--line);padding-top:1.4rem;color:var(--mut);font-size:.86rem;display:flex;
-         justify-content:space-between;flex-wrap:wrap;gap:.6rem}
-  footer a{color:var(--accent2);text-decoration:none}
-  footer a:hover{text-decoration:underline}
-</style>
+<title>xai-chess</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="wrap">
-  <p class="eyebrow">xai-chess</p>
-  <h1>Grading the reasons,<br>not just the moves.</h1>
-  <p class="tag">An intervention-grounded benchmark for chess move-explanations.</p>
-  <p class="lede">
-    Given an explanation of the form <em>“move <code>m</code> is good because of factor X”</em> (say, a pin),
-    xai-chess asks one question: is factor X <em>actually causally responsible</em> for the move being good, or a
-    red herring the explainer name-dropped? It answers by intervention — neutralize the cited factor, then read
-    how much a strong oracle engine’s valuation of the move changes.
-  </p>
-
-  <h2>Documents</h2>
+  <h1>xai-chess</h1>
+  <p class="intro">Explainable AI for chess: a benchmark that tests, by intervention, whether the factor an explanation cites for a move actually drives it or is just a plausible red herring.</p>
   <div class="cards">
     <a class="card" href="survey.html">
-      <div class="ct"><h3>The Survey</h3><span class="arrow">→</span></div>
-      <p>“Grading the Reasons, Not Just the Moves” — a survey of intervention-grounded evaluation of
-         chess move-explanations and chess as a ground-truth substrate, synthesizing 64 works.</p>
-      <div class="meta">survey · ~14.9k words · IEEE references</div>
+      <div class="t">The Survey <span class="ai">(AI-generated)</span></div>
+      <div class="s">Intervention-grounded evaluation of chess move-explanations (64 works)</div>
     </a>
     <a class="card" href="RESEARCH_SUMMARIES.html">
-      <div class="ct"><h3>Deep-research summaries</h3><span class="arrow">→</span></div>
-      <p>One deep-research pass per paper — summary, what it depends on, results, and weaknesses —
-         across the full corpus, grouped by relevance tier.</p>
-      <div class="meta">64 papers · core / supporting / peripheral</div>
+      <div class="t">Deep-research summaries <span class="ai">(AI-generated)</span></div>
+      <div class="s">One deep-research pass per paper: summary, dependencies, results, weaknesses</div>
+    </a>
+    <a class="card" href="demo.html">
+      <div class="t">Zugzwang Demo</div>
+      <div class="s">Interactive analysis board &mdash; detect zugzwang with the tempo operator</div>
     </a>
   </div>
-
-  <footer>
-    <span>xai-chess · research documents</span>
-    <span><a href="https://github.com/theRealProHacker/xai-chess">github.com/theRealProHacker/xai-chess</a></span>
-  </footer>
-</div>
 </body>
 </html>
