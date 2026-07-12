@@ -14,7 +14,9 @@
   a.back{color:#8a8a8a;text-decoration:none;font-size:.9rem}
   a.back:hover{color:#0b5fa5}
 
-  #board{width:min(92vw,448px);height:min(92vw,448px);margin:1.25rem auto .75rem;
+  /* 100% (not 92vw) so the board respects body's 1.5rem side padding — 92vw overflows it
+     on narrow screens and gives the page a horizontal scrollbar. aspect-ratio keeps it square. */
+  #board{width:min(100%,448px);aspect-ratio:1/1;margin:1.25rem auto .75rem;
          box-shadow:0 1px 4px rgba(0,0,0,.12);border-radius:4px}
 
   .status{color:#8a8a8a;font-size:.85rem;text-align:center;margin:0 0 .75rem}
@@ -82,7 +84,7 @@ import { Chessground } from './vendor/chessground/chessground.min.js';
 
 // --- constants --------------------------------------------------------------
 const DEMO_FEN = '8/4k3/8/4K3/4P3/8/8/8 b - - 0 1'; // Black to move loses the opposition
-const SEARCH   = 'movetime 1500';   // per-position engine budget
+const NODES    = 300000;           // fixed node budget — deterministic given the cold-hash handshake below
 const EPS      = 0.05;              // win-prob threshold for a decisive tempo verdict
 
 // --- state ------------------------------------------------------------------
@@ -188,11 +190,22 @@ function initEngine(){
   });
 }
 
-// Analyse one position; resolves {score:{cp,mate}, bestmove}. Score is from the
-// side-to-move POV (UCI convention). Callers run these one at a time.
-function analyse(fen, limit){
+// Analyse one position at a FIXED node budget; resolves {score:{cp,mate}, bestmove}.
+// Score is from the side-to-move POV (UCI convention). Callers run these one at a time.
+//
+// Determinism (plan O2): a reused persistent Worker keeps a warm transposition table, so
+// `go nodes N` alone is NOT reproducible. Before every search we cold-start the engine —
+// ucinewgame, Clear Hash, isready/readyok — then search. Repeated Detect on the same
+// position now returns an identical verdict.
+//
+// NOTE: the plan's O2 also called for `setoption name Threads value 1`. Do NOT send it.
+// This asm.js build advertises `option name Threads type spin default 1 min 1 max 1` — it
+// is hard-locked to a single thread already — and sending that setoption permanently hangs
+// the worker (it stops answering `isready`). The single-threaded determinism O2 wanted is
+// guaranteed by the build itself.
+function analyse(fen, nodes){
   return new Promise(resolve => {
-    let score = null, settled = false;
+    let score = null, settled = false, searching = false;
     function finish(result){
       if(settled) return;
       settled = true;
@@ -202,6 +215,10 @@ function analyse(fen, limit){
     }
     function onMsg(e){
       const line = lineOf(e);
+      if(!searching){
+        if(line === 'readyok'){ searching = true; engine.postMessage('position fen ' + fen); engine.postMessage('go nodes ' + nodes); }
+        return;
+      }
       if(line.startsWith('info')){
         const m = line.match(/score (cp|mate) (-?\d+)/);
         if(m) score = m[1] === 'cp' ? {cp: parseInt(m[2], 10), mate: null}
@@ -214,8 +231,10 @@ function analyse(fen, limit){
     // null bestmove so detect()'s `finally` re-enables the button (no permanent hang).
     const timer = setTimeout(() => finish({score, bestmove: null}), 15000);
     engine.addEventListener('message', onMsg);
-    engine.postMessage('position fen ' + fen);
-    engine.postMessage('go ' + limit);
+    // cold-engine handshake (O2) — no `setoption name Threads` (see note above: it hangs this build)
+    engine.postMessage('ucinewgame');
+    engine.postMessage('setoption name Clear Hash');
+    engine.postMessage('isready');
   });
 }
 
@@ -272,7 +291,7 @@ async function detect(){
     const stm = chess.turn();
     const sideName = stm === 'w' ? 'White' : 'Black';
 
-    const posEval = await analyse(fen, SEARCH);
+    const posEval = await analyse(fen, NODES);
     if(posEval.bestmove == null){          // engine timed out / crashed
       showResult({cls: 'na', title: 'Engine unavailable',
         detail: 'Stockfish did not respond. Reload the page and try again.'});
@@ -284,7 +303,7 @@ async function detect(){
     parts[1] = stm === 'w' ? 'b' : 'w';
     parts[3] = '-';
     const nullFen = parts.join(' ');
-    const passEval = new Chess().load(nullFen) ? await analyse(nullFen, SEARCH) : null;
+    const passEval = new Chess().load(nullFen) ? await analyse(nullFen, NODES) : null;
 
     const wpBest = winProb(posEval.score);
     const wpPass = passEval ? winProb(negate(passEval.score)) : null; // negate: back to stm POV

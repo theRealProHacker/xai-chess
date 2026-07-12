@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prophylaxis Demo &middot; xai-chess</title>
+<link rel="stylesheet" href="style.css">
+<!-- chessground: the board widget Lichess uses -->
+<link rel="stylesheet" href="vendor/chessground/chessground.base.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.brown.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.cburnett.css">
+<style>
+  /* demo-specific styles (base theme comes from style.css) — kept in sync with demo.html */
+  a.back{color:#8a8a8a;text-decoration:none;font-size:.9rem}
+  a.back:hover{color:#0b5fa5}
+
+  /* 100% (not 92vw) so the board respects body's 1.5rem side padding — 92vw overflows it
+     on narrow screens and gives the page a horizontal scrollbar. aspect-ratio keeps it square. */
+  #board{width:min(100%,448px);aspect-ratio:1/1;margin:1.25rem auto .75rem;
+         box-shadow:0 1px 4px rgba(0,0,0,.12);border-radius:4px}
+
+  .status{color:#8a8a8a;font-size:.85rem;text-align:center;margin:0 0 .75rem}
+  .status b{color:#1a1a1a;font-weight:600}
+
+  .caveats{color:#8a8a8a;font-size:.82rem;line-height:1.5;border-left:3px solid #eee;
+      padding:.1rem 0 .1rem .75rem;margin:0 0 1rem}
+  .caveats b{color:#6a6a6a;font-weight:600}
+
+  .fenrow{display:flex;gap:.4rem;margin:.75rem 0}
+  .fenrow input{flex:1;min-width:0;font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      padding:.5rem .6rem;border:1px solid #e4e4e4;border-radius:8px;color:#1a1a1a}
+  .fenrow input:focus{outline:none;border-color:#0b5fa5}
+
+  .btns{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;margin-bottom:.35rem}
+  button{font:inherit;font-size:.9rem;padding:.5rem .9rem;border:1px solid #e4e4e4;border-radius:8px;
+      background:#fff;color:#1a1a1a;cursor:pointer;transition:border-color .12s,background .12s}
+  button:hover:not(:disabled){border-color:#0b5fa5;background:#fafafa}
+  button:disabled{opacity:.5;cursor:default}
+  button.primary{background:#0b5fa5;border-color:#0b5fa5;color:#fff}
+  button.primary:hover:not(:disabled){background:#0a5390;border-color:#0a5390}
+
+  .hint{color:#8a6d00;font-size:.82rem;text-align:center;min-height:1.1em;margin:.1rem 0 .3rem}
+  .err{color:#b00020;font-size:.85rem;text-align:center;min-height:1.1em;margin:.1rem 0 .4rem}
+
+  .result{border:1px solid #e4e4e4;border-radius:10px;padding:.9rem 1.05rem;margin-top:1rem}
+  .result .verdict{font-size:1.25rem;font-weight:600;letter-spacing:-.01em;margin-bottom:.5rem}
+  .result .verdict.zug{color:#b00020}
+  .result .verdict.asset{color:#0b7a2f}
+  .result .verdict.neutral{color:#8a6d00}
+  .result .verdict.na,.result .verdict.thinking{color:#555}
+  .result .grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:0 0 .6rem}
+  @media (max-width:420px){.result .grid{grid-template-columns:1fr}}
+  .result .cell{border:1px solid #eee;border-radius:8px;padding:.55rem .7rem;background:#fafafa}
+  /* no text-transform: the right-hand label embeds a SAN move ("After Nxe5"), and SAN is case-sensitive */
+  .result .cell .lbl{font-size:.72rem;letter-spacing:.02em;color:#8a8a8a;margin-bottom:.25rem}
+  .result .cell .val{font:12.5px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#1a1a1a}
+  .result .eff{font-size:.92rem;color:#333;margin-bottom:.35rem}
+  .result .detail{color:#555;font-size:.92rem}
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; xai-chess</a>
+  <h1>Prophylaxis Demo</h1>
+  <p class="intro">A Lichess-style analysis board (rendered with <em>chessground</em>, the board
+  Lichess uses). Load a position with the side you want to defend to move, play <b>exactly one
+  move</b>, then press <b>Detect threat removal</b> to run the project&rsquo;s <em>threat operator</em>.
+  It asks a narrow, mate-only question: did the opponent have a <em>forced checkmate</em> before your
+  move &mdash; found by letting you <em>pass</em> (a null move) &mdash; and is that mate gone after it?
+  Search only: no board edits and no engine patch (a <b>Tier&nbsp;1</b>, confound-free test).</p>
+
+  <p class="caveats"><b>Honest limits.</b> The <em>same</em> Stockfish both sets the threat (via the
+  null move) and checks it is gone &mdash; a circular, demo-grade check, not a proof. Each search is
+  capped at a fixed node budget. And the operator only tests that the mate is <em>gone after</em> your
+  move: a crushing counter-attack that merely <em>outruns</em> the mate passes too, so it cannot tell
+  &ldquo;defended&rdquo; from &ldquo;outran.&rdquo;</p>
+
+  <div id="board" class="cg-wrap"></div>
+  <p class="status"><b id="turn">&nbsp;</b> &middot; <span id="engineStatus">Engine: loading&hellip;</span></p>
+
+  <div class="fenrow">
+    <input id="fen" spellcheck="false" aria-label="FEN">
+    <button id="loadBtn">Load</button>
+  </div>
+  <p class="err" id="err"></p>
+
+  <div class="btns">
+    <button id="detectBtn" class="primary" disabled>Detect threat removal</button>
+    <button id="flipBtn">Flip board</button>
+    <button id="resetBtn">Reset to demo</button>
+  </div>
+  <p class="hint" id="hint"></p>
+
+  <div class="result" id="result" hidden aria-live="polite">
+    <div class="verdict" id="rVerdict"></div>
+    <div class="grid" id="rGrid">
+      <div class="cell">
+        <div class="lbl">If you pass (null move)</div>
+        <div class="val" id="rBefore">&mdash;</div>
+      </div>
+      <div class="cell">
+        <div class="lbl" id="rAfterLbl">After your move</div>
+        <div class="val" id="rAfter">&mdash;</div>
+      </div>
+    </div>
+    <div class="eff" id="rEff"></div>
+    <div class="detail" id="rDetail"></div>
+  </div>
+
+<script type="module">
+import { Chess } from './vendor/chess.js';
+import { Chessground } from './vendor/chessground/chessground.min.js';
+
+// --- constants --------------------------------------------------------------
+// Golden position: White to move. If White passes (null move) Black plays ...Re1#
+// (a forced M1 back-rank mate). h3 or f3 (luft) removes it; material is level, so
+// after the luft move Black has NO forced mate. Verified with Stockfish 18 @ 300k nodes.
+const DEMO_FEN = '4r1k1/5ppp/8/8/8/R7/5PPP/6K1 w - - 0 1';
+const NODES    = 300000;   // fixed node budget — deterministic given the cold-hash handshake below
+
+// --- state ------------------------------------------------------------------
+let chess = new Chess(DEMO_FEN);
+let loadedFen = chess.fen();   // the position `m` is played FROM (side S to move) — the "before"
+let engineReady = false;
+
+// --- elements ---------------------------------------------------------------
+const turnEl    = document.getElementById('turn');
+const engineEl  = document.getElementById('engineStatus');
+const fenInput  = document.getElementById('fen');
+const errEl     = document.getElementById('err');
+const hintEl    = document.getElementById('hint');
+const detectBtn = document.getElementById('detectBtn');
+const resultEl  = document.getElementById('result');
+const gridEl    = document.getElementById('rGrid');
+const rVerdict  = document.getElementById('rVerdict');
+const rBefore   = document.getElementById('rBefore');
+const rAfter    = document.getElementById('rAfter');
+const rAfterLbl = document.getElementById('rAfterLbl');
+const rEff      = document.getElementById('rEff');
+const rDetail   = document.getElementById('rDetail');
+
+// --- board (chessground) ----------------------------------------------------
+const colorOf = () => (chess.turn() === 'w' ? 'white' : 'black');
+
+// legal moves grouped by origin square -> chessground's dests Map
+function dests(){
+  const map = new Map();
+  chess.moves({verbose: true}).forEach(m => {
+    if(!map.has(m.from)) map.set(m.from, []);
+    map.get(m.from).push(m.to);
+  });
+  return map;
+}
+
+const ground = Chessground(document.getElementById('board'), {
+  fen: chess.fen(),
+  turnColor: colorOf(),
+  movable: {free: false, color: colorOf(), dests: dests(), showDests: true, events: {after: onMove}},
+  draggable: {showGhost: true},
+});
+syncStatus();
+
+function onMove(orig, dest){
+  const p = chess.get(orig);
+  const promotion = (p && p.type === 'p' && (dest[1] === '8' || dest[1] === '1')) ? 'q' : undefined;
+  chess.move({from: orig, to: dest, promotion});
+  clearResult();
+  applyBoard([orig, dest]);
+  updateDetectState();
+}
+
+function applyBoard(lastMove){
+  ground.set({
+    fen: chess.fen(),
+    turnColor: colorOf(),
+    check: chess.in_check() ? colorOf() : false,
+    lastMove: lastMove || null,
+    movable: {color: colorOf(), dests: dests()},
+  });
+  syncStatus();
+}
+
+function syncStatus(){
+  fenInput.value = chess.fen();
+  turnEl.textContent = (chess.turn() === 'w' ? 'White' : 'Black') + ' to move';
+}
+
+// --- controls ---------------------------------------------------------------
+function loadFen(fen){
+  const test = new Chess();
+  if(!test.load(fen)){ errEl.textContent = 'Invalid FEN.'; return false; }
+  errEl.textContent = '';
+  chess = test;
+  loadedFen = chess.fen();
+  clearResult();
+  applyBoard(null);
+  updateDetectState();
+  return true;
+}
+
+document.getElementById('loadBtn').addEventListener('click', () => loadFen(fenInput.value.trim()));
+fenInput.addEventListener('keydown', e => { if(e.key === 'Enter') loadFen(fenInput.value.trim()); });
+document.getElementById('flipBtn').addEventListener('click', () => ground.toggleOrientation());
+document.getElementById('resetBtn').addEventListener('click', () => { fenInput.value = DEMO_FEN; loadFen(DEMO_FEN); });
+detectBtn.addEventListener('click', detect);
+
+// Enable "Detect" only when exactly one move has been played from the loaded position:
+// prophylaxis needs a (position, single move) pair. [plan §5]
+function updateDetectState(){
+  const n = chess.history().length;
+  if(!engineReady){ detectBtn.disabled = true; hintEl.textContent = ''; return; }
+  if(n === 0){        detectBtn.disabled = true;  hintEl.textContent = 'Play one move for the side to move, then detect.'; }
+  else if(n === 1){   detectBtn.disabled = false; hintEl.textContent = ''; }
+  else {              detectBtn.disabled = true;  hintEl.textContent = 'Play exactly one move from the loaded position — press Reset or Load to start over.'; }
+}
+
+// --- result panel -----------------------------------------------------------
+function clearResult(){ resultEl.hidden = true; }
+function showResult({cls = '', title = '', before = '', after = '', afterLbl = '', eff = '', detail = ''}){
+  resultEl.hidden = false;
+  rVerdict.textContent = title;
+  rVerdict.className = 'verdict ' + cls;
+  const hasCells = !!(before || after);
+  gridEl.style.display = hasCells ? 'grid' : 'none';
+  rBefore.textContent = before || '—';
+  rAfter.textContent  = after || '—';
+  if(afterLbl) rAfterLbl.textContent = afterLbl;
+  rEff.textContent = eff;
+  rEff.style.display = eff ? 'block' : 'none';
+  rDetail.textContent = detail;
+}
+
+// --- engine (single-threaded Stockfish over a Web Worker, UCI) --------------
+const engine = new Worker('vendor/stockfish/stockfish.js');
+function lineOf(e){ return typeof e.data === 'string' ? e.data : (e.data && e.data.data) || ''; }
+
+function initEngine(){
+  return new Promise(resolve => {
+    function onMsg(e){
+      const line = lineOf(e);
+      if(line === 'uciok') engine.postMessage('isready');
+      else if(line === 'readyok'){ engine.removeEventListener('message', onMsg); resolve(); }
+    }
+    engine.addEventListener('message', onMsg);
+    engine.postMessage('uci');
+  });
+}
+
+// Analyse one position at a FIXED node budget. Resolves {score:{cp,mate}, bestmove}.
+// Score is from the side-to-move POV (UCI convention). Callers run these one at a time.
+//
+// Determinism (plan O2): a reused persistent Worker keeps a warm transposition table, so
+// `go nodes N` alone is NOT reproducible. Before every search we cold-start the engine —
+// ucinewgame, Clear Hash, isready/readyok — then search. Repeated Detect on the same
+// position now returns an identical verdict (verified: two cold runs of the golden null
+// position both report `nodes 2540 / mate 1 / bestmove e8e1`).
+//
+// NOTE: the plan's O2 also called for `setoption name Threads value 1`. Do NOT send it.
+// This asm.js build advertises `option name Threads type spin default 1 min 1 max 1` — it
+// is hard-locked to a single thread already — and sending that setoption permanently hangs
+// the worker (it stops answering `isready`), which surfaced as "Engine unavailable". The
+// single-threaded determinism O2 wanted is guaranteed by the build itself.
+function analyse(fen, nodes){
+  return new Promise(resolve => {
+    let score = null, settled = false, searching = false;
+    function finish(result){
+      if(settled) return;
+      settled = true;
+      clearTimeout(timer);
+      engine.removeEventListener('message', onMsg);
+      resolve(result);
+    }
+    function onMsg(e){
+      const line = lineOf(e);
+      if(!searching){
+        if(line === 'readyok'){ searching = true; engine.postMessage('position fen ' + fen); engine.postMessage('go nodes ' + nodes); }
+        return;
+      }
+      if(line.startsWith('info')){
+        const m = line.match(/score (cp|mate) (-?\d+)/);
+        if(m) score = m[1] === 'cp' ? {cp: parseInt(m[2], 10), mate: null}
+                                    : {cp: null, mate: parseInt(m[2], 10)};
+      } else if(line.startsWith('bestmove')){
+        finish({score, bestmove: line.split(' ')[1]});
+      }
+    }
+    // Safety net: if the worker crashes or never emits `bestmove`, resolve with a
+    // null bestmove so detect()'s `finally` re-enables the button (no permanent hang).
+    const timer = setTimeout(() => finish({score, bestmove: null}), 15000);
+    engine.addEventListener('message', onMsg);
+    // cold-engine handshake (O2) — no `setoption name Threads` (see note above: it hangs this build)
+    engine.postMessage('ucinewgame');
+    engine.postMessage('setoption name Clear Hash');
+    engine.postMessage('isready');
+  });
+}
+
+engine.onerror = () => { engineEl.textContent = 'Engine failed to load'; };
+initEngine().then(() => { engineEl.textContent = 'Engine: ready'; engineReady = true; updateDetectState(); });
+
+// --- evaluation helpers -----------------------------------------------------
+function winProb(score){           // {cp,mate} from some POV -> win expectation
+  if(!score) return null;
+  if(score.mate !== null) return score.mate > 0 ? 0.9999 : 0.0001;
+  // logistic approximation of python-chess's wdl(model="lichess")
+  const p = 1 / (1 + Math.exp(-0.00368208 * score.cp));
+  return Math.min(Math.max(p, 1e-4), 1 - 1e-4);
+}
+// A forced mate FOR the side to move (mate > 0). Null = no such mate. Both probe
+// positions have O to move, so `score` is already O's POV — do NOT negate. [plan §3]
+function oMate(score){ return (score && score.mate !== null && score.mate > 0) ? score.mate : null; }
+
+function uciToSan(fen, uci){
+  if(!uci || uci.length < 4) return uci || '—';
+  const g = new Chess(fen);
+  const mv = g.move({from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || 'q'});
+  return mv ? mv.san : uci;
+}
+const pct = x => (x == null ? '—' : (x * 100).toFixed(1) + '%');
+
+// --- threat-removal (prophylaxis) detection ---------------------------------
+async function detect(){
+  // `before` is the loaded position (side S to move), captured before `m`. Guard runs
+  // on `before`, NEVER the live board (which is O-to-move after m). [plan §3, §5]
+  const before = loadedFen;
+  if(chess.history().length !== 1){
+    showResult({cls: 'na', title: 'Play exactly one move',
+      detail: 'Load a position, then play one move for the side to move before detecting.'});
+    return;
+  }
+  const mSan  = chess.history({verbose: true})[0].san;
+  const after = chess.fen();                 // O to move (S just moved)
+
+  const bg = new Chess();
+  if(!bg.load(before)){ showResult({cls: 'na', title: 'Invalid position', detail: 'Could not read the loaded position.'}); return; }
+  const sStm   = before.split(' ')[1];       // 'w' | 'b'  — the defender S
+  const oStm   = sStm === 'w' ? 'b' : 'w';   // the opponent O
+  const sColor = sStm === 'w' ? 'White' : 'Black';
+  const oColor = oStm === 'w' ? 'White' : 'Black';
+
+  if(bg.game_over()){
+    showResult({cls: 'na', title: 'Not applicable',
+      detail: 'The loaded position is already checkmate, stalemate or a draw — there is nothing to defend.'});
+    return;
+  }
+  if(bg.in_check()){
+    showResult({cls: 'na', title: 'Not applicable',
+      detail: `${sColor} is in check in the loaded position and cannot pass, so the null-move threat test is undefined here.`});
+    return;
+  }
+
+  // null move on `before`: S passes -> flip STM, clear en passant -> O to move
+  const parts = before.split(' ');
+  parts[1] = oStm; parts[3] = '-';
+  const nullFen = parts.join(' ');
+  const ng = new Chess();
+  if(!ng.load(nullFen) || ng.game_over()){
+    showResult({cls: 'na', title: 'Not applicable',
+      detail: `After the null move ${oColor} has no legal reply (the position is terminal), so no forced-mate threat can be defined.`});
+    return;
+  }
+
+  detectBtn.disabled = true;
+  showResult({cls: 'thinking', title: 'Analysing…',
+    detail: `Running Stockfish on the null move (you pass) and on the position after ${mSan}…`});
+
+  try{
+    // (1) threat-before: search the null position (O to move -> O POV, no negate)
+    const sBefore = await analyse(nullFen, NODES);
+    if(sBefore.bestmove == null || sBefore.bestmove === '(none)'){
+      showResult({cls: 'na', title: sBefore.score ? 'Not applicable' : 'Engine unavailable',
+        detail: sBefore.score
+          ? `After the null move ${oColor} has no reply, so no threat can be defined.`
+          : 'Stockfish did not respond. Reload the page and try again.'});
+      return;
+    }
+    if(!sBefore.score){
+      showResult({cls: 'na', title: 'Could not evaluate', detail: 'Stockfish returned no score for the null position.'});
+      return;
+    }
+
+    // (2) threat-after: the position after m (O to move). Skip the engine if m ended the game.
+    const ag = new Chess(); ag.load(after);
+    let sAfter;
+    if(ag.game_over()){
+      sAfter = ag.in_checkmate() ? {score: {cp: null, mate: 0}, bestmove: null}   // m mates O first (outran)
+                                 : {score: {cp: 0,   mate: null}, bestmove: null}; // stalemate / draw
+    } else {
+      sAfter = await analyse(after, NODES);
+      if(sAfter.bestmove == null && !sAfter.score){
+        showResult({cls: 'na', title: 'Engine unavailable', detail: 'Stockfish did not respond. Reload the page and try again.'});
+        return;
+      }
+    }
+
+    const beforeMate = oMate(sBefore.score);   // k > 0, or null
+    const afterMate  = oMate(sAfter.score);
+    const existed = beforeMate !== null;       // O had a forced mate if S passed
+    const removed = afterMate === null;        // O has no forced mate after m
+
+    const wpBefore = winProb(sBefore.score);   // O POV
+    const wpAfter  = winProb(sAfter.score);    // O POV
+
+    // Self-check (plan §3, reviews #7/#10): a forced O-mate MUST read as winProb > 0.5.
+    // If this fires, a stray negate() has inverted the POV — the golden guard against sign flips.
+    if(existed) console.assert(wpBefore != null && wpBefore > 0.5,
+      'POV self-check failed: O has a forced mate but winProb <= 0.5 — the score was negated somewhere.');
+
+    const threatLine = uciToSan(nullFen, sBefore.bestmove);
+    const beforeVal = existed
+      ? `${oColor}: forced mate — ${threatLine} (M${beforeMate}) · ${pct(wpBefore)}`
+      : `${oColor}: no forced mate · ${pct(wpBefore)}`;
+
+    let afterVal;
+    if(afterMate !== null){
+      const afterLine = sAfter.bestmove ? uciToSan(after, sAfter.bestmove) : '—';
+      afterVal = `${oColor}: still mates — ${afterLine} (M${afterMate}) · ${pct(wpAfter)}`;
+    } else if(ag.in_checkmate()){
+      afterVal = `${oColor}: checkmated by ${mSan} · 0.0%`;
+    } else {
+      afterVal = `${oColor}: no forced mate · ${pct(wpAfter)}`;
+    }
+
+    let cls, title, detail, eff = '';
+    if(existed && removed){
+      cls = 'asset'; title = 'Threat removed';
+      detail = `${oColor} had a forced mate (${threatLine}, M${beforeMate}) if ${sColor} passed. `
+             + `After ${mSan}, that mate is gone. Note: this shows only that the mate is gone — `
+             + `it cannot distinguish defending the threat from outrunning it.`;
+      if(wpBefore != null && wpAfter != null)
+        eff = `Prophylactic value: ${oColor}'s winning chances fall from ${pct(wpBefore)} to ${pct(wpAfter)} `
+            + `(−${((wpBefore - wpAfter) * 100).toFixed(1)} pts).`;
+    } else if(!existed){
+      cls = 'neutral'; title = 'No forced-mate threat';
+      detail = `In the loaded position ${oColor} had no forced checkmate even if ${sColor} passed, so there was `
+             + `no mate threat for ${mSan} to remove. ${mSan} may still be a good move — this operator only `
+             + `detects removal of a forced mate.`;
+    } else {   // existed && !removed
+      cls = 'zug'; title = 'Mate threat remains';
+      const afterLine = sAfter.bestmove ? uciToSan(after, sAfter.bestmove) : '—';
+      detail = `${oColor} still has a forced mate (${afterLine}, M${afterMate}) after ${mSan}: `
+             + `the move did not remove the threat.`;
+    }
+    showResult({cls, title, before: beforeVal, after: afterVal, afterLbl: 'After ' + mSan, eff, detail});
+  } catch(err){
+    showResult({cls: 'na', title: 'Error', detail: String(err)});
+  } finally {
+    detectBtn.disabled = false;
+    updateDetectState();
+  }
+}
+</script>
+</body>
+</html>
