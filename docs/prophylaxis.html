@@ -68,10 +68,14 @@
   move &mdash; found by letting you <em>pass</em> (a null move) &mdash; and is that mate gone after it?
   Search only: no board edits and no engine patch (a <b>Tier&nbsp;1</b>, confound-free test).</p>
 
-  <p class="caveats"><b>Honest limits.</b> The <em>same</em> Stockfish both sets the threat (via the
-  null move) and checks it is gone &mdash; a circular, demo-grade check, not a proof. Each search is
-  capped at a fixed node budget. And the operator only tests that the mate is <em>gone after</em> your
-  move: a crushing counter-attack that merely <em>outruns</em> the mate passes too, so it cannot tell
+  <p class="caveats"><b>Honest limits.</b> Two &mdash; and circularity is <em>not</em> one of them:
+  Stockfish is the oracle, and whether a forced mate exists is an objective fact about the position
+  rather than the oracle&rsquo;s opinion, so the same engine may pose and answer the threat.
+  What is demo-grade is (1) the <b>node budget</b>: each search is capped, so &ldquo;no forced mate
+  after your move&rdquo; means <em>none was found within that budget</em>, not that none exists &mdash;
+  the &ldquo;mate exists&rdquo; direction is sound, the &ldquo;mate is gone&rdquo; direction is not a
+  proof; and (2) the operator only tests that the mate is <em>gone after</em> your move &mdash; a
+  crushing counter-attack that merely <em>outruns</em> the mate passes too, so it cannot tell
   &ldquo;defended&rdquo; from &ldquo;outran.&rdquo;</p>
 
   <div id="board" class="cg-wrap"></div>
