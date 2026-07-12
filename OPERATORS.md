@@ -1,7 +1,9 @@
 # OPERATORS.md — Intervention operators & grading policy for xai-chess
 
 Design doc (2026-06-27). Distilled from the "all possible reasons for a move" analysis.
-**Status: design, not yet implemented.** Implemented today: `pin` (rule+board), `hanging` (board).
+**Status: mostly design.** Implemented today — in the Python benchmark: `pin` (rule+board),
+`hanging` (board). As client-side demos on `main` (no engine patch, confound-free): `tempo`
+(`docs/demo.html`, zugzwang) and `threat` (`docs/prophylaxis.html`, prophylaxis).
 
 ## 0. Core principle
 
@@ -47,8 +49,15 @@ The DSL interface stays: each factor type supplies `detect(board) -> [Factor]`,
   calibrated magnitude.
 - **`threat` (prophylaxis, e.g. "prevents mate on h7")** = does the opponent have a forced threat
   *before* the move that is gone *after*? Grade faithful only if the threat existed pre-move and the
-  move removes it. Solving with an **independent from-scratch mate-solver** (not the patched engine)
-  makes the label **non-circular** — this is the verified-label route in the README's Next-steps #3.
+  move removes it. **Solved with the oracle itself — this is NOT circular.** Whether a forced mate
+  exists is an objective property of the tree, not the oracle's opinion (and per the 2026-06-26
+  retirement, binary mate-existence is the *one* solver-independent fact). An "independent
+  from-scratch mate-solver" would be a second *implementation* of the same definition, not an
+  independent label — that item is **retired, do not resurrect**. The real limits are (a) the node
+  budget: "no mate after the move" means *none found within budget*, not none exists (the
+  mate-*exists* direction is sound, the mate-*gone* direction is not a proof), and (b) it cannot
+  distinguish **defending** the threat from **outrunning** it (a crushing counter also passes).
+  Shipped client-side, no patch, at `docs/prophylaxis.html` on `main`.
 - **`restructure`** rescues pawn structure from the material-neutrality wall: *relocate* a pawn
   rather than add/remove one (a-file isolani → b-file beside a friend; spread a doubled pair; retract
   a passed pawn). Define the feature on the standard scalars: **pawn-island count, isolated / doubled
@@ -147,9 +156,11 @@ gate, applied at the operator level.
 
 1. ✅ `pin` (rule), ✅ `hanging` (board)
 2. ⭐ `skewer` (rule), `fork` (board) — closest wins, prove the surfaces generalize
-3. ⭐ `tempo` operator — smallest, confound-free, no patch; unlocks zugzwang + initiative
+3. ✅ `tempo` operator (demo-grade, client-side, no patch) — zugzwang shipped; initiative needs no
+   separate demo (it is the same page's "tempo is an asset" branch). Still to do in Python.
 4. ⭐ `obstruct` operator — one operator for all line factors (open file/diagonal/battery/discovery)
 5. `passed_pawn` (rule via promotion mask) + `restructure` for pawn structure
-6. `threat` operator + independent mate-solver → verified prophylaxis labels (Next-steps #3)
+6. ✅ `threat` operator (demo-grade, client-side, no patch) — the "+ independent mate-solver →
+   verified prophylaxis labels" half is **retired as conceptually confused**, not pending
 7. Band-A tablebase harness (verified endgame labels + operator calibration)
 8. Deferred: space / king-safety (detection-tier), multi-factor joint ablation, mechanistic surface
