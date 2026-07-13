@@ -18,10 +18,6 @@
   .status{color:#8a8a8a;font-size:.85rem;text-align:center;margin:0 0 .75rem}
   .status b{color:#1a1a1a;font-weight:600}
 
-  .caveats{color:#8a8a8a;font-size:.82rem;line-height:1.5;border-left:3px solid #eee;
-      padding:.1rem 0 .1rem .75rem;margin:0 0 1rem}
-  .caveats b{color:#6a6a6a;font-weight:600}
-
   .fenrow{display:flex;gap:.4rem;margin:.75rem 0}
   .fenrow input{flex:1;min-width:0;font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
       padding:.5rem .6rem;border:1px solid #e4e4e4;border-radius:8px;color:#1a1a1a}
@@ -62,14 +58,6 @@
   pinned piece may move as if it were free, and the pinning line no longer bears on the king.
   Nothing else about the board changes. If a forced mate (or a winning edge) exists <em>only</em>
   while the pin holds, the pin is causally load-bearing.</p>
-
-  <p class="caveats"><b>Why rule-level.</b> A board-level test would <em>delete a piece</em> to probe
-  the pin, which also removes its material and every other thing it does. This intervention edits a
-  single rule for a single slider instead, so the counterfactual isolates the pin and nothing else.
-  <b>Demo limits:</b> the search is capped at a fixed node budget, so &ldquo;no forced mate once
-  suspended&rdquo; means none was found within that budget; and the lite in-browser engine is weaker
-  than the full oracle, so read the <em>mate&nbsp;/ no-mate</em> flip, which is robust, over small
-  centipawn wobble.</p>
 
   <div id="board"></div>
   <p class="status"><b id="turn">&nbsp;</b> &middot; <span id="engineStatus">Engine: loading&hellip;</span></p>
