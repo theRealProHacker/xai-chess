@@ -246,7 +246,7 @@ function initEngine(){
   });
 }
 
-// Analyse `fen` at a fixed node budget with the mask set to `mask` (64 = off). Resolves
+// Analyse `fen` at a fixed node count with the mask set to `mask` (64 = off). Resolves
 // {score:{cp,mate}, bestmove} from the side-to-move POV. Cold handshake (ucinewgame +
 // Clear Hash) before each search so the reused Worker's warm TT can't make `go nodes`
 // non-deterministic. MaskPinner is a normal spin option here (unlike Threads on the old

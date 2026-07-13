@@ -105,7 +105,7 @@ import { Chessground } from './vendor/chessground/chessground.min.js';
 // (a forced M1 back-rank mate). h3 or f3 (luft) removes it; material is level, so
 // after the luft move Black has NO forced mate. Verified with Stockfish 18 @ 300k nodes.
 const DEMO_FEN = '4r1k1/5ppp/8/8/8/R7/5PPP/6K1 w - - 0 1';
-const NODES    = 300000;   // fixed node budget — deterministic given the cold-hash handshake below
+const NODES    = 300000;   // fixed node count — deterministic given the cold-hash handshake below
 
 // --- state ------------------------------------------------------------------
 let chess = new Chess(DEMO_FEN);
@@ -194,7 +194,7 @@ document.getElementById('resetBtn').addEventListener('click', () => { fenInput.v
 detectBtn.addEventListener('click', detect);
 
 // Enable "Detect" only when exactly one move has been played from the loaded position:
-// prophylaxis needs a (position, single move) pair. [plan §5]
+// prophylaxis needs a (position, single move) pair.
 function updateDetectState(){
   const n = chess.history().length;
   if(!engineReady){ detectBtn.disabled = true; hintEl.textContent = ''; return; }
@@ -235,20 +235,17 @@ function initEngine(){
   });
 }
 
-// Analyse one position at a FIXED node budget. Resolves {score:{cp,mate}, bestmove}.
+// Analyse one position at a fixed node count. Resolves {score:{cp,mate}, bestmove}.
 // Score is from the side-to-move POV (UCI convention). Callers run these one at a time.
 //
-// Determinism (plan O2): a reused persistent Worker keeps a warm transposition table, so
-// `go nodes N` alone is NOT reproducible. Before every search we cold-start the engine —
-// ucinewgame, Clear Hash, isready/readyok — then search. Repeated Detect on the same
-// position now returns an identical verdict (verified: two cold runs of the golden null
-// position both report `nodes 2540 / mate 1 / bestmove e8e1`).
+// A reused persistent Worker keeps a warm transposition table, so `go nodes N` alone is
+// not reproducible. Cold-start the engine before every search — ucinewgame, Clear Hash,
+// isready/readyok — so repeated Detect on the same position returns an identical verdict.
 //
-// NOTE: the plan's O2 also called for `setoption name Threads value 1`. Do NOT send it.
-// This asm.js build advertises `option name Threads type spin default 1 min 1 max 1` — it
-// is hard-locked to a single thread already — and sending that setoption permanently hangs
-// the worker (it stops answering `isready`), which surfaced as "Engine unavailable". The
-// single-threaded determinism O2 wanted is guaranteed by the build itself.
+// Do NOT send `setoption name Threads value 1`. This build advertises Threads as
+// `type spin default 1 min 1 max 1`, so it is already hard-locked to one thread, and
+// sending that setoption permanently hangs the worker (it stops answering `isready`,
+// surfacing as "Engine unavailable").
 function analyse(fen, nodes){
   return new Promise(resolve => {
     let score = null, settled = false, searching = false;
@@ -296,7 +293,7 @@ function winProb(score){           // {cp,mate} from some POV -> win expectation
   return Math.min(Math.max(p, 1e-4), 1 - 1e-4);
 }
 // A forced mate FOR the side to move (mate > 0). Null = no such mate. Both probe
-// positions have O to move, so `score` is already O's POV — do NOT negate. [plan §3]
+// positions have O to move, so `score` is already O's POV — do NOT negate.
 function oMate(score){ return (score && score.mate !== null && score.mate > 0) ? score.mate : null; }
 
 function uciToSan(fen, uci){
@@ -310,7 +307,7 @@ const pct = x => (x == null ? '—' : (x * 100).toFixed(1) + '%');
 // --- threat-removal (prophylaxis) detection ---------------------------------
 async function detect(){
   // `before` is the loaded position (side S to move), captured before `m`. Guard runs
-  // on `before`, NEVER the live board (which is O-to-move after m). [plan §3, §5]
+  // on `before`, NEVER the live board (which is O-to-move after m).
   const before = loadedFen;
   if(chess.history().length !== 1){
     showResult({cls: 'na', title: 'Play exactly one move',
@@ -390,8 +387,8 @@ async function detect(){
     const wpBefore = winProb(sBefore.score);   // O POV
     const wpAfter  = winProb(sAfter.score);    // O POV
 
-    // Self-check (plan §3, reviews #7/#10): a forced O-mate MUST read as winProb > 0.5.
-    // If this fires, a stray negate() has inverted the POV — the golden guard against sign flips.
+    // Self-check: a forced O-mate MUST read as winProb > 0.5. If this fires, a stray
+    // negate() has inverted the POV — the golden guard against sign flips.
     if(existed) console.assert(wpBefore != null && wpBefore > 0.5,
       'POV self-check failed: O has a forced mate but winProb <= 0.5 — the score was negated somewhere.');
 

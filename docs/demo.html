@@ -84,7 +84,7 @@ import { Chessground } from './vendor/chessground/chessground.min.js';
 
 // --- constants --------------------------------------------------------------
 const DEMO_FEN = '8/4k3/8/4K3/4P3/8/8/8 b - - 0 1'; // Black to move loses the opposition
-const NODES    = 300000;           // fixed node budget — deterministic given the cold-hash handshake below
+const NODES    = 300000;           // fixed node count — deterministic given the cold-hash handshake below
 const EPS      = 0.05;              // win-prob threshold for a decisive tempo verdict
 
 // --- state ------------------------------------------------------------------
@@ -190,19 +190,16 @@ function initEngine(){
   });
 }
 
-// Analyse one position at a FIXED node budget; resolves {score:{cp,mate}, bestmove}.
+// Analyse one position at a fixed node count; resolves {score:{cp,mate}, bestmove}.
 // Score is from the side-to-move POV (UCI convention). Callers run these one at a time.
 //
-// Determinism (plan O2): a reused persistent Worker keeps a warm transposition table, so
-// `go nodes N` alone is NOT reproducible. Before every search we cold-start the engine —
-// ucinewgame, Clear Hash, isready/readyok — then search. Repeated Detect on the same
-// position now returns an identical verdict.
+// A reused persistent Worker keeps a warm transposition table, so `go nodes N` alone is
+// not reproducible. Cold-start the engine before every search — ucinewgame, Clear Hash,
+// isready/readyok — so repeated Detect on the same position returns an identical verdict.
 //
-// NOTE: the plan's O2 also called for `setoption name Threads value 1`. Do NOT send it.
-// This asm.js build advertises `option name Threads type spin default 1 min 1 max 1` — it
-// is hard-locked to a single thread already — and sending that setoption permanently hangs
-// the worker (it stops answering `isready`). The single-threaded determinism O2 wanted is
-// guaranteed by the build itself.
+// Do NOT send `setoption name Threads value 1`. This build advertises Threads as
+// `type spin default 1 min 1 max 1`, so it is already hard-locked to one thread, and
+// sending that setoption permanently hangs the worker (it stops answering `isready`).
 function analyse(fen, nodes){
   return new Promise(resolve => {
     let score = null, settled = false, searching = false;
