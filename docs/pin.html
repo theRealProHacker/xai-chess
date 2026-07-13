@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pin Intervention Demo &middot; xai-chess</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.base.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.brown.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.cburnett.css">
+<style>
+  a.back{color:#8a8a8a;text-decoration:none;font-size:.9rem}
+  a.back:hover{color:#0b5fa5}
+
+  #board{width:min(100%,448px);aspect-ratio:1/1;margin:1.25rem auto .75rem;
+         box-shadow:0 1px 4px rgba(0,0,0,.12);border-radius:4px}
+
+  .status{color:#8a8a8a;font-size:.85rem;text-align:center;margin:0 0 .75rem}
+  .status b{color:#1a1a1a;font-weight:600}
+
+  .caveats{color:#8a8a8a;font-size:.82rem;line-height:1.5;border-left:3px solid #eee;
+      padding:.1rem 0 .1rem .75rem;margin:0 0 1rem}
+  .caveats b{color:#6a6a6a;font-weight:600}
+
+  .fenrow{display:flex;gap:.4rem;margin:.75rem 0}
+  .fenrow input{flex:1;min-width:0;font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      padding:.5rem .6rem;border:1px solid #e4e4e4;border-radius:8px;color:#1a1a1a}
+  .fenrow input:focus{outline:none;border-color:#0b5fa5}
+
+  .btns{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;margin-bottom:.35rem}
+  button{font:inherit;font-size:.9rem;padding:.5rem .9rem;border:1px solid #e4e4e4;border-radius:8px;
+      background:#fff;color:#1a1a1a;cursor:pointer;transition:border-color .12s,background .12s}
+  button:hover:not(:disabled){border-color:#0b5fa5;background:#fafafa}
+  button:disabled{opacity:.5;cursor:default}
+  button.primary{background:#0b5fa5;border-color:#0b5fa5;color:#fff}
+  button.primary:hover:not(:disabled){background:#0a5390;border-color:#0a5390}
+
+  .hint{color:#8a6d00;font-size:.82rem;text-align:center;min-height:1.1em;margin:.1rem 0 .3rem}
+  .err{color:#b00020;font-size:.85rem;text-align:center;min-height:1.1em;margin:.1rem 0 .4rem}
+
+  .result{border:1px solid #e4e4e4;border-radius:10px;padding:.9rem 1.05rem;margin-top:1rem}
+  .result .verdict{font-size:1.25rem;font-weight:600;letter-spacing:-.01em;margin-bottom:.5rem}
+  .result .verdict.causal{color:#0b7a2f}
+  .result .verdict.incidental{color:#8a6d00}
+  .result .verdict.na,.result .verdict.thinking{color:#555}
+  .result .grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:0 0 .6rem}
+  @media (max-width:420px){.result .grid{grid-template-columns:1fr}}
+  .result .cell{border:1px solid #eee;border-radius:8px;padding:.55rem .7rem;background:#fafafa}
+  .result .cell .lbl{font-size:.72rem;letter-spacing:.02em;color:#8a8a8a;margin-bottom:.25rem}
+  .result .cell .val{font:12.5px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#1a1a1a}
+  .result .eff{font-size:.92rem;color:#333;margin-bottom:.35rem}
+  .result .detail{color:#555;font-size:.92rem}
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; xai-chess</a>
+  <h1>Pin Intervention Demo</h1>
+  <p class="intro">The first <b>rule-level</b> demo. Load a position where the side to move can
+  exploit an <em>absolute pin</em> on an enemy piece (the arrow marks it), then press
+  <b>Suspend the pin</b>. The engine evaluates the position twice on a patched Stockfish&nbsp;18:
+  once normally, and once with that <em>one pin switched off</em> at the rules level &mdash; the
+  pinned piece may move as if it were free, and the pinning line no longer bears on the king.
+  Nothing else about the board changes. If a forced mate (or a winning edge) exists <em>only</em>
+  while the pin holds, the pin is causally load-bearing.</p>
+
+  <p class="caveats"><b>Why rule-level.</b> A board-level test would <em>delete a piece</em> to probe
+  the pin, which also removes its material and every other thing it does. This intervention edits a
+  single rule for a single slider instead, so the counterfactual isolates the pin and nothing else.
+  <b>Demo limits:</b> the search is capped at a fixed node budget, so &ldquo;no forced mate once
+  suspended&rdquo; means none was found within that budget; and the lite in-browser engine is weaker
+  than the full oracle, so read the <em>mate&nbsp;/ no-mate</em> flip, which is robust, over small
+  centipawn wobble.</p>
+
+  <div id="board"></div>
+  <p class="status"><b id="turn">&nbsp;</b> &middot; <span id="engineStatus">Engine: loading&hellip;</span></p>
+
+  <div class="fenrow">
+    <input id="fen" spellcheck="false" aria-label="FEN">
+    <button id="loadBtn">Load</button>
+  </div>
+  <p class="err" id="err"></p>
+
+  <div class="btns">
+    <button id="detectBtn" class="primary" disabled>Suspend the pin</button>
+    <button id="flipBtn">Flip board</button>
+    <button id="resetBtn">Reset to demo</button>
+  </div>
+  <p class="hint" id="hint"></p>
+
+  <div class="result" id="result" hidden aria-live="polite">
+    <div class="verdict" id="rVerdict"></div>
+    <div class="grid" id="rGrid">
+      <div class="cell">
+        <div class="lbl">Pin intact (normal rules)</div>
+        <div class="val" id="rBefore">&mdash;</div>
+      </div>
+      <div class="cell">
+        <div class="lbl">Pin suspended</div>
+        <div class="val" id="rAfter">&mdash;</div>
+      </div>
+    </div>
+    <div class="eff" id="rEff"></div>
+    <div class="detail" id="rDetail"></div>
+  </div>
+
+<script type="module">
+import { Chess } from './vendor/chess.js';
+import { Chessground } from './vendor/chessground/chessground.min.js';
+
+// Golden position: White to move. The g7 pawn is pinned to Kh8 by the bishop on e5.
+// Pin intact -> Qh6+ Kg8 Qxg7# (M2): the frozen pawn denies the king luft, and Be5
+// guards g7 so the king can't recapture. Suspend that one pin and it is dead equal
+// (Bxg7+ Kxg7). Verified on patched Stockfish 18 @ 400k nodes; mask square = e5.
+const DEMO_FEN = '3r3k/6p1/4Q3/4B3/1p3P2/4PKP1/3q4/8 w - - 18 52';
+const NODES    = 300000;
+const MASK_OFF = 64;   // SQ_NONE — engine is byte-for-byte stock Stockfish 18
+
+let chess = new Chess(DEMO_FEN);
+let currentFen = chess.fen();
+let pin = null;          // {pinnedSq, pinnerSq, kingSq, pinnerIdx} or null
+let engineReady = false;
+
+const turnEl    = document.getElementById('turn');
+const engineEl  = document.getElementById('engineStatus');
+const fenInput  = document.getElementById('fen');
+const errEl     = document.getElementById('err');
+const hintEl    = document.getElementById('hint');
+const detectBtn = document.getElementById('detectBtn');
+const resultEl  = document.getElementById('result');
+const gridEl    = document.getElementById('rGrid');
+const rVerdict  = document.getElementById('rVerdict');
+const rBefore   = document.getElementById('rBefore');
+const rAfter    = document.getElementById('rAfter');
+const rEff      = document.getElementById('rEff');
+const rDetail   = document.getElementById('rDetail');
+
+// --- board (chessground, view-only: the intervention is the mask, not a move) ---
+const colorOf = () => (chess.turn() === 'w' ? 'white' : 'black');
+const ground = Chessground(document.getElementById('board'), {
+  fen: chess.fen(), viewOnly: true, coordinates: true,
+  check: chess.in_check() ? colorOf() : false,
+});
+
+// --- pin detection (geometric ray-scan; chess.js has no attackers API) ----------
+// Square index a1=0..h8=63, matching the engine's MaskPinner convention.
+const FILES = 'abcdefgh';
+function sqIndex(sq){ return FILES.indexOf(sq[0]) + (parseInt(sq[1],10)-1)*8; }
+function sqName(file, rank){ return FILES[file] + (rank+1); }  // file,rank 0-based
+
+// Find an absolute pin of an enemy piece (side NOT to move) to the enemy king, made by
+// a slider of the side to move. Returns {pinnedSq, pinnerSq, kingSq, pinnerIdx} or null.
+function findEnemyPin(game){
+  const solver = game.turn();
+  const enemy  = solver === 'w' ? 'b' : 'w';
+  // locate the enemy king
+  let kf=-1, kr=-1;
+  for(let r=0;r<8;r++) for(let f=0;f<8;f++){
+    const pc = game.get(sqName(f,r));
+    if(pc && pc.color===enemy && pc.type==='k'){ kf=f; kr=r; }
+  }
+  if(kf<0) return null;
+  const ROOK=[[1,0],[-1,0],[0,1],[0,-1]];
+  const BISHOP=[[1,1],[1,-1],[-1,1],[-1,-1]];
+  const rays = [...ROOK.map(d=>[d,'r']), ...BISHOP.map(d=>[d,'b'])];
+  for(const [[df,dr],kind] of rays){
+    let f=kf+df, r=kr+dr, pinnedSq=null;
+    while(f>=0&&f<8&&r>=0&&r<8){
+      const pc = game.get(sqName(f,r));
+      if(pc){
+        if(!pinnedSq){
+          // first piece from the king: must be an enemy non-king to be pinnable
+          if(pc.color!==enemy || pc.type==='k') break;
+          pinnedSq = sqName(f,r);
+        } else {
+          // second piece: is it a solver slider that moves along this ray?
+          const slides = pc.type==='q' || (kind==='r' && pc.type==='r') || (kind==='b' && pc.type==='b');
+          if(pc.color===solver && slides){
+            const pinnerSq = sqName(f,r);
+            return {pinnedSq, pinnerSq, kingSq: sqName(kf,kr), pinnerIdx: sqIndex(pinnerSq)};
+          }
+          break;
+        }
+      }
+      f+=df; r+=dr;
+    }
+  }
+  return null;
+}
+
+function drawPin(){
+  if(pin){
+    // arrow along the pin line (pinner -> king) and a circle on the pinned piece
+    ground.setShapes([
+      {orig: pin.pinnerSq, dest: pin.kingSq, brush: 'blue'},
+      {orig: pin.pinnedSq, brush: 'yellow'},
+    ]);
+  } else {
+    ground.setShapes([]);
+  }
+}
+
+// --- controls ---------------------------------------------------------------
+function syncStatus(){
+  fenInput.value = chess.fen();
+  turnEl.textContent = (chess.turn()==='w' ? 'White' : 'Black') + ' to move';
+}
+
+function loadFen(fen){
+  const test = new Chess();
+  if(!test.load(fen)){ errEl.textContent='Invalid FEN.'; return false; }
+  errEl.textContent=''; chess = test; currentFen = chess.fen();
+  clearResult();
+  ground.set({fen: chess.fen(), check: chess.in_check() ? colorOf() : false, lastMove: null});
+  pin = findEnemyPin(chess);
+  drawPin();
+  syncStatus();
+  updateDetectState();
+  return true;
+}
+
+document.getElementById('loadBtn').addEventListener('click', () => loadFen(fenInput.value.trim()));
+fenInput.addEventListener('keydown', e => { if(e.key==='Enter') loadFen(fenInput.value.trim()); });
+document.getElementById('flipBtn').addEventListener('click', () => ground.toggleOrientation());
+document.getElementById('resetBtn').addEventListener('click', () => { fenInput.value=DEMO_FEN; loadFen(DEMO_FEN); });
+detectBtn.addEventListener('click', detect);
+
+function updateDetectState(){
+  if(!engineReady){ detectBtn.disabled=true; hintEl.textContent=''; return; }
+  if(!pin){ detectBtn.disabled=true;
+    hintEl.textContent='No absolute enemy pin in this position — load one where the side to move pins an enemy piece to its king.'; }
+  else { detectBtn.disabled=false; hintEl.textContent=''; }
+}
+
+// --- result panel -----------------------------------------------------------
+function clearResult(){ resultEl.hidden=true; }
+function showResult({cls='', title='', before='', after='', eff='', detail=''}){
+  resultEl.hidden=false;
+  rVerdict.textContent=title; rVerdict.className='verdict '+cls;
+  gridEl.style.display=(before||after)?'grid':'none';
+  rBefore.textContent=before||'—'; rAfter.textContent=after||'—';
+  rEff.textContent=eff; rEff.style.display=eff?'block':'none';
+  rDetail.textContent=detail;
+}
+
+// --- engine (patched Stockfish 18 lite, single-threaded, over a Web Worker) ---
+const engine = new Worker('vendor/stockfish/stockfish-18-lite-single.js');
+function lineOf(e){ return typeof e.data==='string' ? e.data : (e.data && e.data.data) || ''; }
+
+function initEngine(){
+  return new Promise(resolve => {
+    function onMsg(e){
+      const line = lineOf(e);
+      if(line==='uciok') engine.postMessage('isready');
+      else if(line==='readyok'){ engine.removeEventListener('message', onMsg); resolve(); }
+    }
+    engine.addEventListener('message', onMsg);
+    engine.postMessage('uci');
+  });
+}
+
+// Analyse `fen` at a fixed node budget with the mask set to `mask` (64 = off). Resolves
+// {score:{cp,mate}, bestmove} from the side-to-move POV. Cold handshake (ucinewgame +
+// Clear Hash) before each search so the reused Worker's warm TT can't make `go nodes`
+// non-deterministic. MaskPinner is a normal spin option here (unlike Threads on the old
+// asm.js build) and is safe to set every search.
+function analyse(fen, nodes, mask){
+  return new Promise(resolve => {
+    let score=null, settled=false, searching=false;
+    function finish(result){ if(settled) return; settled=true; clearTimeout(timer);
+      engine.removeEventListener('message', onMsg); resolve(result); }
+    function onMsg(e){
+      const line = lineOf(e);
+      if(!searching){
+        if(line==='readyok'){ searching=true; engine.postMessage('position fen '+fen); engine.postMessage('go nodes '+nodes); }
+        return;
+      }
+      if(line.startsWith('info')){
+        const m = line.match(/score (cp|mate) (-?\d+)/);
+        if(m) score = m[1]==='cp' ? {cp:parseInt(m[2],10), mate:null} : {cp:null, mate:parseInt(m[2],10)};
+      } else if(line.startsWith('bestmove')){
+        finish({score, bestmove: line.split(' ')[1]});
+      }
+    }
+    const timer = setTimeout(() => finish({score, bestmove:null}), 20000);
+    engine.addEventListener('message', onMsg);
+    engine.postMessage('ucinewgame');
+    engine.postMessage('setoption name MaskPinner value ' + mask);
+    engine.postMessage('setoption name Clear Hash');
+    engine.postMessage('isready');
+  });
+}
+
+engine.onerror = () => { engineEl.textContent='Engine failed to load'; };
+initEngine().then(() => { engineEl.textContent='Engine: ready'; engineReady=true; updateDetectState(); });
+
+// --- evaluation helpers -----------------------------------------------------
+function winProb(score){                 // {cp,mate} from stm POV -> stm win expectation
+  if(!score) return null;
+  if(score.mate !== null) return score.mate>0 ? 0.9999 : 0.0001;
+  const p = 1/(1+Math.exp(-0.00368208*score.cp));
+  return Math.min(Math.max(p,1e-4),1-1e-4);
+}
+const solverMate = s => (s && s.mate!==null && s.mate>0) ? s.mate : null;   // forced mate FOR side to move
+const pct = x => (x==null ? '—' : (x*100).toFixed(1)+'%');
+function scoreText(s){
+  if(!s) return '—';
+  if(s.mate!==null) return s.mate>0 ? `forced mate M${s.mate}` : (s.mate===0 ? 'mated' : `getting mated M${-s.mate}`);
+  const cp = s.cp;
+  return (cp>=0?'+':'') + (cp/100).toFixed(2);
+}
+function uciToSan(fen, uci){
+  if(!uci || uci.length<4) return uci || '—';
+  const g = new Chess(fen);
+  const mv = g.move({from: uci.slice(0,2), to: uci.slice(2,4), promotion: uci[4] || 'q'});
+  return mv ? mv.san : uci;
+}
+
+// --- the pin intervention ---------------------------------------------------
+async function detect(){
+  const fen = chess.fen();
+  if(!pin){ showResult({cls:'na', title:'No enemy pin', detail:'Load a position where the side to move pins an enemy piece to its king.'}); return; }
+  const solver = chess.turn()==='w' ? 'White' : 'Black';
+  const pinnedName = chess.get(pin.pinnedSq);
+  const pieceWord = {p:'pawn',n:'knight',b:'bishop',r:'rook',q:'queen'}[pinnedName ? pinnedName.type : 'p'] || 'piece';
+
+  detectBtn.disabled=true;
+  showResult({cls:'thinking', title:'Analysing…',
+    detail:`Evaluating the position with the pin intact, then with the ${pin.pinnedSq} ${pieceWord}'s pin suspended…`});
+
+  try{
+    const off = await analyse(fen, NODES, MASK_OFF);
+    const on  = await analyse(fen, NODES, pin.pinnerIdx);
+    if((!off.score && off.bestmove==null) || (!on.score && on.bestmove==null)){
+      showResult({cls:'na', title:'Engine unavailable', detail:'Stockfish did not respond. Reload the page and try again.'});
+      return;
+    }
+
+    const mateOff = solverMate(off.score);
+    const mateOn  = solverMate(on.score);
+    const wpOff = winProb(off.score), wpOn = winProb(on.score);
+
+    // Self-check: a forced mate FOR the side to move must read as winProb > 0.5.
+    if(mateOff!==null) console.assert(wpOff!=null && wpOff>0.5, 'POV self-check failed: forced mate but winProb <= 0.5.');
+
+    const bestOff = off.bestmove ? uciToSan(fen, off.bestmove) : '—';
+    const beforeVal = mateOff!==null
+      ? `${solver}: ${bestOff} — forced mate M${mateOff} · ${pct(wpOff)}`
+      : `${solver}: ${scoreText(off.score)} · ${pct(wpOff)}`;
+    const afterVal = mateOn!==null
+      ? `${solver}: still forced mate M${mateOn} · ${pct(wpOn)}`
+      : `${solver}: ${scoreText(on.score)} · ${pct(wpOn)}`;
+
+    let cls, title, detail, eff='';
+    if(mateOff!==null && mateOn===null){
+      cls='causal'; title='Pin is load-bearing';
+      detail=`${solver} has a forced mate (${bestOff}, M${mateOff}) only while the pin holds. Suspend that one `
+           + `pin — let the ${pin.pinnedSq} ${pieceWord} move as if free — and the forced mate is gone. `
+           + `The pin, not the material on the board, is what makes the mate.`;
+      if(wpOff!=null && wpOn!=null)
+        eff=`Causal effect of the pin: ${solver}'s winning chances fall from ${pct(wpOff)} to ${pct(wpOn)} `
+           + `(−${((wpOff-wpOn)*100).toFixed(1)} pts) when it is switched off.`;
+    } else if(mateOff!==null && mateOn!==null){
+      cls='incidental'; title='Mate survives the suspension';
+      detail=`${solver} still has a forced mate (M${mateOn}) even with the pin suspended, so this particular pin `
+           + `is not what creates the mate here.`;
+    } else {
+      // no forced mate either way — fall back to the evaluation swing
+      const swing = (wpOff!=null && wpOn!=null) ? (wpOff-wpOn) : 0;
+      if(swing >= 0.15){
+        cls='causal'; title='Pin is load-bearing';
+        detail=`No forced mate, but ${solver}'s advantage rests on the pin: suspending it drops the evaluation from `
+             + `${scoreText(off.score)} to ${scoreText(on.score)}.`;
+        eff=`Causal effect of the pin: winning chances fall from ${pct(wpOff)} to ${pct(wpOn)} `
+           + `(−${(swing*100).toFixed(1)} pts).`;
+      } else {
+        cls='incidental'; title='Pin has little effect';
+        detail=`Suspending the pin barely moves the evaluation (${scoreText(off.score)} → ${scoreText(on.score)}), so `
+             + `it is not carrying ${solver}'s position here.`;
+      }
+    }
+    showResult({cls, title, before: beforeVal, after: afterVal, eff, detail});
+  } catch(err){
+    showResult({cls:'na', title:'Error', detail:String(err)});
+  } finally {
+    detectBtn.disabled=false;
+    updateDetectState();
+  }
+}
+
+// initial paint
+loadFen(DEMO_FEN);
+</script>
+</body>
+</html>
