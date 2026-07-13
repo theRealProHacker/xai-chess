@@ -58,6 +58,26 @@ off="$(printf "position fen %s\ngo perft 1\nquit\n" "$FEN" | "$BIN" 2>&1 | grep 
 on="$( printf "setoption name MaskPinner value 4\nposition fen %s\ngo perft 1\nquit\n" "$FEN" | "$BIN" 2>&1 | grep -i 'Nodes searched' | grep -oE '[0-9]+' | tail -1)"
 { [ "$off" = "4" ] && [ "$on" = "10" ]; } || { echo "!! MaskPinner check failed: off=$off on=$on (want 4 / 10)"; exit 1; }
 
+# Soundness regressions: the mask must NEVER erase a check that is not the
+# suspended pin's revealed check, nor free a piece it does not genuinely pin.
+# For each, masking the given square must leave perft1 IDENTICAL to mask-off
+# (the mask arms nothing, because the square is not a genuine pinner).
+echo ">> verifying mask soundness (non-pinner squares must be inert)"
+perft1() { printf "$2\ngo perft 1\nquit\n" | "$BIN" 2>&1 | grep -i 'Nodes searched' | grep -oE '[0-9]+' | tail -1; }
+check_inert() { # label, fen, maskSquare
+  local o m
+  o="$(perft1 x "position fen $2")"
+  m="$(perft1 x "setoption name MaskPinner value $3\nposition fen $2")"
+  [ "$o" = "$m" ] || { echo "!! soundness check '$1' failed: off=$o mask=$m (want equal)"; exit 1; }
+  echo "   ok: $1 (perft1=$o, mask inert)"
+}
+# knight checker on the mask square (not a slider): check must stand
+check_inert "non-slider check"   "R3k3/8/8/8/8/3n4/8/4K3 w - - 0 1"      19
+# slider checking directly (pins nothing): check must stand
+check_inert "direct-slider check" "4k3/8/8/4r3/8/8/R7/4K3 w - - 0 1"     36
+# a slider stacked behind the real pinner (pins nothing): must not free the piece
+check_inert "stacked non-pinner"  "4r2k/8/4r3/8/4N3/8/8/4K3 w - - 0 1"   60
+
 install -D "$BIN" "$OUTPUT"
 echo ">> OK: reproduced -> $OUTPUT"
 echo "   bench=$bench  MaskPinner perft1 off=$off on=$on  arch=$ARCH"

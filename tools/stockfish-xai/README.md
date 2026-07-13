@@ -7,13 +7,26 @@ deterministically from source.
 
 ## What it is
 
-Pristine **Stockfish 18** plus a small movegen patch that adds a `MaskPinner`
-UCI option. When `MaskPinner` is set to the square index (0–63) of a pinning
-slider, the pin from that slider is *suspended*: the pinned piece is allowed to
-move off the pin ray (and the enemy king may be left "exposed" along it). This
-is the rule-level intervention used by the causal-faithfulness experiments. The
-option defaults to `SQ_NONE`, so default behaviour is byte-for-byte stock
-Stockfish 18.
+Pristine **Stockfish 18** plus a small movegen/legality patch that adds a
+`MaskPinner` UCI option. When `MaskPinner` is set to the square index (0–63) of a
+pinning slider, the pin from that slider is *suspended*: the pinned piece is
+allowed to move off the pin ray (and the enemy king may be left "exposed" along
+it). This is the rule-level intervention used by the causal-faithfulness
+experiments. The option defaults to `SQ_NONE`, so default behaviour is
+byte-for-byte stock Stockfish 18.
+
+The suspension is bound to the specific pinning piece, not the bare square. The
+mask is *armed* only when its square genuinely pins one enemy piece to that
+enemy's king (verified against the real board, not Stockfish's `pinners()`,
+which counts a slider stacked behind the real pinner). Armed state is carried
+per node through `do_move`/`undo_move`: it follows the pinner as it slides along
+its own ray, and latches off (never to re-arm in that search branch) the instant
+the pin breaks. Consequences that a naive bare-square mask got wrong, all now
+covered by build-time regression checks: a non-slider check from the mask square
+is never erased; a slider that pins nothing never frees a piece; a slider that
+transits or re-occupies the square mid-search is never mistaken for the pinner;
+and the king may step onto the severed ray (the suspended slider does not veto
+it), symmetric with the check suspension.
 
 ## Pinned inputs
 
@@ -21,7 +34,7 @@ Stockfish 18.
 |---|---|
 | Upstream | `github.com/official-stockfish/Stockfish`, tag `sf_18` |
 | Commit | `cb3d4ee9b47d0c5aae855b12379378ea1439675c` |
-| Patch | `rulelevel.patch` (4 files, +49 / −3) |
+| Patch | `rulelevel.patch` (4 files, +158 / −2) |
 | Big net | `nn-c288c895ea92.nnue` (`EvalFileDefaultNameBig`) |
 | Small net | `nn-37f18f62d772.nnue` (`EvalFileDefaultNameSmall`) |
 | Arch | `x86-64-avx2` |
@@ -46,7 +59,7 @@ toolchains and is not a reliable equality test. The reference binary built with
 g++ 13.3.0 was `2b567ac77f243d301d1ed099589b9f5201b3b8edfb1cdeddef32fb6812d2f7f7`,
 recorded for information only.
 
-Two checks pin the behaviour and are arch/compiler-independent:
+Five checks pin the behaviour and are arch/compiler-independent:
 
 1. **Default bench** (`MaskPinner` inactive) = `2050811` nodes — identical to
    pristine Stockfish 18, confirming the patch is inert when unused.
@@ -59,5 +72,12 @@ Two checks pin the behaviour and are arch/compiler-independent:
    | `MaskPinner` off | 4 (knight is pinned, king moves only) |
    | `MaskPinner` = 4 (e1) | 10 (pin suspended, knight gains 6 moves) |
 
-Both the committed reference binary and a fresh rebuild produce exactly these
-numbers.
+3–5. **Soundness regressions.** Masking a square that is *not* a genuine pinner
+   must be inert — `perft 1` identical to mask-off. Three cases, each of which a
+   naive bare-square mask got wrong (erasing a real check or freeing a piece it
+   does not pin): a non-slider check on the mask square
+   (`R3k3/8/8/8/8/3n4/8/4K3 w`, mask `d3`); a slider giving a direct check that
+   pins nothing (`4k3/8/8/4r3/8/8/R7/4K3 w`, mask `e5`); and a slider stacked
+   behind the real pinner (`4r2k/8/4r3/8/4N3/8/8/4K3 w`, mask `e8`).
+
+All checks pass on a fresh rebuild from the pinned inputs.

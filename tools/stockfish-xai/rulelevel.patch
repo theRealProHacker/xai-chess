@@ -17,7 +17,7 @@ index dfd2099..f48f448 100644
  
      options.add("UCI_LimitStrength", Option(false));
 diff --git a/src/movegen.cpp b/src/movegen.cpp
-index e63707a..8e991ae 100644
+index e63707a..1298262 100644
 --- a/src/movegen.cpp
 +++ b/src/movegen.cpp
 @@ -241,6 +241,12 @@ Move* generate_all(const Position& pos, Move* moveList) {
@@ -27,17 +27,17 @@ index e63707a..8e991ae 100644
 +        // xai-chess: with a suspended pin the enemy king can be left "exposed"
 +        // along the severed ray; never generate a move that captures it, which
 +        // would corrupt the position. A no-op in any legal (unmasked) position.
-+        if (maskPinnerSq != SQ_NONE)
++        if (pos.mask_pinner() != SQ_NONE)
 +            target &= ~pos.pieces(~Us, KING);
 +
          moveList = generate_pawn_moves<Us, Type>(pos, moveList, target);
          moveList = generate_moves<Us, KNIGHT>(pos, moveList, target);
          moveList = generate_moves<Us, BISHOP>(pos, moveList, target);
 diff --git a/src/position.cpp b/src/position.cpp
-index 907dfde..8b6d9f6 100644
+index 907dfde..fad0e04 100644
 --- a/src/position.cpp
 +++ b/src/position.cpp
-@@ -43,6 +43,15 @@ using std::string;
+@@ -43,6 +43,49 @@ using std::string;
  
  namespace Stockfish {
  
@@ -45,24 +45,68 @@ index 907dfde..8b6d9f6 100644
 +Square maskPinnerSq = SQ_NONE;
 +
 +namespace {
-+// Bitboard of the suspended pinner, or empty when no mask is active. Avoids
-+// square_bb(SQ_NONE), which asserts.
-+inline Bitboard mask_bb() { return maskPinnerSq != SQ_NONE ? (1ULL << maskPinnerSq) : 0ULL; }
++inline bool is_slider(Piece pc) {
++    PieceType pt = type_of(pc);
++    return pt == BISHOP || pt == ROOK || pt == QUEEN;
++}
++
++// True iff square `s` holds an enemy slider relative to the king of color `us`
++// (a bishop, rook, or queen of color ~us). A non-slider, an empty square, or a
++// piece of `us`'s own colour never qualifies. Used at the suppression sites: a
++// check is only ever erased when it comes from such a piece on the armed square.
++inline bool masked_slider_of(const Position& pos, Color us, Square s) {
++    if (s == SQ_NONE)
++        return false;
++    Piece pc = pos.piece_on(s);
++    return pc != NO_PIECE && color_of(pc) == ~us && is_slider(pc);
++}
++
++// True iff square `s` currently holds a slider that genuinely pins exactly one
++// enemy piece to that enemy's king along their common ray, tested against the
++// REAL board (not Stockfish's pinners(), which removes all snipers and so counts
++// a slider stacked behind the real pinner). This is the arming/keep-alive test
++// for the per-node maskPinner: a slider that pins nothing, or checks directly
++// with no blocker, is not a genuine pinner and is never armed.
++inline bool is_genuine_pinner(const Position& pos, Square s) {
++    if (s == SQ_NONE)
++        return false;
++    Piece pc = pos.piece_on(s);
++    if (pc == NO_PIECE || !is_slider(pc))
++        return false;
++    Color    them = ~color_of(pc);  // the side whose king could be pinned
++    Square   ksq  = pos.square<KING>(them);
++    Bitboard betw = between_bb(ksq, s) & ~square_bb(s);  // strictly between king and s
++    Bitboard occ  = betw & pos.pieces();
++    // Exactly one real blocker, of the pinned side, and s must attack the king
++    // once that blocker is lifted (this also rejects a wrong-ray slider).
++    return occ && !more_than_one(occ) && (occ & pos.pieces(them))
++        && (attacks_bb(type_of(pc), s, pos.pieces() ^ occ) & ksq);
++}
 +}
 +
  namespace Zobrist {
  
  Key psq[PIECE_NB][SQUARE_NB];
-@@ -345,7 +354,7 @@ void Position::set_state() const {
+@@ -345,7 +388,18 @@ void Position::set_state() const {
      st->nonPawnKey[WHITE] = st->nonPawnKey[BLACK] = 0;
      st->pawnKey                                   = Zobrist::noPawns;
      st->nonPawnMaterial[WHITE] = st->nonPawnMaterial[BLACK] = VALUE_ZERO;
--    st->checkersBB = attackers_to(square<KING>(sideToMove)) & pieces(~sideToMove);
-+    st->checkersBB = attackers_to(square<KING>(sideToMove)) & pieces(~sideToMove) & ~mask_bb();
++    // xai-chess: arm the per-node mask from the option, but only if that square
++    // genuinely pins right now. A misconfigured mask (empty square, non-slider,
++    // or a slider that pins nothing / checks directly) arms nothing, so nothing
++    // is ever suppressed. do_move carries and updates this from here.
++    st->maskPinner = is_genuine_pinner(*this, maskPinnerSq) ? maskPinnerSq : SQ_NONE;
++
+     st->checkersBB = attackers_to(square<KING>(sideToMove)) & pieces(~sideToMove);
++    // Suspend the armed pinner's check on the exposed king, but ONLY when the
++    // checker on the armed square is a genuine enemy slider (never a non-slider
++    // that merely sits there).
++    if (masked_slider_of(*this, sideToMove, st->maskPinner) && (st->checkersBB & st->maskPinner))
++        st->checkersBB &= ~square_bb(st->maskPinner);
  
      set_check_info();
  
-@@ -526,6 +535,13 @@ bool Position::legal(Move m) const {
+@@ -526,6 +580,13 @@ bool Position::legal(Move m) const {
      assert(color_of(moved_piece(m)) == us);
      assert(piece_on(square<KING>(us)) == make_piece(us, KING));
  
@@ -70,13 +114,28 @@ index 907dfde..8b6d9f6 100644
 +    // severed ray. Never allow it to be captured -- such a move can reach legal() via the
 +    // TT-move path (which bypasses the king-capture guard in movegen), and capturing a king
 +    // corrupts the position and crashes the search. Guards every move-validation path.
-+    if (maskPinnerSq != SQ_NONE && piece_on(to) == make_piece(~us, KING))
++    if (st->maskPinner != SQ_NONE && piece_on(to) == make_piece(~us, KING))
 +        return false;
 +
      // En passant captures are a tricky special case. Because they are rather
      // uncommon, we do it simply by testing whether the king is attacked after
      // the move is made.
-@@ -569,7 +585,18 @@ bool Position::legal(Move m) const {
+@@ -565,11 +626,44 @@ bool Position::legal(Move m) const {
+     // If the moving piece is a king, check whether the destination square is
+     // attacked by the opponent.
+     if (type_of(piece_on(from)) == KING)
+-        return !(attackers_to_exist(to, pieces() ^ from, ~us));
++    {
++        // xai-chess symmetry: the suspended slider "can neither check nor capture
++        // the king along that ray", so it must not veto the king stepping ONTO
++        // that ray. When `to` is collinear with the mask square and the king's
++        // origin, drop the masked slider from the attacker set (its off-ray
++        // attacks, which lie on no such line, still count normally).
++        Bitboard occ = pieces() ^ from;
++        if (masked_slider_of(*this, us, st->maskPinner) && (line_bb(from, st->maskPinner) & to))
++            return !(attackers_to(to, occ) & pieces(~us) & ~square_bb(st->maskPinner));
++        return !(attackers_to_exist(to, occ, ~us));
++    }
  
      // A non-king move is legal if and only if it is not pinned or it
      // is moving along the ray towards or away from the king.
@@ -85,31 +144,90 @@ index 907dfde..8b6d9f6 100644
 +        return true;
 +
 +    // xai-chess: a piece pinned specifically by the suspended pinner may leave
-+    // the ray. The masked pinner cannot then check or capture the king (see the
-+    // checkersBB masking in set_state/do_move and the king-capture guard in
-+    // movegen), so the "exposure" along that one ray is safe by construction.
-+    if (maskPinnerSq != SQ_NONE && (pieces(~us) & square_bb(maskPinnerSq))
-+        && (between_bb(square<KING>(us), maskPinnerSq) & from))
-+        return true;
++    // the ray. This fires ONLY when the mask square genuinely pins `from` to our
++    // king, checked against the REAL board (not Stockfish's pinners(), which
++    // removes all snipers from the occupancy and so counts a rook stacked behind
++    // the real pinner as a pinner too). Requirements: the mask holds an enemy
++    // slider; `from` is the single real piece between the king and that slider;
++    // and, with `from` removed, that slider actually attacks the king (which
++    // also rejects a wrong-ray slider, e.g. a bishop on a file).
++    if (masked_slider_of(*this, us, st->maskPinner))
++    {
++        Square   ksq  = square<KING>(us);
++        Square   M    = st->maskPinner;
++        // Squares strictly between king and the armed square (between_bb includes
++        // the far endpoint, so drop it). `from` must be the ONE real piece there.
++        Bitboard betw = between_bb(ksq, M) & ~square_bb(M);
++        if ((betw & pieces()) == square_bb(from)
++            && (attacks_bb(type_of(piece_on(M)), M, pieces() ^ from) & ksq))
++            return true;
++    }
 +
 +    return false;
  }
  
  
-@@ -900,7 +927,7 @@ void Position::do_move(Move                      m,
+@@ -899,8 +993,42 @@ void Position::do_move(Move                      m,
+     // Set capture piece
      st->capturedPiece = captured;
  
++    // xai-chess: keep the armed pinner alive as it slides along its own ray, and
++    // latch it off (never to re-arm) the instant the pin breaks. Only the pinner
++    // leaving its square (from == M) or being replaced on it (to == M) can affect
++    // the mask; the pinned piece leaving is the suspension we allow and must NOT
++    // disarm. Castling and en passant never touch M -- it holds an enemy slider,
++    // and neither move can originate from or land on an enemy-occupied square.
++    if (st->maskPinner != SQ_NONE)
++    {
++        Square M = st->maskPinner;
++        if (from == M)  // the pinner itself moved: follow it along its ray, else drop
++            M = is_genuine_pinner(*this, to) ? to : SQ_NONE;
++        else if (to == M)  // the pinner was captured / replaced on its square
++            M = SQ_NONE;
++
++        // Keep-alive: the pin can also break without the pinner moving -- the king
++        // steps off the ray, or the pinned piece is captured onto the ray. Latch
++        // off unless M still holds a slider that bears on that same king along a
++        // matching ray (blockers ignored: the pinned piece having left is exactly
++        // the suspension we keep alive). Once SQ_NONE it never re-arms.
++        if (M != SQ_NONE)
++        {
++            Piece  mp  = piece_on(M);
++            Square ksq = square<KING>(~color_of(mp));
++            if (!is_slider(mp) || !(attacks_bb(type_of(mp), M, square_bb(M)) & ksq))
++                M = SQ_NONE;
++        }
++        st->maskPinner = M;
++    }
++
      // Calculate checkers bitboard (if move gives check)
--    st->checkersBB = givesCheck ? attackers_to(square<KING>(them)) & pieces(us) : 0;
-+    st->checkersBB = givesCheck ? attackers_to(square<KING>(them)) & pieces(us) & ~mask_bb() : 0;
+     st->checkersBB = givesCheck ? attackers_to(square<KING>(them)) & pieces(us) : 0;
++    // Suspend the armed pinner's check on the exposed king, as in set_state, only
++    // when it is a genuine enemy slider on the armed square.
++    if (givesCheck && masked_slider_of(*this, them, st->maskPinner)
++        && (st->checkersBB & st->maskPinner))
++        st->checkersBB &= ~square_bb(st->maskPinner);
  
      sideToMove = ~sideToMove;
  
 diff --git a/src/position.h b/src/position.h
-index a136c07..24baf68 100644
+index a136c07..67179eb 100644
 --- a/src/position.h
 +++ b/src/position.h
-@@ -70,6 +70,12 @@ struct StateInfo {
+@@ -51,6 +51,12 @@ struct StateInfo {
+     int    rule50;
+     int    pliesFromNull;
+     Square epSquare;
++    // xai-chess: the square of the currently-armed suspended pinner, or SQ_NONE.
++    // Seeded at set_state from the maskPinnerSq option when that square holds a
++    // genuine pinner; carried through do_move (in the copied block, so a child
++    // inherits it); follows the pinner as it slides along its ray, and latches to
++    // SQ_NONE for the rest of the branch once the pin breaks (never re-arms).
++    Square maskPinner;
+ 
+     // Not copied when making a move (will be recomputed anyhow)
+     Key        key;
+@@ -70,6 +76,12 @@ struct StateInfo {
  // elements are not invalidated upon list resizing.
  using StateListPtr = std::unique_ptr<std::deque<StateInfo>>;
  
@@ -122,3 +240,20 @@ index a136c07..24baf68 100644
  // Position class stores information regarding the board representation as
  // pieces, side to move, hash keys, castling info, etc. Important methods are
  // do_move() and undo_move(), used by the search to update node info when
+@@ -115,6 +127,7 @@ class Position {
+     Bitboard blockers_for_king(Color c) const;
+     Bitboard check_squares(PieceType pt) const;
+     Bitboard pinners(Color c) const;
++    Square   mask_pinner() const;  // xai-chess: currently-armed suspended pinner
+ 
+     // Attacks to/from a given square
+     Bitboard attackers_to(Square s) const;
+@@ -303,6 +316,8 @@ inline Bitboard Position::blockers_for_king(Color c) const { return st->blockers
+ 
+ inline Bitboard Position::pinners(Color c) const { return st->pinners[c]; }
+ 
++inline Square Position::mask_pinner() const { return st->maskPinner; }
++
+ inline Bitboard Position::check_squares(PieceType pt) const { return st->checkSquares[pt]; }
+ 
+ inline Key Position::key() const { return adjust_key50(st->key); }
