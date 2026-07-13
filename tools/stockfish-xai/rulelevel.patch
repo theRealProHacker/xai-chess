@@ -17,24 +17,27 @@ index dfd2099..f48f448 100644
  
      options.add("UCI_LimitStrength", Option(false));
 diff --git a/src/movegen.cpp b/src/movegen.cpp
-index e63707a..1298262 100644
+index e63707a..c195641 100644
 --- a/src/movegen.cpp
 +++ b/src/movegen.cpp
-@@ -241,6 +241,12 @@ Move* generate_all(const Position& pos, Move* moveList) {
+@@ -241,6 +241,15 @@ Move* generate_all(const Position& pos, Move* moveList) {
                 : Type == CAPTURES     ? pos.pieces(~Us)
                                        : ~pos.pieces();  // QUIETS
  
-+        // xai-chess: with a suspended pin the enemy king can be left "exposed"
-+        // along the severed ray; never generate a move that captures it, which
-+        // would corrupt the position. A no-op in any legal (unmasked) position.
-+        if (pos.mask_pinner() != SQ_NONE)
-+            target &= ~pos.pieces(~Us, KING);
++        // xai-chess: never generate a move that captures the enemy king. In any
++        // legal position no such move exists (the enemy king is not en prise on
++        // our turn), so this is a no-op there. Under a suspended pin the enemy
++        // king CAN be left exposed on a ray, and once the mask latches off later
++        // in the branch the per-node guard is gone -- so this must be
++        // unconditional, or the search captures the king and reaches a kingless
++        // board that crashes NNUE (make_index on SQ_NONE).
++        target &= ~pos.pieces(~Us, KING);
 +
          moveList = generate_pawn_moves<Us, Type>(pos, moveList, target);
          moveList = generate_moves<Us, KNIGHT>(pos, moveList, target);
          moveList = generate_moves<Us, BISHOP>(pos, moveList, target);
 diff --git a/src/position.cpp b/src/position.cpp
-index 907dfde..fad0e04 100644
+index 907dfde..9fa739f 100644
 --- a/src/position.cpp
 +++ b/src/position.cpp
 @@ -43,6 +43,49 @@ using std::string;
@@ -106,21 +109,22 @@ index 907dfde..fad0e04 100644
  
      set_check_info();
  
-@@ -526,6 +580,13 @@ bool Position::legal(Move m) const {
+@@ -526,6 +580,14 @@ bool Position::legal(Move m) const {
      assert(color_of(moved_piece(m)) == us);
      assert(piece_on(square<KING>(us)) == make_piece(us, KING));
  
-+    // xai-chess: under a suspended pin the enemy king can be left "exposed" along the
-+    // severed ray. Never allow it to be captured -- such a move can reach legal() via the
-+    // TT-move path (which bypasses the king-capture guard in movegen), and capturing a king
-+    // corrupts the position and crashes the search. Guards every move-validation path.
-+    if (st->maskPinner != SQ_NONE && piece_on(to) == make_piece(~us, KING))
++    // xai-chess: capturing a king is never legal. Reject it unconditionally --
++    // normally no such pseudo-move exists, but a suspended pin can leave the enemy
++    // king exposed, the TT-move path can propose capturing it, and the per-node
++    // mask may already have latched off by the time that move is validated. An
++    // ungated guard is the only one that holds across the whole search branch.
++    if (piece_on(to) == make_piece(~us, KING))
 +        return false;
 +
      // En passant captures are a tricky special case. Because they are rather
      // uncommon, we do it simply by testing whether the king is attacked after
      // the move is made.
-@@ -565,11 +626,44 @@ bool Position::legal(Move m) const {
+@@ -565,11 +627,44 @@ bool Position::legal(Move m) const {
      // If the moving piece is a king, check whether the destination square is
      // attacked by the opponent.
      if (type_of(piece_on(from)) == KING)
@@ -167,7 +171,7 @@ index 907dfde..fad0e04 100644
  }
  
  
-@@ -899,8 +993,42 @@ void Position::do_move(Move                      m,
+@@ -899,8 +994,42 @@ void Position::do_move(Move                      m,
      // Set capture piece
      st->capturedPiece = captured;
  

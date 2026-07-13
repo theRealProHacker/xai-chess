@@ -78,6 +78,17 @@ check_inert "direct-slider check" "4k3/8/8/4r3/8/8/R7/4K3 w - - 0 1"     36
 # a slider stacked behind the real pinner (pins nothing): must not free the piece
 check_inert "stacked non-pinner"  "4r2k/8/4r3/8/4N3/8/8/4K3 w - - 0 1"   60
 
+# A full search under an active mask must not crash. The mask can leave a king
+# exposed; if the king-capture guard is gated on the mask being armed, a branch
+# that latches the mask off can capture the exposed king and reach a kingless
+# board that crashes NNUE. Perft can't catch this (no eval); a real search must.
+# stdin is held open (no trailing 'quit') so the search runs to the node limit.
+echo ">> verifying a masked search does not crash (kingless-board regression)"
+CRASH_FEN="6k1/6pp/4n1P1/8/2B5/1r6/8/4R1K1 w - - 0 1"   # bishop pin; once reached a kingless node
+bm="$( ( printf 'setoption name Hash value 64\nsetoption name MaskPinner value 26\nposition fen %s\ngo nodes 300000\n' "$CRASH_FEN"; sleep 6 ) | "$BIN" 2>&1 | grep -i '^bestmove' | awk '{print $2}' )"
+[ -n "$bm" ] || { echo "!! masked search crashed (no bestmove returned)"; exit 1; }
+echo "   ok: masked search completed (bestmove=$bm)"
+
 install -D "$BIN" "$OUTPUT"
 echo ">> OK: reproduced -> $OUTPUT"
 echo "   bench=$bench  MaskPinner perft1 off=$off on=$on  arch=$ARCH"

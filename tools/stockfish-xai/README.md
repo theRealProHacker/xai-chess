@@ -34,7 +34,7 @@ it), symmetric with the check suspension.
 |---|---|
 | Upstream | `github.com/official-stockfish/Stockfish`, tag `sf_18` |
 | Commit | `cb3d4ee9b47d0c5aae855b12379378ea1439675c` |
-| Patch | `rulelevel.patch` (4 files, +158 / −2) |
+| Patch | `rulelevel.patch` (4 files, +162 / −2) |
 | Big net | `nn-c288c895ea92.nnue` (`EvalFileDefaultNameBig`) |
 | Small net | `nn-37f18f62d772.nnue` (`EvalFileDefaultNameSmall`) |
 | Arch | `x86-64-avx2` |
@@ -59,7 +59,7 @@ toolchains and is not a reliable equality test. The reference binary built with
 g++ 13.3.0 was `2b567ac77f243d301d1ed099589b9f5201b3b8edfb1cdeddef32fb6812d2f7f7`,
 recorded for information only.
 
-Five checks pin the behaviour and are arch/compiler-independent:
+Six checks pin the behaviour and are arch/compiler-independent:
 
 1. **Default bench** (`MaskPinner` inactive) = `2050811` nodes — identical to
    pristine Stockfish 18, confirming the patch is inert when unused.
@@ -79,5 +79,12 @@ Five checks pin the behaviour and are arch/compiler-independent:
    (`R3k3/8/8/8/8/3n4/8/4K3 w`, mask `d3`); a slider giving a direct check that
    pins nothing (`4k3/8/8/4r3/8/8/R7/4K3 w`, mask `e5`); and a slider stacked
    behind the real pinner (`4r2k/8/4r3/8/4N3/8/8/4K3 w`, mask `e8`).
+
+6. **No masked-search crash.** A full search under an active mask must return a
+   move, not die. The mask can leave a king exposed; if the king-capture guard
+   were gated on the mask being armed, a branch that latches the mask off could
+   capture the exposed king and reach a kingless board that crashes NNUE
+   (`make_index` on `SQ_NONE`). Perft cannot catch this (it does no eval), so a
+   real search runs on `6k1/6pp/4n1P1/8/2B5/1r6/8/4R1K1 w` with mask `c4`.
 
 All checks pass on a fresh rebuild from the pinned inputs.
