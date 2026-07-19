@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Space Visualizer &middot; xai-chess</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.base.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.brown.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.cburnett.css">
+<style>
+  :root{
+    /* Layered shadows: inset top highlight + dark drop + soft drop. */
+    --shadow-s:
+      inset 0 1px 2px #ffffff30,
+      0 1px 2px #00000030,
+      0 2px 4px #00000015;
+    --shadow-m:
+      inset 0 1px 2px #ffffff50,
+      0 2px 4px #00000030,
+      0 4px 8px #00000015;
+    /* Blue vs orange, not blue vs red: the one hue pair that survives red-green
+       colour blindness. Swatch values below are these tints already composited
+       over the light square, so the legend matches what the board renders. */
+    --swatch-w:#aac0d0; --swatch-b:#ddbea5; --swatch-c:#c5c4c0;
+    --arrow-w:#062f52; --arrow-b:#6b2a00;
+  }
+
+  a.back{color:#8a8a8a;text-decoration:none;font-size:.9rem}
+  a.back:hover{color:#0b5fa5}
+
+  #board{width:100%;aspect-ratio:1/1;margin:1.25rem 0 .75rem;
+         box-shadow:var(--shadow-s);border-radius:4px}
+
+  /* This page colour-codes squares, so the board itself must not carry colour of
+     its own. Neutral pair, deliberately unlike the wood theme the other demos use. */
+  #board cg-board{background-color:#e8e6e1}
+
+  /* Compositing order is the whole ballgame here. chessground ships custom SVGs at
+     z-index 9 and shapes at 2, both ABOVE pieces at 2 — which tints the pieces
+     themselves and turns a white pawn under a green arrow into a green pawn.
+     Push both layers under the pieces: squares < tints < arrows < pieces. */
+  #board .cg-custom-svgs{z-index:0}
+  #board .cg-shapes{z-index:1;opacity:1}
+
+  /* Files render uppercase by default; the FEN field right below is algebraic. */
+  #board coords.files{text-transform:lowercase}
+  /* chessground flips coord colour on square parity, which was tuned for the wood theme
+     and now lands arbitrarily on the control tints. One ink colour, haloed instead. */
+  #board coords coord{color:#2b2b2b !important;
+      text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff;font-weight:600}
+
+  .readout{border:1px solid #e4e4e4;border-radius:10px;padding:.9rem 1.05rem;
+      margin:1.25rem 0;box-shadow:var(--shadow-s)}
+  .readout .verdict{font-size:1.25rem;font-weight:600;letter-spacing:-.01em;margin-bottom:.35rem}
+  .readout .verdict.w{color:var(--arrow-w)}
+  .readout .verdict.b{color:var(--arrow-b)}
+  .readout .verdict.even{color:#555}
+  .readout .counts{font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#333}
+  .readout .totals{font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#8a8a8a}
+  .readout .caption{color:#8a8a8a;font-size:.82rem;margin-top:.5rem}
+
+  .fenrow{display:flex;gap:.4rem;margin:.75rem 0}
+  /* 12px, not 13px: at 13px the two longest gallery FENs overrun the field by ~20px
+     and stop mid-token, so a preset the visitor never typed reads as a corrupt FEN. */
+  .fenrow input{flex:1;min-width:0;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      padding:.5rem .6rem;border:1px solid #e4e4e4;border-radius:8px;color:#1a1a1a}
+  .fenrow input:focus{outline:none;border-color:#0b5fa5}
+
+  .btns{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin:1rem 0 .35rem}
+  .rowlabel{color:#8a8a8a;font-size:.8rem;letter-spacing:.02em;margin-right:.15rem}
+  .rowgap{width:.9rem}
+  button{font:inherit;font-size:.9rem;padding:.5rem .9rem;border:1px solid #e4e4e4;border-radius:8px;
+      background:#fff;color:#1a1a1a;cursor:pointer;box-shadow:var(--shadow-s);
+      transition:border-color .12s,background .12s,box-shadow .12s}
+  button:hover{border-color:#0b5fa5;background:#fafafa;box-shadow:var(--shadow-m)}
+  button.on{background:#0b5fa5;border-color:#0b5fa5;color:#fff}
+  button.on:hover{background:#0a5390;border-color:#0a5390}
+
+  .err{color:#b00020;font-size:.85rem;text-align:center;min-height:1.1em;margin:.1rem 0 .4rem}
+
+  .gallery{display:flex;flex-wrap:wrap;gap:.4rem;margin:1.25rem 0 .5rem}
+  .gcap{color:#555;font-size:.9rem;min-height:1.2em;margin:0 0 .75rem}
+
+  .legend{display:flex;flex-wrap:wrap;gap:.5rem 1.1rem;
+      color:#555;font-size:.82rem;margin-top:1.25rem}
+  .lgroup{display:flex;flex-wrap:wrap;gap:.5rem 1.1rem}
+  .legend span{display:inline-flex;align-items:center;gap:.4rem}
+  .legend i{width:.85rem;height:.85rem;border-radius:3px;display:inline-block;
+      border:1px solid #00000018}
+  .legend i.hatch{background:#e8e6e1;background-image:repeating-linear-gradient(45deg,
+      #33312e6b 0 2px,transparent 2px 6px)}
+  .legend svg{flex:none}
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; xai-chess</a>
+  <h1>Space Visualizer</h1>
+  <p class="intro">Every square is shaded by <b>who attacks it more often</b>: pale blue for
+  White, dark brown for Black, hatched where both attack it equally. Arrows show <b>where the
+  position points</b> &mdash; one along each pawn chain, base to tip, and one along each
+  long-range piece's main line. Push a pawn or load a structure and both recompute. No engine:
+  control is attack-counting, direction is geometry. This is the site's <em>descriptive</em>
+  demo &mdash; space is the one factor the benchmark cannot cleanly switch off, so it gets
+  measured rather than intervened on.</p>
+
+  <div id="board"></div>
+
+  <div class="readout">
+    <div class="verdict" id="verdict">&nbsp;</div>
+    <div class="counts" id="counts">&nbsp;</div>
+    <div class="caption">Square control by attacker count, not an engine evaluation. A square is
+    contested when both sides attack it equally often.</div>
+  </div>
+
+  <div class="gallery" id="gallery"></div>
+  <p class="gcap" id="gcap"></p>
+
+  <div class="fenrow">
+    <input id="fen" spellcheck="false" aria-label="FEN">
+    <button id="loadBtn">Load</button>
+  </div>
+  <p class="err" id="err"></p>
+
+  <!-- Toggles carry a tick so "filled = on" is not confusable with "filled = selected"
+       in the preset row, and so the outlined one-shot action stays a different thing. -->
+  <div class="btns">
+    <span class="rowlabel">Layers</span>
+    <button id="tControl" class="on">&#10003; Control map</button>
+    <button id="tArrows" class="on">&#10003; Arrows</button>
+    <span class="rowgap"></span>
+    <button id="flipBtn">Flip board</button>
+  </div>
+
+  <!-- Each state paints two shades, one per square colour, so every swatch shows both.
+       A single-shade key teaches half the board and leaves the other half unexplained. -->
+  <!-- Six keys do not fit one 600px line, so the legend always wraps. Grouping the
+       shading keys apart from the arrow keys makes the break land on the boundary
+       between the two things being explained, instead of orphaning "Black points"
+       away from "White points" — the one pair a reader needs side by side. -->
+  <div class="legend">
+    <div class="lgroup">
+      <span><i style="background:linear-gradient(135deg,#bacad6 50%,#96a6b3 50%)"></i>White controls</span>
+      <span><i style="background:linear-gradient(135deg,#a69583 50%,#8b7b68 50%)"></i>Black controls</span>
+      <span><i class="hatch"></i>Contested</span>
+      <span><i style="background:linear-gradient(135deg,#e8e6e1 50%,#bab8b4 50%)"></i>Neither</span>
+    </div>
+    <div class="lgroup">
+      <span><svg width="26" height="10" aria-hidden="true"><path d="M1 5h16" stroke="var(--arrow-w)"
+        stroke-width="3"/><path d="M16 1l8 4-8 4z" fill="var(--arrow-w)"/></svg>White points</span>
+      <span><svg width="26" height="10" aria-hidden="true"><path d="M1 5h16" stroke="var(--arrow-b)"
+        stroke-width="3"/><path d="M16 1l8 4-8 4z" fill="var(--arrow-b)"/></svg>Black points</span>
+    </div>
+  </div>
+
+<script type="module">
+import { Chess } from './vendor/chess.js';
+import { Chessground } from './vendor/chessground/chessground.min.js';
+
+// Textbook space structures. First paint loads a gallery position, never the start
+// position — a symmetric control map is a dead first impression for this demo.
+const GALLERY = [
+  // Caption says d5 only. c4+e4 do bear on f5 too, but the map scores f5 to Black 3-1
+  // (Qa5 down the empty fifth rank, Be6, g6), so claiming White clamps it contradicts
+  // the picture directly underneath — the one error this audience spots instantly.
+  {name:'Maróczy Bind', cap:'White’s c4+e4 clamp d5; Black holds f5 in return.',
+   fen:'r4rk1/pp2ppbp/3pbnp1/q7/2P1P3/2N1B3/PP1QBPPP/R4RK1 w - - 6 12'},
+  // Names the full chains, because pawnChains() roots each at the rearmost defender and
+  // draws b2->f6 and f7->c4. Saying "c3-d4-e5" made the arrow start a square before the text.
+  {name:'French Advance', cap:'Chain b2-c3-d4-e5 points at the kingside; Black’s f7-e6-d5 points back at the queenside.',
+   fen:'r1b1kb1r/pp2nppp/1qn1p3/2ppP3/3P4/2P2N2/PP2BPPP/R1BQK2R w KQkq - 2 7'},
+  // Prose, not ↗/↘ glyphs. The board draws a-file left, so queenside is to the LEFT and
+  // "White ↗ queenside" pointed at the wrong wing. The glyphs also conflated two different
+  // things (which wing you play on vs which way a chain points) and were the only symbols
+  // in five otherwise-plain captions.
+  {name:'King’s Indian', cap:'Locked centre, opposite-side chains: White plays on the queenside, Black on the kingside.',
+   fen:'r1bq1rk1/ppp1npbp/3p1np1/3Pp3/2P1P3/2N2P2/PPQBB1PP/R3NRK1 w - - 0 11'},
+  // Was "...but the pieces bear deep into White's half", which the map denies: of the 32
+  // squares on ranks 1-4 Black controls exactly one (g4) and contests one more (e4).
+  {name:'Hedgehog', cap:'Black is cramped behind a6-b6-d6-e6 — in White’s half only g4 answers back.',
+   fen:'r4rk1/1bqnbppp/pp1ppn2/8/2P1P3/1PN2N2/PB2QPPP/R4RK1 w - - 4 14'},
+  // The majority is a7-b7-c5 against a2-b2, 3 v 2. The old caption said "c5-d6", which is
+  // the chain, not the majority — d6 is a d-file pawn and sits outside the queenside count.
+  {name:'Benoni', cap:'White’s d5 wedge against Black’s a7-b7-c5 queenside majority.',
+   fen:'rnbqr1k1/pp3pbp/3p1np1/2pP4/4P3/2N2N2/PP2BPPP/R1BQ1RK1 w - - 4 10'},
+];
+
+let chess = new Chess(GALLERY[0].fen);
+let showControl = true, showArrows = true;
+
+const boardEl   = document.getElementById('board');
+const verdictEl = document.getElementById('verdict');
+const countsEl  = document.getElementById('counts');
+const fenInput  = document.getElementById('fen');
+const errEl     = document.getElementById('err');
+const gcapEl    = document.getElementById('gcap');
+const tControl  = document.getElementById('tControl');
+const tArrows   = document.getElementById('tArrows');
+
+// --- geometry helpers ---------------------------------------------------------
+const FILES = 'abcdefgh';
+const sqName  = (f, r) => FILES[f] + (r + 1);          // file,rank 0-based
+const onBoard = (f, r) => f >= 0 && f < 8 && r >= 0 && r < 8;
+
+const KNIGHT = [[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]];
+const KING   = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+const ROOK   = [[1,0],[-1,0],[0,1],[0,-1]];
+const BISHOP = [[1,1],[1,-1],[-1,1],[-1,-1]];
+
+// --- control engine (pure, no DOM) --------------------------------------------
+// Turn-independent by construction: space is a property of a colour, so both sides are
+// computed every frame regardless of whose move it is. Deliberately unlike the
+// side-to-move logic in pin.html / prophylaxis.html.
+//
+//   attackersOf(f,r) ── pawns ── knights ── king ── slider rays (stop at 1st occupant)
+//        │
+//        └──> controlMap ── W / B / C / '.' ──> verdict ── opponent-half counts
+//
+// Direct attacks only: a ray stops at the first occupant, so no x-ray through pieces.
+// This is the standard attacker set.
+function attackersOf(game, f, r) {
+  const n = {w: 0, b: 0};
+  // A white pawn on (f±1, r-1) attacks (f,r); a black pawn on (f±1, r+1) does.
+  for (const df of [-1, 1]) {
+    if (onBoard(f + df, r - 1)) {
+      const pc = game.get(sqName(f + df, r - 1));
+      if (pc && pc.type === 'p' && pc.color === 'w') n.w++;
+    }
+    if (onBoard(f + df, r + 1)) {
+      const pc = game.get(sqName(f + df, r + 1));
+      if (pc && pc.type === 'p' && pc.color === 'b') n.b++;
+    }
+  }
+  for (const [df, dr] of KNIGHT) {
+    if (!onBoard(f + df, r + dr)) continue;
+    const pc = game.get(sqName(f + df, r + dr));
+    if (pc && pc.type === 'n') n[pc.color]++;
+  }
+  for (const [df, dr] of KING) {
+    if (!onBoard(f + df, r + dr)) continue;
+    const pc = game.get(sqName(f + df, r + dr));
+    if (pc && pc.type === 'k') n[pc.color]++;
+  }
+  for (const [dirs, straight] of [[ROOK, true], [BISHOP, false]]) {
+    for (const [df, dr] of dirs) {
+      let ff = f + df, rr = r + dr;
+      while (onBoard(ff, rr)) {
+        const pc = game.get(sqName(ff, rr));
+        if (pc) {
+          if (pc.type === 'q' || pc.type === (straight ? 'r' : 'b')) n[pc.color]++;
+          break;                                  // first occupant blocks the ray
+        }
+        ff += df; rr += dr;
+      }
+    }
+  }
+  return n;
+}
+
+// 'W' white holds it, 'B' black holds it, 'C' contested (equal and non-zero), '.' neither.
+function controlMap(game) {
+  const map = new Map();
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const {w, b} = attackersOf(game, f, r);
+    map.set(sqName(f, r), w > b ? 'W' : b > w ? 'B' : w > 0 ? 'C' : '.');
+  }
+  return map;
+}
+
+// Who has more control: squares held outright, over the whole board. Contested squares
+// (equal attackers) belong to neither side and are counted on their own.
+function verdict(map) {
+  let white = 0, black = 0, contested = 0, neither = 0;
+  for (const state of map.values()) {
+    if (state === 'W') white++;
+    else if (state === 'B') black++;
+    else if (state === 'C') contested++;
+    else neither++;
+  }
+  return {white, black, contested, neither, winner: Math.sign(white - black)};
+}
+
+// --- directionality (pure, no DOM) --------------------------------------------
+// A chain is a maximal diagonally-connected run of same-colour pawns where each pawn
+// defends the next. White chains run along (±1,+1), black along (±1,-1). The base is the
+// chain's root — the rearmost pawn, the one NOT defended by another pawn of the chain.
+//
+//        .  .  .  e5 <- tip           arrow: c3 ──> f6
+//        .  .  d4 .                   (base -> tip, extended one square
+//        .  c3 .  .                    further along the diagonal, which is
+//        ^ base                        where the chain "points")
+//
+// The extension is clamped: on the a- or h-file the sideways step leaves the board, so
+// the arrow stops at the tip. A lone pawn gets no arrow — its two capture diagonals make
+// "direction" ambiguous.
+function pawnChains(game, color) {
+  const fwd = color === 'w' ? 1 : -1;
+  const pawnAt = (f, r) => {
+    if (!onBoard(f, r)) return false;
+    const pc = game.get(sqName(f, r));
+    return !!pc && pc.type === 'p' && pc.color === color;
+  };
+  const out = [];
+  for (const df of [-1, 1]) {
+    for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+      if (!pawnAt(f, r)) continue;
+      if (pawnAt(f - df, r - fwd)) continue;       // defended in-chain, so not the base
+      let ff = f, rr = r, len = 1;
+      while (pawnAt(ff + df, rr + fwd)) { ff += df; rr += fwd; len++; }
+      if (len < 2) continue;
+      const pf = ff + df, pr = rr + fwd;
+      out.push({orig: sqName(f, r), dest: onBoard(pf, pr) ? sqName(pf, pr) : sqName(ff, rr)});
+    }
+  }
+  return out;
+}
+
+// One arrow per long-range piece, along its LONGEST ray — the piece's main aim. Drawing
+// every ray of every piece is the clutter case, not the base case. Knights and kings are
+// omitted: they are not linearly directional.
+//
+// A ray only counts as direction if it AIMS AT SOMETHING: it reaches the opponent's half,
+// or it bears on an enemy piece. A rook sliding along its own back rank at empty squares
+// is not "where the position points" — and two such rooks facing each other draw one bar
+// with a head at each end, which is worse than nothing. Length alone does not filter
+// those out, because a1-e1 is four squares long and still says nothing.
+function aimsAtEnemy(game, color, dest) {
+  const occupant = game.get(dest);
+  if (occupant && occupant.color !== color) return true;
+  return color === 'w' ? +dest[1] >= 5 : +dest[1] <= 4;
+}
+
+function pieceRays(game, color) {
+  const out = [];
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const pc = game.get(sqName(f, r));
+    if (!pc || pc.color !== color) continue;
+    const dirs = pc.type === 'q' ? [...ROOK, ...BISHOP]
+               : pc.type === 'r' ? ROOK
+               : pc.type === 'b' ? BISHOP : null;
+    if (!dirs) continue;
+    let best = null, bestLen = 0;
+    for (const [df, dr] of dirs) {
+      let ff = f + df, rr = r + dr, len = 0, last = null;
+      while (onBoard(ff, rr)) {
+        const q = game.get(sqName(ff, rr));
+        if (q) {                                   // stop at the first occupant...
+          if (q.color !== color) { len++; last = sqName(ff, rr); }   // ...but a capture counts
+          break;
+        }
+        len++; last = sqName(ff, rr);
+        ff += df; rr += dr;
+      }
+      if (len > bestLen && aimsAtEnemy(game, color, last)) { bestLen = len; best = last; }
+    }
+    if (best) out.push({orig: sqName(f, r), dest: best});
+  }
+  return out;
+}
+
+// --- shapes -------------------------------------------------------------------
+// chessground drops customSvg.html into a fixed viewBox="0 0 100 100" sized to one
+// square, so a 100x100 rect fills it exactly. customSvg must be an OBJECT ({html},
+// optional {center}), never a bare string. These render at z-index 9, ABOVE pieces at
+// z-index 2, so the fill has to stay translucent or it hides the piece it covers.
+// The three states must separate in GREYSCALE, not just by hue. Hue alone at matched
+// lightness dies on a projector, in print, and for a red-green colour-blind reader, and
+// it loses to the checkerboard: square parity would out-signal the actual answer.
+// So White is light, Black is dark, and contested is a hatch — tone, tone, pattern.
+const TINT = {W:{c:'#1567ad', a:.22}, B:{c:'#4a2600', a:.42}};
+
+// Hatch, not a dot. A dot is small enough to hide under a piece, which made contested
+// and "neither" render identically on every occupied square. A full-square pattern
+// survives having a rook sat on it.
+const CONTESTED = '<defs><pattern id="cx" width="13" height="13" patternUnits="userSpaceOnUse"'
+  + ' patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="13" stroke="#33312e"'
+  + ' stroke-opacity=".42" stroke-width="5"/></pattern></defs>'
+  + '<rect width="100" height="100" fill="url(#cx)"/>';
+
+function tintShapes(map) {
+  const out = [];
+  for (const [sq, state] of map) {
+    if (state === '.') continue;
+    const t = TINT[state];
+    out.push({orig: sq, customSvg: {html: t
+      ? `<rect width="100" height="100" fill="${t.c}" fill-opacity="${t.a}"/>`
+      : CONTESTED}});
+  }
+  return out;
+}
+
+function arrowShapes(game) {
+  const out = [];
+  for (const color of ['w', 'b']) {
+    const brush = color === 'w' ? 'spaceW' : 'spaceB';
+    for (const s of pawnChains(game, color)) out.push({...s, brush});
+    for (const s of pieceRays(game, color))  out.push({...s, brush});
+  }
+  return out;
+}
+
+// --- board --------------------------------------------------------------------
+const colorOf = () => (chess.turn() === 'w' ? 'white' : 'black');
+function dests(){
+  const map = new Map();
+  chess.moves({verbose:true}).forEach(m => {
+    if(!map.has(m.from)) map.set(m.from, []);
+    map.get(m.from).push(m.to);
+  });
+  return map;
+}
+
+// Each custom brush needs its OWN key: the defs builder skips appending a marker whose
+// cgKey already exists from an earlier render, so two brushes sharing a key collapse to
+// one colour permanently — fixing the data afterwards does not fix the display.
+const ground = Chessground(boardEl, {
+  fen: chess.fen(), turnColor: colorOf(), coordinates: true,
+  movable:   {free:false, color: colorOf(), dests: dests(), showDests:true, events:{after:onMove}},
+  draggable: {showGhost:true},
+  drawable:  {enabled:false, visible:true, brushes:{
+    spaceW: {key:'spw', color:'#062f52', opacity:1, lineWidth:6},
+    spaceB: {key:'spb', color:'#6b2a00', opacity:1, lineWidth:6},
+  }},
+});
+
+// ground.set({fen}) wipes drawable.shapes, so every position change redraws.
+function applyBoard(){
+  ground.set({fen: chess.fen(), turnColor: colorOf(), lastMove: null,
+    movable: {color: colorOf(), dests: dests()}});
+  render();
+}
+function onMove(orig, dest){
+  chess.move({from:orig, to:dest, promotion:'q'});
+  applyBoard();
+  fenInput.value = chess.fen();
+  gcapEl.textContent = '';
+  clearPreset();
+}
+
+// setShapes REPLACES drawable.shapes wholesale, so the tints and the arrows must go out
+// in ONE combined call. Two sequential calls would silently drop the tints.
+function render(){
+  const map = controlMap(chess);
+  const shapes = [];
+  if (showControl) shapes.push(...tintShapes(map));
+  if (showArrows)  shapes.push(...arrowShapes(chess));
+  ground.setShapes(shapes);
+  paintVerdict(verdict(map));
+}
+
+function paintVerdict(v){
+  const d = Math.abs(v.white - v.black);
+  verdictEl.textContent =
+      v.winner > 0 ? `More control: White, by ${d} square${d === 1 ? '' : 's'}`
+    : v.winner < 0 ? `More control: Black, by ${d} square${d === 1 ? '' : 's'}`
+    : 'Control: even.';
+  verdictEl.className = 'verdict ' + (v.winner > 0 ? 'w' : v.winner < 0 ? 'b' : 'even');
+  countsEl.textContent = `White ${v.white} · Black ${v.black} · `
+                       + `${v.contested} contested · ${v.neither} neither`;
+}
+
+// --- FEN loading --------------------------------------------------------------
+// chess.js validate_fen is syntactic only — it accepts kingless boards, pawns on the back
+// rank, and a side-not-to-move-in-check position. Same guard as pin.html.
+function legalityError(game){
+  let wk=0, bk=0;
+  for(let r=0;r<8;r++) for(let f=0;f<8;f++){
+    const pc = game.get(sqName(f,r));
+    if(!pc) continue;
+    if(pc.type==='p' && (r===0 || r===7)) return 'A pawn can’t sit on the back rank.';
+    if(pc.type==='k'){ pc.color==='w' ? wk++ : bk++; }
+  }
+  if(wk!==1 || bk!==1) return 'Each side needs exactly one king.';
+  const parts = game.fen().split(' ');
+  parts[1] = parts[1]==='w' ? 'b' : 'w';
+  parts[3] = '-';
+  const probe = new Chess();
+  if(probe.load(parts.join(' ')) && probe.in_check()){
+    const stm = game.turn()==='w' ? 'White' : 'Black';
+    return `${stm==='White'?'Black':'White'} is in check, but it’s ${stm} to move.`;
+  }
+  return '';
+}
+function loadFen(fen, caption){
+  const test = new Chess();
+  if(!test.load(fen)){ errEl.textContent='Invalid FEN.'; return false; }
+  const bad = legalityError(test);
+  if(bad){ errEl.textContent = bad; return false; }
+  errEl.textContent = '';
+  chess = test;
+  fenInput.value = chess.fen();
+  gcapEl.textContent = caption || '';
+  clearPreset();
+  applyBoard();
+  return true;
+}
+// The board no longer shows a preset once it has been moved or hand-edited.
+function clearPreset(){
+  document.querySelectorAll('.gallery button').forEach(b => b.classList.remove('on'));
+}
+
+// --- controls -----------------------------------------------------------------
+const galleryEl = document.getElementById('gallery');
+GALLERY.forEach(g => {
+  const b = document.createElement('button');
+  b.textContent = g.name;
+  b.addEventListener('click', () => {
+    if (!loadFen(g.fen, g.cap)) return;
+    // Mark which preset is showing; without it the five buttons look identical and
+    // there is no way to tell what is on the board.
+    galleryEl.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  });
+  galleryEl.appendChild(b);
+});
+
+function toggle(btn, label, get, set){
+  const paint = () => {
+    btn.classList.toggle('on', get());
+    btn.textContent = (get() ? '✓ ' : '   ') + label;   // width holds steady
+  };
+  btn.addEventListener('click', () => { set(!get()); paint(); render(); });
+  paint();
+}
+toggle(tControl, 'Control map', () => showControl, v => showControl = v);
+toggle(tArrows,  'Arrows',      () => showArrows,  v => showArrows  = v);
+
+document.getElementById('loadBtn').addEventListener('click', () => loadFen(fenInput.value.trim()));
+fenInput.addEventListener('keydown', e => { if(e.key==='Enter') loadFen(fenInput.value.trim()); });
+// Shapes are placed by square key, so orientation-independent; the verdict is
+// colour-relative. Flipping needs no recompute.
+document.getElementById('flipBtn').addEventListener('click', () => ground.toggleOrientation());
+
+// initial paint: go through the preset button so its selected state is set too
+galleryEl.querySelector('button').click();
+</script>
+</body>
+</html>
