@@ -23,7 +23,7 @@
        colour blindness. Swatch values below are these tints already composited
        over the light square, so the legend matches what the board renders. */
     --swatch-w:#aac0d0; --swatch-b:#ddbea5; --swatch-c:#c5c4c0;
-    --arrow-w:#062f52; --arrow-b:#6b2a00;
+    --arrow-w:#062f52; --arrow-b:#40190a;
   }
 
   a.back{color:#8a8a8a;text-decoration:none;font-size:.9rem}
@@ -87,8 +87,8 @@
   .legend span{display:inline-flex;align-items:center;gap:.4rem}
   .legend i{width:.85rem;height:.85rem;border-radius:3px;display:inline-block;
       border:1px solid #00000018}
-  .legend i.hatch{background:#e8e6e1;background-image:repeating-linear-gradient(45deg,
-      #33312e6b 0 2px,transparent 2px 6px)}
+  .legend i.hatch{background:#b3b1ac;background-image:repeating-linear-gradient(45deg,
+      #5f5c56 0 2px,transparent 2px 6px)}
   .legend svg{flex:none}
 </style>
 </head>
@@ -125,15 +125,14 @@
     <button id="flipBtn">Flip board</button>
   </div>
 
-  <!-- Each swatch shows both square colours, since every state paints two shades.
-       Six keys never fit one line, so they are grouped to make the wrap land between
+  <!-- Six keys never fit one line, so they are grouped to make the wrap land between
        the shading keys and the arrow keys rather than splitting a pair. -->
   <div class="legend">
     <div class="lgroup">
-      <span><i style="background:linear-gradient(135deg,#bacad6 50%,#96a6b3 50%)"></i>White controls</span>
-      <span><i style="background:linear-gradient(135deg,#a69583 50%,#8b7b68 50%)"></i>Black controls</span>
+      <span><i style="background:#bcd0e0"></i>White controls</span>
+      <span><i style="background:#8d7c66"></i>Black controls</span>
       <span><i class="hatch"></i>Contested</span>
-      <span><i style="background:linear-gradient(135deg,#e8e6e1 50%,#bab8b4 50%)"></i>Neither</span>
+      <span><i style="background:#dcdad5"></i>Neither</span>
     </div>
     <div class="lgroup">
       <span><svg width="26" height="10" aria-hidden="true"><path d="M1 5h16" stroke="var(--arrow-w)"
@@ -321,30 +320,39 @@ function pawnChains(game, color) {
 // --- shapes -------------------------------------------------------------------
 // chessground drops customSvg.html into a fixed viewBox="0 0 100 100" sized to one
 // square, so a 100x100 rect fills it exactly. customSvg must be an OBJECT ({html},
-// optional {center}), never a bare string. These render at z-index 9, ABOVE pieces at
-// z-index 2, so the fill has to stay translucent or it hides the piece it covers.
-// The three states must separate in GREYSCALE, not just by hue. Hue alone at matched
-// lightness dies on a projector, in print, and for a red-green colour-blind reader, and
-// it loses to the checkerboard: square parity would out-signal the actual answer.
-// So White is light, Black is dark, and contested is a hatch — tone, tone, pattern.
-const TINT = {W:{c:'#1567ad', a:.22}, B:{c:'#4a2600', a:.42}};
+// optional {center}), never a bare string.
+//
+// Opaque, and every square painted including "neither", so the checkerboard is gone. It
+// had to go: square parity spread one category across ~30 RGB while the gap between two
+// different categories was ~12, so the loudest signal on the board was the thing that
+// carried no information. Nothing here is translucent, which the CSS allows by dropping
+// these under the pieces (z-index 0) instead of chessground's default 9, above them.
+//
+// States separate by TONE first so they survive greyscale, a projector and a red-green
+// colour-blind reader: White light, contested mid, Black dark. Contested also carries a
+// hatch, a second channel, because it is the one a reader most needs to spot.
+const TINT = {W:'#bcd0e0', B:'#8d7c66', C:'#b3b1ac', '.':'#dcdad5'};
 
 // Hatch, not a dot. A dot is small enough to hide under a piece, which made contested
 // and "neither" render identically on every occupied square. A full-square pattern
 // survives having a rook sat on it.
-const CONTESTED = '<defs><pattern id="cx" width="13" height="13" patternUnits="userSpaceOnUse"'
-  + ' patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="13" stroke="#33312e"'
-  + ' stroke-opacity=".42" stroke-width="5"/></pattern></defs>'
+const HATCH = '<defs><pattern id="cx" width="13" height="13" patternUnits="userSpaceOnUse"'
+  + ' patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="13" stroke="#5f5c56"'
+  + ' stroke-width="5"/></pattern></defs>'
   + '<rect width="100" height="100" fill="url(#cx)"/>';
+
+// Flat fill erased the checkerboard, and with it any way to find a square by eye — which
+// matters because every caption is written in square names. A faint grid puts the square
+// boundaries back without a parity signal, so locating d5 works again and nothing competes
+// with the fill for attention.
+const GRID = '<path d="M0 0V100M0 0H100" stroke="#00000016" stroke-width="1.5" fill="none"/>';
 
 function tintShapes(map) {
   const out = [];
   for (const [sq, state] of map) {
-    if (state === '.') continue;
-    const t = TINT[state];
-    out.push({orig: sq, customSvg: {html: t
-      ? `<rect width="100" height="100" fill="${t.c}" fill-opacity="${t.a}"/>`
-      : CONTESTED}});
+    out.push({orig: sq, customSvg: {html:
+      `<rect width="100" height="100" fill="${TINT[state]}"/>`
+      + (state === 'C' ? HATCH : '') + GRID}});
   }
   return out;
 }
