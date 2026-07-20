@@ -98,8 +98,8 @@
   <h1>Space Visualizer</h1>
   <p class="intro">Every square is shaded by <b>who attacks it more often</b>: pale blue for
   White, dark brown for Black, hatched where both attack it equally. Arrows show <b>where the
-  position points</b> &mdash; one along each pawn chain, base to tip, and one along each
-  long-range piece's main line. Push a pawn or load a structure and both recompute. No engine:
+  structure points</b> &mdash; one per pawn chain, drawn from its base out past the tip. Push a
+  pawn or load a structure and both recompute. No engine:
   control is attack-counting, direction is geometry. This is the site's <em>descriptive</em>
   demo &mdash; space is the one factor the benchmark cannot cleanly switch off, so it gets
   measured rather than intervened on.</p>
@@ -179,10 +179,11 @@ const GALLERY = [
   // squares on ranks 1-4 Black controls exactly one (g4) and contests one more (e4).
   {name:'Hedgehog', cap:'Black is cramped behind a6-b6-d6-e6 — in White’s half only g4 answers back.',
    fen:'r4rk1/1bqnbppp/pp1ppn2/8/2P1P3/1PN2N2/PB2QPPP/R4RK1 w - - 4 14'},
-  // The majority is a7-b7-c5 against a2-b2, 3 v 2. The old caption said "c5-d6", which is
-  // the chain, not the majority — d6 is a d-file pawn and sits outside the queenside count.
-  {name:'Benoni', cap:'White’s d5 wedge against Black’s a7-b7-c5 queenside majority.',
-   fen:'rnbqr1k1/pp3pbp/3p1np1/2pP4/4P3/2N2N2/PP2BPPP/R1BQ1RK1 w - - 4 10'},
+  // The one position in the gallery where Black leads (30-24), so it is also the only one
+  // that exercises the brown Black-ahead verdict. It is here because it separates space from
+  // control: White has the only pawn in the centre four squares and still holds less board.
+  {name:'Scandinavian', cap:'White holds the only centre pawn, yet Black controls more of the board: c6 and e6 both bear on d5.',
+   fen:'r4rk1/ppqn1ppp/2pbpn2/5b2/2BP4/2N1BN1P/PPPQ1PP1/3RR1K1 w - - 9 13'},
 ];
 
 let chess = new Chess(GALLERY[0].fen);
@@ -293,6 +294,19 @@ function verdict(map) {
 // The extension is clamped: on the a- or h-file the sideways step leaves the board, so
 // the arrow stops at the tip. A lone pawn gets no arrow — its two capture diagonals make
 // "direction" ambiguous.
+//
+// A pawn belongs to AT MOST ONE chain. Scanning both diagonals finds two chains through the
+// same pawn in two shapes, and neither should draw twice:
+//
+//   tie      f7 . h7   the fianchetto. f7-g6 and h7-g6 are both length 2 and point opposite
+//             \ /      ways, so the pawn has no direction at all — the same reason a lone
+//              g6      pawn is skipped. Both are dropped.
+//
+//   unequal  g2-f3-e4-d5 and c4-d5 share the d5 tip. The long chain is the structure; the
+//            short one is a branch off its tip. The longer wins, the shorter is dropped.
+//
+// Without this, KID drew White pointing at c6 AND e6 at once, which contradicted its own
+// caption, and every fianchetto drew a two-headed arrow that said nothing.
 function pawnChains(game, color) {
   const fwd = color === 'w' ? 1 : -1;
   const pawnAt = (f, r) => {
@@ -300,63 +314,32 @@ function pawnChains(game, color) {
     const pc = game.get(sqName(f, r));
     return !!pc && pc.type === 'p' && pc.color === color;
   };
-  const out = [];
+  const found = [];
   for (const df of [-1, 1]) {
     for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
       if (!pawnAt(f, r)) continue;
       if (pawnAt(f - df, r - fwd)) continue;       // defended in-chain, so not the base
       let ff = f, rr = r, len = 1;
-      while (pawnAt(ff + df, rr + fwd)) { ff += df; rr += fwd; len++; }
+      const members = [sqName(f, r)];
+      while (pawnAt(ff + df, rr + fwd)) { ff += df; rr += fwd; len++; members.push(sqName(ff, rr)); }
       if (len < 2) continue;
       const pf = ff + df, pr = rr + fwd;
-      out.push({orig: sqName(f, r), dest: onBoard(pf, pr) ? sqName(pf, pr) : sqName(ff, rr)});
+      found.push({orig: sqName(f, r), dest: onBoard(pf, pr) ? sqName(pf, pr) : sqName(ff, rr),
+                  len, members});
     }
   }
-  return out;
+  // Drop a chain that shares a pawn with a longer one, and drop BOTH sides of a tie — each
+  // sees an equal-length rival, so the test is symmetric and needs no tie-break.
+  const out = found.filter(c => !found.some(o =>
+    o !== c && o.len >= c.len && o.members.some(m => c.members.includes(m))));
+  return out.map(({orig, dest}) => ({orig, dest}));
 }
 
-// One arrow per long-range piece, along its LONGEST ray — the piece's main aim. Drawing
-// every ray of every piece is the clutter case, not the base case. Knights and kings are
-// omitted: they are not linearly directional.
-//
-// A ray only counts as direction if it AIMS AT SOMETHING: it reaches the opponent's half,
-// or it bears on an enemy piece. A rook sliding along its own back rank at empty squares
-// is not "where the position points" — and two such rooks facing each other draw one bar
-// with a head at each end, which is worse than nothing. Length alone does not filter
-// those out, because a1-e1 is four squares long and still says nothing.
-function aimsAtEnemy(game, color, dest) {
-  const occupant = game.get(dest);
-  if (occupant && occupant.color !== color) return true;
-  return color === 'w' ? +dest[1] >= 5 : +dest[1] <= 4;
-}
-
-function pieceRays(game, color) {
-  const out = [];
-  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
-    const pc = game.get(sqName(f, r));
-    if (!pc || pc.color !== color) continue;
-    const dirs = pc.type === 'q' ? [...ROOK, ...BISHOP]
-               : pc.type === 'r' ? ROOK
-               : pc.type === 'b' ? BISHOP : null;
-    if (!dirs) continue;
-    let best = null, bestLen = 0;
-    for (const [df, dr] of dirs) {
-      let ff = f + df, rr = r + dr, len = 0, last = null;
-      while (onBoard(ff, rr)) {
-        const q = game.get(sqName(ff, rr));
-        if (q) {                                   // stop at the first occupant...
-          if (q.color !== color) { len++; last = sqName(ff, rr); }   // ...but a capture counts
-          break;
-        }
-        len++; last = sqName(ff, rr);
-        ff += df; rr += dr;
-      }
-      if (len > bestLen && aimsAtEnemy(game, color, last)) { bestLen = len; best = last; }
-    }
-    if (best) out.push({orig: sqName(f, r), dest: best});
-  }
-  return out;
-}
+// Long-range pieces get no arrow. One ray per bishop/rook/queen put up to eight lines on
+// the board at once (King's Indian, Benoni), they crossed each other over the pieces, and
+// because arrows render UNDER the pieces each one broke into stubs wherever it passed one.
+// The result buried the control map, which is the thing this page exists to show. Pawn
+// chains alone are readable and are the part that actually describes the structure.
 
 // --- shapes -------------------------------------------------------------------
 // chessground drops customSvg.html into a fixed viewBox="0 0 100 100" sized to one
@@ -394,7 +377,6 @@ function arrowShapes(game) {
   for (const color of ['w', 'b']) {
     const brush = color === 'w' ? 'spaceW' : 'spaceB';
     for (const s of pawnChains(game, color)) out.push({...s, brush});
-    for (const s of pieceRays(game, color))  out.push({...s, brush});
   }
   return out;
 }
