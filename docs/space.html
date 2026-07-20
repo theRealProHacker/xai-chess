@@ -61,8 +61,7 @@
   .readout .caption{color:#8a8a8a;font-size:.82rem;margin-top:.5rem}
 
   .fenrow{display:flex;gap:.4rem;margin:.75rem 0}
-  /* 12px, not 13px: at 13px the two longest gallery FENs overrun the field by ~20px
-     and stop mid-token, so a preset the visitor never typed reads as a corrupt FEN. */
+  /* 12px: at 13px the longest gallery FENs overrun the field and stop mid-token. */
   .fenrow input{flex:1;min-width:0;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
       padding:.5rem .6rem;border:1px solid #e4e4e4;border-radius:8px;color:#1a1a1a}
   .fenrow input:focus{outline:none;border-color:#0b5fa5}
@@ -96,22 +95,15 @@
 <body>
   <a class="back" href="index.html">&larr; xai-chess</a>
   <h1>Space Visualizer</h1>
-  <p class="intro">Every square is shaded by <b>who attacks it more often</b>: pale blue for
-  White, dark brown for Black, hatched where both attack it equally. Arrows show <b>where the
-  structure points</b> &mdash; one per pawn chain, drawn from its base out past the tip. Push a
-  pawn or load a structure and both recompute. No engine:
-  control is attack-counting, direction is geometry. This is the site's <em>descriptive</em>
-  demo &mdash; space is the one factor the benchmark cannot cleanly switch off, so it gets
-  measured rather than intervened on.</p>
+  <p class="intro">Every square goes to whoever attacks it more often, and arrows follow the
+  pawn chains. Move a piece or load a FEN; both recompute. No engine.</p>
 
   <div id="board"></div>
 
   <div class="readout">
     <div class="verdict" id="verdict">&nbsp;</div>
     <div class="counts" id="counts">&nbsp;</div>
-    <div class="caption">Square control by attacker count, not an engine evaluation. A square is
-    contested when both sides attack it equally often. A piece lined up behind a friendly pawn
-    or slider counts, the way it would in a real exchange.</div>
+    <div class="caption">Attacker count. Pieces behind a friendly pawn or slider count too.</div>
   </div>
 
   <div class="gallery" id="gallery"></div>
@@ -133,12 +125,9 @@
     <button id="flipBtn">Flip board</button>
   </div>
 
-  <!-- Each state paints two shades, one per square colour, so every swatch shows both.
-       A single-shade key teaches half the board and leaves the other half unexplained. -->
-  <!-- Six keys do not fit one 600px line, so the legend always wraps. Grouping the
-       shading keys apart from the arrow keys makes the break land on the boundary
-       between the two things being explained, instead of orphaning "Black points"
-       away from "White points" — the one pair a reader needs side by side. -->
+  <!-- Each swatch shows both square colours, since every state paints two shades.
+       Six keys never fit one line, so they are grouped to make the wrap land between
+       the shading keys and the arrow keys rather than splitting a pair. -->
   <div class="legend">
     <div class="lgroup">
       <span><i style="background:linear-gradient(135deg,#bacad6 50%,#96a6b3 50%)"></i>White controls</span>
@@ -148,9 +137,9 @@
     </div>
     <div class="lgroup">
       <span><svg width="26" height="10" aria-hidden="true"><path d="M1 5h16" stroke="var(--arrow-w)"
-        stroke-width="3"/><path d="M16 1l8 4-8 4z" fill="var(--arrow-w)"/></svg>White points</span>
+        stroke-width="3"/><path d="M16 1l8 4-8 4z" fill="var(--arrow-w)"/></svg>White chain</span>
       <span><svg width="26" height="10" aria-hidden="true"><path d="M1 5h16" stroke="var(--arrow-b)"
-        stroke-width="3"/><path d="M16 1l8 4-8 4z" fill="var(--arrow-b)"/></svg>Black points</span>
+        stroke-width="3"/><path d="M16 1l8 4-8 4z" fill="var(--arrow-b)"/></svg>Black chain</span>
     </div>
   </div>
 
@@ -161,30 +150,18 @@ import { Chessground } from './vendor/chessground/chessground.min.js';
 // Textbook space structures. First paint loads a gallery position, never the start
 // position — a symmetric control map is a dead first impression for this demo.
 const GALLERY = [
-  // Caption says d5 only. c4+e4 do bear on f5 too, but the map scores f5 to Black 3-1
-  // (Qa5 down the empty fifth rank, Be6, g6), so claiming White clamps it contradicts
-  // the picture directly underneath — the one error this audience spots instantly.
-  {name:'Maróczy', cap:'White’s c4+e4 clamp d5; Black holds f5 in return.',
+  // f5 goes to Black 3-1 (Qa5 along the empty fifth, Be6, g6), so the caption claims d5 only.
+  {name:'Maróczy', cap:'c4 and e4 clamp d5; Black holds f5.',
    fen:'r4rk1/pp2ppbp/3pbnp1/q7/2P1P3/2N1B3/PP1QBPPP/R4RK1 w - - 6 12'},
-  // Names the full chains, because pawnChains() roots each at the rearmost defender and
-  // draws b2->f6 and f7->c4. Saying "c3-d4-e5" made the arrow start a square before the text.
-  {name:'French Advance', cap:'Chain b2-c3-d4-e5 points at the kingside; Black’s f7-e6-d5 points back at the queenside.',
+  {name:'French Advance', cap:'Opposite chains: White points at the kingside, Black at the queenside.',
    fen:'r1b1kb1r/pp2nppp/1qn1p3/2ppP3/3P4/2P2N2/PP2BPPP/R1BQK2R w KQkq - 2 7'},
-  // Prose, not ↗/↘ glyphs. The board draws a-file left, so queenside is to the LEFT and
-  // "White ↗ queenside" pointed at the wrong wing. The glyphs also conflated two different
-  // things (which wing you play on vs which way a chain points) and were the only symbols
-  // in five otherwise-plain captions.
-  {name:'King’s Indian', cap:'Locked centre, opposite-side chains: White plays on the queenside, Black on the kingside.',
+  {name:'King’s Indian', cap:'Locked centre. White plays the queenside, Black the kingside.',
    fen:'r1bq1rk1/ppp1npbp/3p1np1/3Pp3/2P1P3/2N2P2/PPQBB1PP/R3NRK1 w - - 0 11'},
-  // Qc7 and Be7 both bear through the d6 pawn (c7-d6-e5-f4 and e7-d6-c5-b4), which is the
-  // Hedgehog's whole point and exactly what battery counting restored: b4 and f4 flipped to
-  // Black and the position went from White +3 to even.
-  {name:'Hedgehog', cap:'Black is cramped behind a6-b6-d6-e6, yet Qc7 and Be7 bear straight through d6 and the count comes out even.',
+  // c7-d6-e5-f4 and e7-d6-c5-b4: both batteries, and the reason this reads even.
+  {name:'Hedgehog', cap:'Cramped behind a6-b6-d6-e6, but Qc7 and Be7 bear straight through d6.',
    fen:'r4rk1/1bqnbppp/pp1ppn2/8/2P1P3/1PN2N2/PB2QPPP/R4RK1 w - - 4 14'},
-  // The one position in the gallery where Black leads (30-24), so it is also the only one
-  // that exercises the brown Black-ahead verdict. It is here because it separates space from
-  // control: White has the only pawn in the centre four squares and still holds less board.
-  {name:'Scandinavian', cap:'White holds the only centre pawn, yet Black controls more of the board: c6 and e6 both bear on d5.',
+  // The only position here where Black leads, and so the only one that paints a brown verdict.
+  {name:'Scandinavian', cap:'White has the only centre pawn; Black’s c6 and e6 take more board.',
    fen:'r4rk1/ppqn1ppp/2pbpn2/5b2/2BP4/2N1BN1P/PPPQ1PP1/3RR1K1 w - - 9 13'},
 ];
 
@@ -219,15 +196,10 @@ const BISHOP = [[1,1],[1,-1],[-1,1],[-1,-1]];
 //        │
 //        └──> controlMap ── W / B / C / '.' ──> verdict ── opponent-half counts
 //
-// Rays see through a friendly piece that attacks along the SAME line, because that is a
-// battery and every member really does bear on the square. The case that forces this is a
-// bishop behind its own pawn: on f8-g7-h6 the g7 pawn attacks h6, and when it captures there
-// it stays on that diagonal, so the f8 bishop is a genuine second defender of h6. Treating
-// the pawn as a blocker scored h6 1-1 contested when Black holds it 2-1.
-//
-// The line must be same-colour and same-direction, which is what keeps this honest rather
-// than blanket x-ray: a rook behind its own pawn does NOT see down the file (a pawn has no
-// attack along it), and nothing sees through a knight or king, which have no line at all.
+// Rays see through a friendly piece attacking along the same line, because a battery really
+// does bear on the square: on f8-g7-h6 the pawn captures onto h6 and stays on the diagonal,
+// so the bishop behind it is a second defender. Same colour, same direction only — a rook
+// behind its own pawn does not see down the file, and nothing sees through a knight.
 function attackersOf(game, f, r) {
   const n = {w: 0, b: 0};
   // A white pawn on (f±1, r-1) attacks (f,r); a black pawn on (f±1, r+1) does.
@@ -297,37 +269,22 @@ function verdict(map) {
 }
 
 // --- directionality (pure, no DOM) --------------------------------------------
-// A chain is a maximal diagonally-connected run of same-colour pawns where each pawn
-// defends the next. White chains run along (±1,+1), black along (±1,-1). The base is the
-// chain's root — the rearmost pawn, the one NOT defended by another pawn of the chain.
+// A chain is a maximal diagonal run of same-colour pawns, each defending the next. The base
+// is the rearmost; the arrow runs base -> one square past the tip, where the chain points.
 //
-//        .  .  .  e5 <- tip           arrow: c3 ──> f6
-//        .  .  d4 .                   (base -> tip, extended one square
-//        .  c3 .  .                    further along the diagonal, which is
-//        ^ base                        where the chain "points")
+//        .  .  .  e5 <- tip        arrow: c3 ──> f6
+//        .  .  d4 .
+//        .  c3 .  .
+//        ^ base
 //
-// The extension is clamped: on the a- or h-file the sideways step leaves the board, so
-// the arrow stops at the tip. A lone pawn gets no arrow — its two capture diagonals make
-// "direction" ambiguous.
+// Nothing is drawn where there is no direction to show. A pawn belongs to at most one chain:
 //
-// A pawn belongs to AT MOST ONE chain. Scanning both diagonals finds two chains through the
-// same pawn in two shapes, and neither should draw twice:
-//
-//   tie      f7 . h7   the fianchetto. f7-g6 and h7-g6 are both length 2 and point opposite
-//             \ /      ways, so the pawn has no direction at all — the same reason a lone
-//              g6      pawn is skipped. Both are dropped.
-//
-//   unequal  g2-f3-e4-d5 and c4-d5 share the d5 tip. The long chain is the structure; the
-//            short one is a branch off its tip. The longer wins, the shorter is dropped.
-//
-// Without this, KID drew White pointing at c6 AND e6 at once, which contradicted its own
-// caption, and every fianchetto drew a two-headed arrow that said nothing.
-//
-// Finally, the drawn arrow must span at least two squares. A rook-pawn pair like g2-h3 is
-// diagonally connected, but its extension leaves the board at i4, so the arrow collapses
-// onto the two pawns and points nowhere — it marks a defended h-pawn rather than showing a
-// direction, which is the arrow's whole job. Only a 2-pawn chain on the edge degenerates
-// this way; a longer edge chain such as f2-g3-h4 still draws f2->h4 and is kept.
+//   lone pawn       its two capture diagonals are symmetric
+//   f7-g6 + h7-g6   the fianchetto — equal chains through one pawn, pointing opposite ways,
+//                   so both go. Where lengths differ the longer wins: g2-f3-e4-d5 beats
+//                   c4-d5 on their shared d5 tip
+//   g2-h3           the extension leaves the board at i4, so the arrow spans one square and
+//                   marks a defended h-pawn. f2-g3-h4 still draws f2->h4
 function pawnChains(game, color) {
   const fwd = color === 'w' ? 1 : -1;
   const pawnAt = (f, r) => {
@@ -358,11 +315,8 @@ function pawnChains(game, color) {
   return out.map(({orig, dest}) => ({orig, dest}));
 }
 
-// Long-range pieces get no arrow. One ray per bishop/rook/queen put up to eight lines on
-// the board at once (King's Indian, Benoni), they crossed each other over the pieces, and
-// because arrows render UNDER the pieces each one broke into stubs wherever it passed one.
-// The result buried the control map, which is the thing this page exists to show. Pawn
-// chains alone are readable and are the part that actually describes the structure.
+// Long-range pieces get no arrow: one ray each put up to eight crossing lines on the board
+// and buried the control map.
 
 // --- shapes -------------------------------------------------------------------
 // chessground drops customSvg.html into a fixed viewBox="0 0 100 100" sized to one
