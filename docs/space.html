@@ -110,7 +110,8 @@
     <div class="verdict" id="verdict">&nbsp;</div>
     <div class="counts" id="counts">&nbsp;</div>
     <div class="caption">Square control by attacker count, not an engine evaluation. A square is
-    contested when both sides attack it equally often.</div>
+    contested when both sides attack it equally often. A piece lined up behind a friendly pawn
+    or slider counts, the way it would in a real exchange.</div>
   </div>
 
   <div class="gallery" id="gallery"></div>
@@ -175,9 +176,10 @@ const GALLERY = [
   // in five otherwise-plain captions.
   {name:'King’s Indian', cap:'Locked centre, opposite-side chains: White plays on the queenside, Black on the kingside.',
    fen:'r1bq1rk1/ppp1npbp/3p1np1/3Pp3/2P1P3/2N2P2/PPQBB1PP/R3NRK1 w - - 0 11'},
-  // Was "...but the pieces bear deep into White's half", which the map denies: of the 32
-  // squares on ranks 1-4 Black controls exactly one (g4) and contests one more (e4).
-  {name:'Hedgehog', cap:'Black is cramped behind a6-b6-d6-e6 — in White’s half only g4 answers back.',
+  // Qc7 and Be7 both bear through the d6 pawn (c7-d6-e5-f4 and e7-d6-c5-b4), which is the
+  // Hedgehog's whole point and exactly what battery counting restored: b4 and f4 flipped to
+  // Black and the position went from White +3 to even.
+  {name:'Hedgehog', cap:'Black is cramped behind a6-b6-d6-e6, yet Qc7 and Be7 bear straight through d6 and the count comes out even.',
    fen:'r4rk1/1bqnbppp/pp1ppn2/8/2P1P3/1PN2N2/PB2QPPP/R4RK1 w - - 4 14'},
   // The one position in the gallery where Black leads (30-24), so it is also the only one
   // that exercises the brown Black-ahead verdict. It is here because it separates space from
@@ -217,8 +219,15 @@ const BISHOP = [[1,1],[1,-1],[-1,1],[-1,-1]];
 //        │
 //        └──> controlMap ── W / B / C / '.' ──> verdict ── opponent-half counts
 //
-// Direct attacks only: a ray stops at the first occupant, so no x-ray through pieces.
-// This is the standard attacker set.
+// Rays see through a friendly piece that attacks along the SAME line, because that is a
+// battery and every member really does bear on the square. The case that forces this is a
+// bishop behind its own pawn: on f8-g7-h6 the g7 pawn attacks h6, and when it captures there
+// it stays on that diagonal, so the f8 bishop is a genuine second defender of h6. Treating
+// the pawn as a blocker scored h6 1-1 contested when Black holds it 2-1.
+//
+// The line must be same-colour and same-direction, which is what keeps this honest rather
+// than blanket x-ray: a rook behind its own pawn does NOT see down the file (a pawn has no
+// attack along it), and nothing sees through a knight or king, which have no line at all.
 function attackersOf(game, f, r) {
   const n = {w: 0, b: 0};
   // A white pawn on (f±1, r-1) attacks (f,r); a black pawn on (f±1, r+1) does.
@@ -244,12 +253,18 @@ function attackersOf(game, f, r) {
   }
   for (const [dirs, straight] of [[ROOK, true], [BISHOP, false]]) {
     for (const [df, dr] of dirs) {
-      let ff = f + df, rr = r + dr;
+      let ff = f + df, rr = r + dr, line = null;  // colour of the battery being walked, if any
       while (onBoard(ff, rr)) {
         const pc = game.get(sqName(ff, rr));
         if (pc) {
-          if (pc.type === 'q' || pc.type === (straight ? 'r' : 'b')) n[pc.color]++;
-          break;                                  // first occupant blocks the ray
+          if (line && pc.color !== line) break;   // a battery is one colour
+          if (pc.type === 'q' || pc.type === (straight ? 'r' : 'b')) {
+            n[pc.color]++; line = pc.color;       // bears on the square, and may carry a battery
+          } else if (!straight && pc.type === 'p' && dr === (pc.color === 'w' ? -1 : 1)) {
+            line = pc.color;                      // pawn attacks back along this diagonal…
+          } else {                                // …counted by the pawn pass, but it carries
+            break;                                // knight, king, wrong-way slider: dead end
+          }
         }
         ff += df; rr += dr;
       }
@@ -307,6 +322,12 @@ function verdict(map) {
 //
 // Without this, KID drew White pointing at c6 AND e6 at once, which contradicted its own
 // caption, and every fianchetto drew a two-headed arrow that said nothing.
+//
+// Finally, the drawn arrow must span at least two squares. A rook-pawn pair like g2-h3 is
+// diagonally connected, but its extension leaves the board at i4, so the arrow collapses
+// onto the two pawns and points nowhere — it marks a defended h-pawn rather than showing a
+// direction, which is the arrow's whole job. Only a 2-pawn chain on the edge degenerates
+// this way; a longer edge chain such as f2-g3-h4 still draws f2->h4 and is kept.
 function pawnChains(game, color) {
   const fwd = color === 'w' ? 1 : -1;
   const pawnAt = (f, r) => {
@@ -324,8 +345,10 @@ function pawnChains(game, color) {
       while (pawnAt(ff + df, rr + fwd)) { ff += df; rr += fwd; len++; members.push(sqName(ff, rr)); }
       if (len < 2) continue;
       const pf = ff + df, pr = rr + fwd;
-      found.push({orig: sqName(f, r), dest: onBoard(pf, pr) ? sqName(pf, pr) : sqName(ff, rr),
-                  len, members});
+      const orig = sqName(f, r), dest = onBoard(pf, pr) ? sqName(pf, pr) : sqName(ff, rr);
+      if (Math.max(Math.abs(dest.charCodeAt(0) - orig.charCodeAt(0)),
+                   Math.abs(+dest[1] - +orig[1])) < 2) continue;   // edge pair, points nowhere
+      found.push({orig, dest, len, members});
     }
   }
   // Drop a chain that shares a pawn with a longer one, and drop BOTH sides of a tie — each
