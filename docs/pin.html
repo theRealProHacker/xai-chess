@@ -51,13 +51,17 @@
 <body>
   <a class="back" href="index.html">&larr; xai-chess</a>
   <h1>Pin Intervention Demo</h1>
-  <p class="intro">The first <b>rule-level</b> demo. Load a position where the side to move can
-  exploit an <em>absolute pin</em> on an enemy piece (the arrow marks it), then press
-  <b>Suspend the pin</b>. The engine evaluates the position twice on a patched Stockfish&nbsp;18:
-  once normally, and once with that <em>one pin switched off</em> at the rules level &mdash; the
-  pinned piece may move as if it were free, and the pinning line no longer bears on the king.
-  Nothing else about the board changes. If a forced mate (or a winning edge) exists <em>only</em>
-  while the pin holds, the pin is causally load-bearing.</p>
+  <p class="intro">The first <b>rule-level</b> demo. Set up a position where the side to move pins an
+  enemy piece &mdash; type a FEN or play moves on the board &mdash; and mark the pin by
+  <b>right-dragging</b> an arrow from the pinning piece along the pin (detected pins are arrowed for
+  you; drag your own to override). Then press <b>Suspend the pin</b>. The engine evaluates the position
+  twice on a patched Stockfish&nbsp;18: once normally, and once with that <em>one pin switched off</em>
+  at the rules level, nothing else on the board changed. Both kinds work: an <b>absolute</b> pin (to
+  the <em>king</em>) frees the pinned piece to move; a <b>relative</b> pin (to a more valuable piece)
+  forbids the pinner from capturing that backstop, which frees the pinned piece the same way. If the
+  side to move's edge &mdash; a forced mate, or a winning evaluation &mdash; exists only while the pin
+  holds, the pin is load-bearing. (Marking the pin needs a mouse; draw it after any moves. On a quiet
+  position the eval swing is reproducible at fixed depth, not a measured causal magnitude.)</p>
 
   <div id="board"></div>
   <p class="status"><b id="turn">&nbsp;</b> &middot; <span id="engineStatus">Engine: loading&hellip;</span></p>
@@ -105,7 +109,7 @@ const MASK_OFF = 64;   // SQ_NONE — engine is byte-for-byte stock Stockfish 18
 
 let chess = new Chess(DEMO_FEN);
 let currentFen = chess.fen();
-let pin = null;          // {pinnedSq, pinnerSq, kingSq, pinnerIdx} or null
+let pins = [];           // all absolute pins (side to move pins an enemy piece to its king)
 let engineReady = false;
 
 const turnEl    = document.getElementById('turn');
@@ -122,49 +126,78 @@ const rAfter    = document.getElementById('rAfter');
 const rEff      = document.getElementById('rEff');
 const rDetail   = document.getElementById('rDetail');
 
-// --- board (chessground, view-only: the intervention is the mask, not a move) ---
+// --- board (chessground: play legal moves, and right-drag to mark the pin) ---
 const colorOf = () => (chess.turn() === 'w' ? 'white' : 'black');
+function dests(){
+  const map = new Map();
+  chess.moves({verbose:true}).forEach(m => {
+    if(!map.has(m.from)) map.set(m.from, []);
+    map.get(m.from).push(m.to);
+  });
+  return map;
+}
 const ground = Chessground(document.getElementById('board'), {
-  fen: chess.fen(), viewOnly: true, coordinates: true,
+  fen: chess.fen(), turnColor: colorOf(), coordinates: true,
+  movable:   {free:false, color: colorOf(), dests: dests(), showDests:true, events:{after:onMove}},
+  draggable: {showGhost:true},
+  drawable:  {enabled:true, onChange: onDrawChange},
   check: chess.in_check() ? colorOf() : false,
 });
+// Re-apply movable dests + re-seed the pin suggestion after any board change.
+// ground.set({fen}) wipes drawable.shapes, so the seed is redrawn here every time.
+function applyBoard(){
+  ground.set({fen: chess.fen(), turnColor: colorOf(), lastMove: null,
+    check: chess.in_check() ? colorOf() : false,
+    movable: {color: colorOf(), dests: dests()}});
+  pins = [...findAllPins(chess), ...findAllRelativePins(chess)];   // absolute + relative, both maskable
+  ground.setShapes(pins.map(p => ({orig: p.pinnerSq, dest: p.markSq, brush:'blue'})));
+}
+function onMove(orig, dest){ chess.move({from:orig, to:dest, promotion:'q'}); clearResult(); applyBoard(); syncStatus(); updateDetectState(); }
+// User right-drew an arrow: keep only their newest one (drop the seeded suggestion) so two don't linger.
+function onDrawChange(shapes){
+  const arrows = shapes.filter(s => s.dest);
+  if(arrows.length > 1) setTimeout(() => ground.setShapes([arrows[arrows.length - 1]]), 0);
+  updateDetectState();
+}
 
 // --- pin detection (geometric ray-scan; chess.js has no attackers API) ----------
 // Square index a1=0..h8=63, matching the engine's MaskPinner convention.
 const FILES = 'abcdefgh';
 function sqIndex(sq){ return FILES.indexOf(sq[0]) + (parseInt(sq[1],10)-1)*8; }
 function sqName(file, rank){ return FILES[file] + (rank+1); }  // file,rank 0-based
+const PIECE_WORDS = {p:'pawn',n:'knight',b:'bishop',r:'rook',q:'queen',k:'king'};
 
-// Find an absolute pin of an enemy piece (side NOT to move) to the enemy king, made by
-// a slider of the side to move. Returns {pinnedSq, pinnerSq, kingSq, pinnerIdx} or null.
-function findEnemyPin(game){
+const PIECE_VALUE = {p:1,n:3,b:3,r:5,q:9,k:0};
+
+// All ABSOLUTE pins: a slider of the side to move pins an enemy piece to the enemy KING. The pin
+// is a movement rule, so it is suspended confound-free at the rules level (MaskPinner). Returns
+// {surface:'rule', pinnedSq, pinnerSq, kingSq, markSq, pinnerIdx}.
+function findAllPins(game){
   const solver = game.turn();
   const enemy  = solver === 'w' ? 'b' : 'w';
-  // locate the enemy king
   let kf=-1, kr=-1;
   for(let r=0;r<8;r++) for(let f=0;f<8;f++){
     const pc = game.get(sqName(f,r));
     if(pc && pc.color===enemy && pc.type==='k'){ kf=f; kr=r; }
   }
-  if(kf<0) return null;
+  if(kf<0) return [];
   const ROOK=[[1,0],[-1,0],[0,1],[0,-1]];
   const BISHOP=[[1,1],[1,-1],[-1,1],[-1,-1]];
   const rays = [...ROOK.map(d=>[d,'r']), ...BISHOP.map(d=>[d,'b'])];
+  const out = [];
   for(const [[df,dr],kind] of rays){
     let f=kf+df, r=kr+dr, pinnedSq=null;
     while(f>=0&&f<8&&r>=0&&r<8){
       const pc = game.get(sqName(f,r));
       if(pc){
         if(!pinnedSq){
-          // first piece from the king: must be an enemy non-king to be pinnable
-          if(pc.color!==enemy || pc.type==='k') break;
+          if(pc.color!==enemy || pc.type==='k') break;   // first piece from king: enemy non-king
           pinnedSq = sqName(f,r);
         } else {
-          // second piece: is it a solver slider that moves along this ray?
           const slides = pc.type==='q' || (kind==='r' && pc.type==='r') || (kind==='b' && pc.type==='b');
           if(pc.color===solver && slides){
-            const pinnerSq = sqName(f,r);
-            return {pinnedSq, pinnerSq, kingSq: sqName(kf,kr), pinnerIdx: sqIndex(pinnerSq)};
+            const pinnerSq = sqName(f,r), kingSq = sqName(kf,kr);
+            out.push({surface:'rule', pinnedSq, pinnerSq, kingSq, markSq:kingSq, pinnerIdx: sqIndex(pinnerSq)});
           }
           break;
         }
@@ -172,20 +205,46 @@ function findEnemyPin(game){
       f+=df; r+=dr;
     }
   }
-  return null;
+  return out;
 }
 
-function drawPin(){
-  if(pin){
-    // arrow along the pin line (pinner -> king) and a circle on the pinned piece
-    ground.setShapes([
-      {orig: pin.pinnerSq, dest: pin.kingSq, brush: 'blue'},
-      {orig: pin.pinnedSq, brush: 'yellow'},
-    ]);
-  } else {
-    ground.setShapes([]);
+// All RELATIVE pins: a slider of the side to move pins an enemy piece to a MORE VALUABLE enemy
+// piece (not its king). The patched MaskPinner suspends these too — it forbids the pinner from
+// capturing the backstop, freeing the pinned piece as if that capture were unavailable — so they are
+// masked exactly like absolute pins (rule-level, confound-free). Returns {surface, pinnedSq, pinnerSq,
+// backSq, markSq, pinnerIdx, pinnedType, backType}.
+function findAllRelativePins(game){
+  const solver = game.turn(), enemy = solver === 'w' ? 'b' : 'w';
+  const ROOK=[[1,0],[-1,0],[0,1],[0,-1]], BISHOP=[[1,1],[1,-1],[-1,1],[-1,-1]];
+  const out = [];
+  for(let sr=0;sr<8;sr++) for(let sf=0;sf<8;sf++){
+    const pc = game.get(sqName(sf,sr));
+    if(!pc || pc.color!==solver) continue;
+    const dirs = pc.type==='q' ? [...ROOK,...BISHOP] : pc.type==='r' ? ROOK : pc.type==='b' ? BISHOP : null;
+    if(!dirs) continue;
+    for(const [df,dr] of dirs){
+      let f=sf+df, r=sr+dr, first=null;
+      while(f>=0&&f<8&&r>=0&&r<8){
+        const q = game.get(sqName(f,r));
+        if(q){
+          if(!first){ if(q.color!==enemy) break; first={sq:sqName(f,r), type:q.type}; }
+          else {
+            if(q.color===enemy && q.type!=='k' && PIECE_VALUE[q.type] > PIECE_VALUE[first.type]){
+              const pinnerSq = sqName(sf,sr), backSq = sqName(f,r);
+              out.push({surface:'rule', pinnedSq:first.sq, pinnerSq, backSq, markSq:backSq,
+                        pinnerIdx: sqIndex(pinnerSq),
+                        pinnedType:PIECE_WORDS[first.type], backType:PIECE_WORDS[q.type]});
+            }
+            break;   // king backstop = absolute (found elsewhere); own piece / lesser piece = no pin
+          }
+        }
+        f+=df; r+=dr;
+      }
+    }
   }
+  return out;
 }
+
 
 // --- controls ---------------------------------------------------------------
 function syncStatus(){
@@ -193,14 +252,37 @@ function syncStatus(){
   turnEl.textContent = (chess.turn()==='w' ? 'White' : 'Black') + ' to move';
 }
 
+// chess.js validate_fen is syntactic only — it accepts kingless boards, pawns on the back
+// rank, and a side-not-to-move-in-check position, all of which crash or fool Stockfish.
+function legalityError(game){
+  let wk=0, bk=0;
+  for(let r=0;r<8;r++) for(let f=0;f<8;f++){
+    const pc = game.get(sqName(f,r));
+    if(!pc) continue;
+    if(pc.type==='p' && (r===0 || r===7)) return 'A pawn can’t sit on the back rank.';
+    if(pc.type==='k'){ pc.color==='w' ? wk++ : bk++; }
+  }
+  if(wk!==1 || bk!==1) return 'Each side needs exactly one king.';
+  // The side NOT to move must not be in check, or its king could just be captured. Probe by
+  // swapping the active colour; blank the ep field first or chess.js rejects the swapped FEN.
+  const parts = game.fen().split(' ');
+  parts[1] = parts[1]==='w' ? 'b' : 'w';
+  parts[3] = '-';
+  const probe = new Chess();
+  if(probe.load(parts.join(' ')) && probe.in_check()){
+    const stm = game.turn()==='w' ? 'White' : 'Black';
+    return `${stm==='White'?'Black':'White'} is in check, but it’s ${stm} to move.`;
+  }
+  return '';
+}
 function loadFen(fen){
   const test = new Chess();
   if(!test.load(fen)){ errEl.textContent='Invalid FEN.'; return false; }
+  const bad = legalityError(test);
+  if(bad){ errEl.textContent = bad; return false; }
   errEl.textContent=''; chess = test; currentFen = chess.fen();
   clearResult();
-  ground.set({fen: chess.fen(), check: chess.in_check() ? colorOf() : false, lastMove: null});
-  pin = findEnemyPin(chess);
-  drawPin();
+  applyBoard();          // re-applies movable dests + re-seeds the pin suggestion
   syncStatus();
   updateDetectState();
   return true;
@@ -212,11 +294,23 @@ document.getElementById('flipBtn').addEventListener('click', () => ground.toggle
 document.getElementById('resetBtn').addEventListener('click', () => { fenInput.value=DEMO_FEN; loadFen(DEMO_FEN); });
 detectBtn.addEventListener('click', detect);
 
+function currentArrow(){ return [...ground.state.drawable.shapes].reverse().find(s => s.dest) || null; }
+// The engine can only suspend a real absolute pin, so the drawn arrow selects among detected
+// pins (by touching one's pinner/pinned/king square); it never masks an arbitrary square.
+function selectedPin(){
+  const a = currentArrow();
+  if(a){ const m = pins.find(p => [p.pinnerSq,p.pinnedSq,p.markSq].includes(a.orig)
+                                || [p.pinnerSq,p.pinnedSq,p.markSq].includes(a.dest)); if(m) return m; }
+  return pins[0] || null;
+}
+function noPinHint(){
+  return 'No pin here — set up a position where the side to move pins an enemy piece to its king '
+    + '(absolute) or to a more valuable piece (relative), then right-drag along the pin.';
+}
 function updateDetectState(){
   if(!engineReady){ detectBtn.disabled=true; hintEl.textContent=''; return; }
-  if(!pin){ detectBtn.disabled=true;
-    hintEl.textContent='No absolute enemy pin in this position — load one where the side to move pins an enemy piece to its king.'; }
-  else { detectBtn.disabled=false; hintEl.textContent=''; }
+  if(selectedPin()){ detectBtn.disabled=false; hintEl.textContent=''; }
+  else { detectBtn.disabled=true; hintEl.textContent = noPinHint(); }
 }
 
 // --- result panel -----------------------------------------------------------
@@ -306,18 +400,19 @@ function uciToSan(fen, uci){
 // --- the pin intervention ---------------------------------------------------
 async function detect(){
   const fen = chess.fen();
-  if(!pin){ showResult({cls:'na', title:'No enemy pin', detail:'Load a position where the side to move pins an enemy piece to its king.'}); return; }
+  const sel = selectedPin();
+  if(!sel){ updateDetectState(); return; }   // no pin — the hint explains
   const solver = chess.turn()==='w' ? 'White' : 'Black';
-  const pinnedName = chess.get(pin.pinnedSq);
-  const pieceWord = {p:'pawn',n:'knight',b:'bishop',r:'rook',q:'queen'}[pinnedName ? pinnedName.type : 'p'] || 'piece';
+  const pinnerPc = chess.get(sel.pinnerSq);
+  const pinName = `${PIECE_WORDS[pinnerPc ? pinnerPc.type : 'q'] || 'piece'} on ${sel.pinnerSq}`;
 
   detectBtn.disabled=true;
   showResult({cls:'thinking', title:'Analysing…',
-    detail:`Evaluating the position with the pin intact, then with the ${pin.pinnedSq} ${pieceWord}'s pin suspended…`});
+    detail:`Evaluating with the pin intact, then with the ${pinName}'s pin suspended at the rules level…`});
 
   try{
     const off = await analyse(fen, NODES, MASK_OFF);
-    const on  = await analyse(fen, NODES, pin.pinnerIdx);
+    const on  = await analyse(fen, NODES, sel.pinnerIdx);   // same board, MaskPinner on the pinner
     if((!off.score && off.bestmove==null) || (!on.score && on.bestmove==null)){
       showResult({cls:'na', title:'Engine unavailable', detail:'Stockfish did not respond. Reload the page and try again.'});
       return;
@@ -335,14 +430,14 @@ async function detect(){
       ? `${solver}: ${bestOff} — forced mate M${mateOff} · ${pct(wpOff)}`
       : `${solver}: ${scoreText(off.score)} · ${pct(wpOff)}`;
     const afterVal = mateOn!==null
-      ? `${solver}: still forced mate M${mateOn} · ${pct(wpOn)}`
+      ? `${solver}: forced mate M${mateOn} · ${pct(wpOn)}`
       : `${solver}: ${scoreText(on.score)} · ${pct(wpOn)}`;
 
     let cls, title, detail, eff='';
     if(mateOff!==null && mateOn===null){
       cls='causal'; title='Pin is load-bearing';
-      detail=`${solver} has a forced mate (${bestOff}, M${mateOff}) only while the pin holds. Suspend that one `
-           + `pin — let the ${pin.pinnedSq} ${pieceWord} move as if free — and the forced mate is gone. `
+      detail=`${solver} has a forced mate (${bestOff}, M${mateOff}) only while the pin holds. Switch off the `
+           + `${pinName}'s pin — let the pinned piece move as if free — and the forced mate is gone. `
            + `The pin, not the material on the board, is what makes the mate.`;
       if(wpOff!=null && wpOn!=null)
         eff=`Causal effect of the pin: ${solver}'s winning chances fall from ${pct(wpOff)} to ${pct(wpOn)} `
@@ -356,10 +451,10 @@ async function detect(){
       const swing = (wpOff!=null && wpOn!=null) ? (wpOff-wpOn) : 0;
       if(swing >= 0.15){
         cls='causal'; title='Pin is load-bearing';
-        detail=`No forced mate, but ${solver}'s advantage rests on the pin: suspending it drops the evaluation from `
-             + `${scoreText(off.score)} to ${scoreText(on.score)}.`;
-        eff=`Causal effect of the pin: winning chances fall from ${pct(wpOff)} to ${pct(wpOn)} `
-           + `(−${(swing*100).toFixed(1)} pts).`;
+        detail=`No forced mate, but at fixed depth ${solver}'s edge rests on the pin: suspending it moves the `
+             + `evaluation from ${scoreText(off.score)} to ${scoreText(on.score)}.`;
+        eff=`At a fixed ${(NODES/1000)|0}k-node search, ${solver}'s winning chances fall from ${pct(wpOff)} to `
+           + `${pct(wpOn)} (−${(swing*100).toFixed(1)} pts) — reproducible at this depth, not a measured causal magnitude.`;
       } else {
         cls='incidental'; title='Pin has little effect';
         detail=`Suspending the pin barely moves the evaluation (${scoreText(off.score)} → ${scoreText(on.score)}), so `
