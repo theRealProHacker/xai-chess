@@ -1,0 +1,604 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>xai-chess move-explanation landscape</title><style>
+body{max-width:820px;margin:2.5rem auto;padding:0 1.3rem;
+ font:18px/1.65 Georgia,'Times New Roman',serif;color:#1a1a1a;background:#fafafa}
+h1{font-size:1.9rem;line-height:1.25;margin:0 0 .3rem;border-bottom:3px solid #333;padding-bottom:.4rem}
+h2{font-size:1.4rem;margin:2.2rem 0 .6rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}
+h3{font-size:1.15rem;margin:1.6rem 0 .4rem;color:#333}
+p{margin:.7rem 0}em{color:#444}
+table{border-collapse:collapse;margin:1.2rem 0;font-size:.95rem;width:100%}
+th,td{border:1px solid #bbb;padding:.45rem .7rem;text-align:left}
+th{background:#eee}tr:nth-child(even) td{background:#f3f3f3}
+code{background:#eee;padding:.1rem .3rem;border-radius:3px;font-size:.9em}
+a{color:#0b5fa5}hr{border:none;border-top:1px solid #ccc;margin:2rem 0}
+ol,ul{padding-left:1.6rem}ol li{margin:.35rem 0}
+</style></head>
+<body><h1 id="move-level-chess-xai-what-exists">Move-level chess XAI — what exists</h1>
+<p>A landscape survey of systems that explain a <em>specific chess move</em>, in natural language or in a formal representation, and of the datasets behind them.</p>
+<p>Compiled 2026-08-01 from six parallel research passes: natural-language commentary, LLM-era and commercial systems, concept and mechanistic interpretability, symbolic and DSL explanation, datasets, and evaluation.</p>
+<p>This is a companion to <code>paper/survey.md</code>, not a replacement. That document argues a thesis about causal-intervention evaluation. This one inventories what exists.</p>
+<p>Every claim traces to a fetched source. Anything that could not be confirmed that way is marked <strong>UNVERIFIED</strong> inline and must not be cited on this document&rsquo;s authority.</p>
+<hr />
+<h2 id="1-bottom-line">1. Bottom line</h2>
+<p><strong>Four systems in fifty years explain a specific move symbolically</strong>: PARADISE (1980), Automated Chess Tutor (2006), CCC (2025), Caïssa AI (2025).</p>
+<p>Everything else classifies whole puzzles, analyses the model globally, or attributes to squares without naming a motif.</p>
+<p><strong>No formal grammar of chess motifs exists.</strong> Three artifacts come close, and none denotes &ldquo;the reason this move is good&rdquo;: CQL queries positions, Bizjak &amp; Guid tokenise motifs for retrieval, <code>cook.py</code> is imperative Python booleans.</p>
+<p><strong>Nobody measures whether an explanation is true.</strong> Every generation system is scored on fluency, human preference, LLM-judge rating, or downstream move accuracy. None checks whether an asserted tactical claim holds on the board.</p>
+<p><strong>No benchmark measures causal faithfulness of chess move explanations.</strong> The one chess explanation benchmark that exists grades agreement with a human expert vote — the plausibility axis.</p>
+<p><strong>Causal work and concept work are disjoint populations.</strong> Strong causal machinery explains via squares and future moves. Human concept vocabularies come with no intervention. One 2026 preprint spans both, and it is unreviewed.</p>
+<hr />
+<h2 id="2-definitions">2. Definitions</h2>
+<p>Three notions are routinely conflated in this literature. The rest of this document depends on keeping them apart.</p>
+<p><strong>Faithfulness</strong> — the explanation reflects the system&rsquo;s actual decision process. Established by intervention or by ground truth, never by asking a human.</p>
+<p><strong>Plausibility</strong> — the explanation convinces a human, or matches a human-written reference. This is what almost every chess metric measures.</p>
+<p><strong>Simulatability</strong> — a human can predict the agent&rsquo;s behaviour given the explanation. A third axis, and not a proxy for either of the others.</p>
+<p>Jacovi &amp; Goldberg (ACL 2020) supply the canonical statement and three guidelines that indict most of the work below: faithfulness evaluation must not use human judgement of interpretation quality, human-provided gold labels, or user performance.</p>
+<p>Chen et al. (ICML 2024) settle the empirical question. Counterfactual-simulation precision correlates with human plausibility ratings at <strong>r = +0.012</strong>, against inter-annotator plausibility agreement of +0.388. The axes are orthogonal.</p>
+<hr />
+<h2 id="3-the-grounding-problem">3. The grounding problem</h2>
+<p>Before asking whether an explanation is <em>true</em>, you must know what it is <em>about</em>. Chess work has not addressed this. Shogi work solved it in 2015.</p>
+<p><strong>Kameko, Mori &amp; Tsuruoka</strong>, IEEE CIG 2015, pp. 177–184. Their insight: a commentary sentence is usually not about the current position. It refers to a hypothetical continuation or a past line.</p>
+<p>So the comment&rsquo;s move expressions must first be grounded to a <em>node in the game tree</em>. They enumerate candidate trees over the current position plus the previous three moves, inserting <code>Pass</code> for lines that are illegal but commented.</p>
+<p>Selection uses engine evaluations, <code>Ev_T(t) = Σ_m Ev_M(m) − max_m Ev_M(m) + B_P + B_B</code>. The heuristic: experts comment on bad moves <em>by showing the right move</em>, so the correct tree is the one <strong>not</strong> containing a sequence of bad moves.</p>
+<p>Generation is a 3-layer perceptron predicting a characteristic-word vector from the engine&rsquo;s evaluation features, then a log-linear language model conditioned on position plus predicted words.</p>
+<p>Results: at least one candidate tree for 44,166 of 54,084 positions (81.2%); of 100 hand-checked, the correct tree for 79. There is <strong>no BLEU and no human study</strong> — grounding accuracy and qualitative figures only.</p>
+<p>Their own error analysis is the load-bearing part. About 20% of move-expression comments produce no candidates and about 20% select the wrong tree, and both &ldquo;directly affect the performance of the trained model.&rdquo;</p>
+<p>Every chess system assumes the comment refers to the current position, and several then blame that assumption for hallucination. This sits upstream of faithfulness: you cannot check a claim against a position until you know which position.</p>
+<p>Predecessor: <strong>Kaneko</strong>, IPSJ Journal 53(11):2525–2532, 2012 (Japanese), template-based over search output. Attested only as a reference in the Kameko PDF, so bibliography-grade. Kameko&rsquo;s critique — template variety &ldquo;is much smaller than that of human experts.&rdquo;</p>
+<p><strong>Go commentary generation: nothing found.</strong> The nearest work (Tomlin, He &amp; Klein, ACL 2022, arXiv:2204.07531) probes AlphaGo Zero for domain terms such as <em>ko</em> and <em>atari</em>. That is interpretation, not generation.</p>
+<hr />
+<h2 id="4-systems-that-explain-a-specific-move">4. Systems that explain a specific move</h2>
+<h3 id="4a-natural-language">4a. Natural language</h3>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>Yr</th>
+<th>Engine in loop?</th>
+<th>Symbolic intermediate</th>
+<th>Eval of the explanation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Jhamtani et al., GameKnot commentary</td>
+<td>2018</td>
+<td>No (board features)</td>
+<td>Hand-coded board/attack features</td>
+<td>BLEU + human validity</td>
+</tr>
+<tr>
+<td>Butner, ChessCoach</td>
+<td>2021</td>
+<td>Yes (own AZ-style)</td>
+<td>No</td>
+<td>Author: &ldquo;often wrong&rdquo;</td>
+</tr>
+<tr>
+<td>Lee, Wu, Dinan &amp; Lewis</td>
+<td>2022</td>
+<td>Yes (Leela)</td>
+<td>5 discrete control tags</td>
+<td>Human A/B, perplexity</td>
+</tr>
+<tr>
+<td>Kim et al., <strong>CCC</strong></td>
+<td>2025</td>
+<td>Yes (Lc0 probes + SF8)</td>
+<td>20 scored concepts</td>
+<td>GCC-Eval + 5 raters</td>
+</tr>
+<tr>
+<td>Tang et al., <strong>C1</strong></td>
+<td>2026</td>
+<td>Yes (SF depth-24 PV)</td>
+<td>PV trace, not logic</td>
+<td><strong>None</strong> — move accuracy only</td>
+</tr>
+<tr>
+<td>Cui, Ling &amp; Ng</td>
+<td>2026</td>
+<td>Yes (SF16 strategy tree)</td>
+<td>Strategy tree (JSON)</td>
+<td>Downstream puzzle-playing utility</td>
+</tr>
+<tr>
+<td>DecodeChess (commercial)</td>
+<td>2019–23</td>
+<td>Yes (SF search verifies)</td>
+<td><strong>Verified concept predicates</strong></td>
+<td>None published</td>
+</tr>
+<tr>
+<td>ChessBase Fritz &ldquo;Full analysis&rdquo;</td>
+<td>1996–</td>
+<td>Yes</td>
+<td>Tactical pattern rules</td>
+<td>3× ICCA Herschberg Award</td>
+</tr>
+</tbody>
+</table>
+<p>The published field is smaller than it looks. A DBLP sweep plus enumeration of all 46 papers citing Jhamtani puts the complete list of published game-commentary generators in 1990–2022 at six.</p>
+<p>Those six: Liao &amp; Chang 1990 (Othello), Sadikov et al. 2006, Guid et al. 2008, Jhamtani et al. 2018, Zang et al. 2019, Lee et al. 2022. The commercial systems in §4b predate all of them and published nothing.</p>
+<p>Worth stating if you build on Lee et al.&rsquo;s tag scheme: it does not appear in DBLP at all, no venue was found, and there is no code or data release. It is arXiv-only.</p>
+<p><strong>Lee et al. (arXiv:2212.08195)</strong> is the only system with an explicit symbolic control interface. BART conditioned on piece-square tokens, PGN, an attack list (<code>White R_a1$P_a2</code>), and five control tags supplied by Leela at inference.</p>
+<p>Its weak point is upstream: the tag extractors score only 67–73% F1, so the signal linking board facts to text is itself noisy.</p>
+<p><strong>CCC (NAACL 2025)</strong> reads 20 concept vectors from LeelaChessZero T78 layer 40 via linear SVMs, trained on 200K Lichess positions labelled by Stockfish 8 eval terms.</p>
+<p>Concepts are ranked by pre/post-move score delta and the top ones handed to GPT-4o. Its own human numbers are the field&rsquo;s clearest diagnosis: <strong>fluency 0.91, correctness 0.60</strong> across 5 raters (mean 1776 rapid).</p>
+<p>Concept guidance buys style, not truth. Inter-rater Fleiss κ is weak away from correctness, 0.18–0.24. Code: <code>github.com/ml-postech/concept-guided-chess-commentary</code>.</p>
+<p><strong>C1 (arXiv:2603.20510)</strong> names the exact tension and resolves it with a prompt rather than a verifier. From §3.2.2: too faithful and the model parrots the moves; too exploratory and it hallucinates and loses grounding.</p>
+<p>Reward and metric are both final-move exact match. The explanations are never evaluated.</p>
+<p><strong>Cui, Ling &amp; Ng (arXiv:2607.11486)</strong> explicitly reject post-hoc justification and evaluate by Tree-Expanded Puzzle Playing. A separate player sees only the description and plays the puzzle against adversarially sampled replies.</p>
+<p>Scoring is the resulting Stockfish evaluation. No LLM judge anywhere in the metric. Findings: main-line-only evaluation is insufficient, LLM judges are unreliable proxies for humans, and pure concept-based description yields little improvement.</p>
+<p>One further result matters for anyone building a DSL: verbalising the strategy tree is <em>lossy</em>. The raw JSON outperforms every prose rendering of it.</p>
+<h3 id="4b-commercial-annotators">4b. Commercial annotators</h3>
+<p>Chessprogramming.org was 503 throughout this survey, so these were resolved from primary sources — engine source, archived manuals, vendor help pages.</p>
+<table>
+<thead>
+<tr>
+<th>Product</th>
+<th>Verbal explanation?</th>
+<th>What it emits</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Chessmaster 3000</strong> (1991)</td>
+<td><strong>Yes</strong></td>
+<td>&ldquo;Natural language advice in plain, clear English&rdquo;</td>
+<td>1991 manual (archive.org)</td>
+</tr>
+<tr>
+<td><strong>Chessmaster 4000</strong> (1995)</td>
+<td><strong>Yes</strong></td>
+<td>Named command &ldquo;Natural Language Advice&rdquo;</td>
+<td>1995 manual (archive.org)</td>
+</tr>
+<tr>
+<td>ChessBase Fritz &ldquo;Full analysis&rdquo;</td>
+<td>Yes</td>
+<td>&ldquo;variations, textual commentary… opening references&rdquo;</td>
+<td>ChessBase help</td>
+</tr>
+<tr>
+<td>Crafty <code>annotate</code></td>
+<td><strong>No</strong></td>
+<td>PGN + engine lines + Informant symbols</td>
+<td><code>annotate.c</code> source</td>
+</tr>
+<tr>
+<td>ChessBase &ldquo;Assisted Analysis&rdquo;</td>
+<td><strong>No</strong></td>
+<td>Colour-coded board overlay</td>
+<td>ChessBase help</td>
+</tr>
+<tr>
+<td>Shredder Chess Tutor</td>
+<td><strong>No</strong></td>
+<td>Arrows and symbols on the board</td>
+<td>Shredder site</td>
+</tr>
+<tr>
+<td>HIARCS Chess Explorer</td>
+<td><strong>No</strong> (apparently)</td>
+<td>Notation, symbols, statistics</td>
+<td>HIARCS site</td>
+</tr>
+<tr>
+<td>Aquarium / IDeA</td>
+<td>Unresolved</td>
+<td>Output format not publicly documented</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Chessmaster shipped a natural-language move explainer in 1991, using the recipe everyone still uses.</strong> From the Chessmaster 3000 manual, Mentor → Advice → Detailed:</p>
+<blockquote>
+<p>&ldquo;Get more detailed advice and analysis, including the suggested move, the predicted following line of play, and the impact of the line of play on material points and position. <strong>The analysis is presented in plain English.</strong>&ldquo;</p>
+</blockquote>
+<p>That is engine PV plus material and positional deltas, rendered as prose, with user-set think time. Structurally identical to Automated Chess Tutor (2006) and CCC (2025).</p>
+<p>By Chessmaster 4000 (1995) it is a first-class named command. No mechanism was ever published for either, so the lineage is invisible to the academic literature that reinvented it.</p>
+<p><strong>Crafty&rsquo;s <code>annotate</code> is not a verbal annotator</strong> — a persistent misconception, settled here from source. It emits PGN plus engine variations and scores, gated by a <code>margin</code> threshold in pawns.</p>
+<p>Output is <code>.can</code>, HTML with board bitmaps, or LaTeX. The complete set of English strings in <code>annotate.c</code> is the four status messages: which side is being annotated, for which player, and at what margin.</p>
+<p>The only qualitative judgements are LaTeX macros from the <code>chess</code> package — <code>\wbetter</code>, <code>\bupperhand</code>, <code>\wdecisive</code>, <code>\equal</code> — that is, Informant symbols. Zero natural language.</p>
+<p>This is why Sadikov et al. wrapped Crafty in 2006: Crafty itself does not do this.</p>
+<p><strong>DecodeChess is the architectural outlier.</strong> Its mechanism, in its own words: &ldquo;Every suggested chess concept is verified to being relevant and important to the decoded position.&rdquo;</p>
+<p>An open file is asserted &ldquo;only if it can be proved to affect the future course of the game,&rdquo; using &ldquo;vast searching abilities of the search engine (Stockfish in our case).&rdquo;</p>
+<p>Propose, then verify against search, then assert. Output is slot-filled templates and there is no LLM anywhere. It is the closest thing to a causal-faithfulness design that has ever shipped.</p>
+<p>There is <strong>no paper and no patent</strong>. Google Patents returns zero for assignee Decodea and for inventors Ofer Shamai and Zeev Fine. Everything known comes from marketing copy that happens to be technically specific.</p>
+<p>The product is dormant; the blog archive ends April 2023.</p>
+<p><strong>ChessBase &ldquo;Assisted Analysis&rdquo; is a colour overlay, not text</strong>: green for a very good move through red for a very bad one. Its stated design goal is to withhold evaluations so the user calculates independently.</p>
+<h3 id="4c-symbolic-logical-and-dsl">4c. Symbolic, logical, and DSL</h3>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>Yr</th>
+<th>Formal representation</th>
+<th>Origin</th>
+<th>Available</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wilkins, <strong>PARADISE</strong></td>
+<td>1980</td>
+<td>Production rules; conditions match patterns, actions post concepts into a database; concepts → plans → guided search</td>
+<td>Hand</td>
+<td>Papers only</td>
+</tr>
+<tr>
+<td>Michie &amp; Bratko, <strong>Advice Language</strong> AL0/AL1/AL3</td>
+<td>1976–82</td>
+<td>Advice = goal + constraints, compiled to a forcing tree</td>
+<td>Hand</td>
+<td>Papers</td>
+</tr>
+<tr>
+<td>Bratko KRK strategy (re-formalised 2019)</td>
+<td>1978→2019</td>
+<td>7 named rules over <code>room</code>, <code>critical square</code>, <code>rook exposed</code>, <code>rook divides</code>, <code>L-pattern</code></td>
+<td>Hand</td>
+<td><strong>Open (LMCS)</strong></td>
+</tr>
+<tr>
+<td>Gadwal/Greer/McCalla, UMRAO</td>
+<td>1990/93</td>
+<td>Extension of Michie&rsquo;s advice language → strategy graph</td>
+<td>Hand</td>
+<td>Paper</td>
+</tr>
+<tr>
+<td><strong>Automated Chess Tutor</strong></td>
+<td>2006</td>
+<td>Eval-feature vector difference across the PV, plus an IF-THEN composition layer</td>
+<td>Hand+</td>
+<td>Paper</td>
+</tr>
+<tr>
+<td>ABML line (Možina/Guid/Sadikov/Bratko)</td>
+<td>2007–13</td>
+<td>Arguments attached to individual examples; ABCN2 unordered probabilistic rules</td>
+<td>Learned from expert arguments</td>
+<td>Papers</td>
+</tr>
+<tr>
+<td>Guid et al., KBNK from tablebase</td>
+<td>2009–13</td>
+<td>ABML + specialised minimax → textbook instructions</td>
+<td>Semi-auto</td>
+<td>Papers</td>
+</tr>
+<tr>
+<td><strong>Caïssa AI</strong></td>
+<td>2025</td>
+<td>Prolog predicates returning <strong>witness pieces</strong></td>
+<td>Hand</td>
+<td><strong>GPL-2.0</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>PARADISE</strong> (Wilkins, <em>Artificial Intelligence</em> 14(2):165–203, 1980) encodes knowledge as production rules whose &ldquo;actions post concepts in the data base while the conditions match patterns in the chess position and data base.&rdquo;</p>
+<p>It discovers plans during static analysis and searches only to <em>confirm</em> the plan. Search trees run to tens and hundreds of nodes, with combinations to 19 ply.</p>
+<p>The justification is therefore the concept chain that produced the plan, not a post-hoc score. This is the property later systems lost.</p>
+<p><strong>UNVERIFIED:</strong> the internal syntax of a PARADISE rule and its concept vocabulary. <em>AI</em> 14(2) and SRI Technical Note 509 are both unreachable online. Also unverified: the widely repeated claim that the test set was 100 positions from Reinfeld&rsquo;s <em>Win at Chess</em>.</p>
+<p><strong>Advice Language.</strong> The exact AL clause syntax could not be confirmed — every primary text is paywalled or pre-digital. <strong>Do not assert the syntax.</strong></p>
+<p>What is freely readable is the resulting KRK strategy, re-formalised by Janičić, Marić &amp; Maliković (<em>Logical Methods in Computer Science</em> 15(1:34), 2019).</p>
+<p>Their auxiliary predicates are credited to Bratko: <code>room</code> (half-perimeter of the rectangle confining the black king, 15 if unconfined), <code>critical square</code>, <code>rook exposed</code>, <code>rook divides</code>, <code>L-pattern</code>, <code>kings on same edge</code>.</p>
+<p>The strategy is seven prioritised rules — <code>ImmediateMate</code>, <code>ReadyToMate</code>, <code>Squeeze</code>, <code>Approach</code>, <code>KeepRoom</code>, <code>RookHome</code>, <code>RookSafe</code> — with coverage counts over all 175,168 white-to-move KRK positions.</p>
+<p>That paper is the right citation for AL&rsquo;s <em>content</em>, though not for its syntax.</p>
+<p><strong>Automated Chess Tutor</strong> (Sadikov, Možina, Guid, Krivec &amp; Bratko, CG 2006, pp. 13–25) is CCC&rsquo;s direct ancestor, twenty years early.</p>
+<p>Crafty returns the principal variation; the system takes the vector difference between the eval-feature vector now and at the end of that PV. Positive components are goals achieved, negative ones are weaknesses created.</p>
+<p>In their words: &ldquo;The goals in our schema are simply the evaluation function&rsquo;s features.&rdquo; An expert-system IF-THEN layer composes basics into human-level features and suppresses redundant complements.</p>
+<p><strong>No evaluation is reported.</strong> CCC&rsquo;s mechanism is structurally identical with learned probes substituted for hand-written eval terms.</p>
+<p><strong>Caïssa AI</strong> (Soliman &amp; Ehab, KI 2025, LNCS 15956, pp. 148–160) exposes seven per-move predicates in <code>reason.pl</code> — <code>fork_reason/5</code>, <code>absolute_pin_reason</code>, <code>relative_pin_reason</code>, <code>skewed_reason</code>, and three more.</p>
+<p>Each takes a (from, to) move and <strong>returns the witness pieces</strong>. A LangGraph module splits LLM commentary into atomic claims and checks each against the Prolog knowledge base.</p>
+<p><strong>Evaluation UNVERIFIED</strong> — paywalled, no open-access copy, no evaluation artifacts in the repo. Its reference [18] also cites arXiv:2306.12948 for ChessGPT, which is a number-theory paper; the real one is arXiv:2306.09200.</p>
+<hr />
+<h2 id="5-motif-vocabularies-and-the-witness-gap">5. Motif vocabularies and the witness gap</h2>
+<h3 id="the-witness-gap">The witness gap</h3>
+<p>Lichess&rsquo;s shipped detectors are the de-facto motif DSL, and they are imperative Python booleans that discard their own evidence.</p>
+<p>Every detector is a <code>(puzzle) -&gt; bool</code> querying <code>python-chess</code> primitives: <code>board.pin</code>, <code>board.attacks</code>, <code>board.attackers</code>, <code>board.checkers</code>, <code>SquareSet.between</code>, plus helpers such as <code>util.is_hanging</code> and <code>material_diff</code>.</p>
+<p>Two structural consequences follow.</p>
+<p><strong>They classify a puzzle line, not a move.</strong> <code>fork</code> returns <code>True</code> if <em>any</em> solver move forks. The output is a puzzle tag, never &ldquo;this move is good because X.&rdquo;</p>
+<p><strong>They discard the witness.</strong> <code>fork()</code> counts <code>nb &gt; 1</code> attacked pieces and throws away which ones. Contrast Caïssa&rsquo;s <code>fork_reason(Piece, Color, Pos, NextPos, ListOfOpponents)</code>.</p>
+<p>Only <code>zugzwang</code> is engine-grounded, and it is a genuine counterfactual: push a null move, re-analyse at depth 30, and fire if <code>win_chances(score) &lt; win_chances(rev_score) - 0.3</code>.</p>
+<p>That null-move test is the only counterfactual construct in the entire shipped Lichess vocabulary.</p>
+<p>The natural-language theme definitions live in <code>lila/translation/source/puzzleTheme.xml</code> and are maintained separately from the Python predicates, with no formal link. That is a soundness hazard for anyone treating the tags as ground truth.</p>
+<h3 id="pattern-languages-that-are-not-explanations">Pattern languages that are not explanations</h3>
+<p><strong>CQL</strong> (Costeff, <em>ICGA Journal</em> 27(4):217–225, 2004; CQL 6.2, free) is the real chess pattern DSL: declarative filters over PGN with move-sequence regexes and board transformations.</p>
+<p>The transformations — rotations, reflections, shifts — are what make it a pattern language rather than position lookup. But it was built for <em>finding</em> thematic material, not explaining a move.</p>
+<p><strong>UNVERIFIED:</strong> whether CQL 6.x ships built-in <code>pin</code>/<code>fork</code>/<code>skewer</code> filters. The documentation page fetched does not list them.</p>
+<p><strong>Bizjak &amp; Guid</strong>, ACG 2021, LNCS 13262, pp. 131–141, is the closest thing to a term-level motif DSL.</p>
+<p><em>Static</em> terms cover placement (<code>Ra1</code>), distance-decayed reachability (<code>Rb1|0.89</code>), connectivity — attacks <code>B&gt;pg7</code>, defends <code>R&lt;Kh1</code>, X-ray <code>R=pa7</code> — and pawn structure.</p>
+<p><em>Dynamic</em> terms describe the solution line: <code>?px</code>, <code>?ox</code>, <code>?+</code>, <code>?=</code>, <code>?S</code> for sacrifice, <code>?#</code>, plus per-move markers. They are deliberately position-independent so motifs generalise across the board.</p>
+<p>Retrieval is Lucene with BM25. On 400 expert-paired CT-ART puzzles, top-1 scores are static-only 0.252, dynamic-only 0.418, combined 0.481; top-10 are 0.433, 0.761, 0.814.</p>
+<blockquote>
+<p><strong>Dynamic beats static by a wide margin. That is the strongest published evidence that the reason for a move is not recoverable from the position alone.</strong></p>
+</blockquote>
+<h3 id="an-unused-output-interface">An unused output interface</h3>
+<p>Chess already has a standardised, language-independent symbolic annotation vocabulary: Numeric Annotation Glyphs, from Edwards&rsquo; PGN specification (1994).</p>
+<p>A NAG is <code>$</code> plus an integer 0–255, with roughly 140 defined. Codes 1–9 annotate the move played (<code>$1</code> for <code>!</code>, <code>$2</code> for <code>?</code>, <code>$4</code> for <code>??</code>); 10–135 describe the position; 136–139 cover time pressure.</p>
+<p><strong>No system in this literature targets NAGs as an output interface.</strong> A move explainer emitting <code>$1</code>/<code>$21</code>/<code>$36</code> alongside prose would be gradeable against an existing standard and comparable across systems.</p>
+<h3 id="engine-grounding-has-regressed">Engine grounding has regressed</h3>
+<p>Stockfish 15&rsquo;s <code>evaluate.cpp</code> had a <code>Trace</code> namespace with named terms — material, imbalance, mobility, threat, passed, space, winnable — printed as an additive MG/EG table by colour.</p>
+<p><strong>That is gone.</strong> Master&rsquo;s <code>nnue_misc.cpp::trace</code> prints only a bucket-level <code>Material (PSQT) | Positional (Layers) | Total</code> table. The per-square table its code comment still promises is no longer emitted.</p>
+<p>Modern Stockfish has no term-level explanation at all. This is why both McGrath (2022) and Kim (2025) reach back to <strong>Stockfish 8</strong> for a named concept vocabulary.</p>
+<p>The Stockfish Evaluation Guide (<code>hxim.github.io/Stockfish-Evaluation-Guide</code>) preserves a JavaScript reimplementation, last updated August 2020.</p>
+<hr />
+<h2 id="6-concept-based-interpretability">6. Concept-based interpretability</h2>
+<p>Most of this work is global. It explains the model, not the move.</p>
+<table>
+<thead>
+<tr>
+<th>Work</th>
+<th>Unit</th>
+<th>Per-move?</th>
+<th>Causal validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>McGrath et al., PNAS 2022</td>
+<td>sparse linear probe / CAV</td>
+<td><strong>No</strong> — global</td>
+<td><strong>None</strong> (explicitly declined)</td>
+</tr>
+<tr>
+<td>Schut et al., PNAS 2025</td>
+<td>sparse concept vector, L1-min under ranking constraints</td>
+<td>Obliquely (prototypes)</td>
+<td>No activation intervention</td>
+</tr>
+<tr>
+<td>Pálsson &amp; Björnsson, IJCAI 2023</td>
+<td>probes on <strong>Stockfish NNUE</strong></td>
+<td><strong>No</strong> (states this outright)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Karvonen, COLM 2024</td>
+<td>linear probes on chess-GPT</td>
+<td>Yes (behavioural)</td>
+<td><strong>Yes</strong> — 41% → 92% legal</td>
+</tr>
+<tr>
+<td>Karvonen et al., NeurIPS 2024</td>
+<td>SAE features</td>
+<td>No</td>
+<td><strong>None</strong> — F1 vs ground truth</td>
+</tr>
+<tr>
+<td>Jenner et al., NeurIPS 2024</td>
+<td>residual activations, attention heads</td>
+<td><strong>Yes</strong></td>
+<td><strong>Yes</strong> — patching + ablation</td>
+</tr>
+<tr>
+<td>Lin et al., arXiv 2604.10158</td>
+<td>transcoders + Lorsa on LC0 BT4</td>
+<td><strong>Yes</strong> — per-move pathways</td>
+<td><strong>Yes</strong> — steering, zero-ablation</td>
+</tr>
+<tr>
+<td>Chessformer, arXiv 2605.19091</td>
+<td>cross-layer transcoder</td>
+<td>No</td>
+<td><strong>None</strong> (authors flag it)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>McGrath et al. §4.5 is the passage to quote.</strong> They argue intervention is the correct validation, then decline it, on two grounds.</p>
+<p>First, chess concepts are mutually entangled — you cannot zero <code>can_capture_queen</code> without setting <code>in_check</code>. Second, internal edits risk pushing the network off-distribution.</p>
+<p>So the field&rsquo;s highest-profile &ldquo;chess concepts in a network&rdquo; result rests entirely on probe accuracy.</p>
+<p><strong>Jenner et al. is the methodological benchmark for causal work in chess.</strong> Patching the 3rd-move target square at layer 10 costs <strong>1.88 ± 0.04</strong> log-odds, against <strong>0.55 ± 0.01</strong> for the maximum over all 61 other squares.</p>
+<p>Zero-ablating a <em>single</em> attention entry in L12H12 reduces log-odds by more than 1.5 in over 10% of puzzles — a larger effect than ablating all 4,095 other entries in that head combined.</p>
+<p><strong>Sandmann et al. (arXiv:2508.21380) is the sharpest negative result in the field, and nobody has built on it.</strong> Leela computes the correct solution mid-network, then overrides it at the output.</p>
+<p>They call these &ldquo;forgotten puzzles,&rdquo; and steering against the learned prior recovers 61.7% of them. A probe fires and the behaviour does not follow. That is the empirical case against probe-accuracy-as-explanation.</p>
+<p>Two reproducibility cliffs. AlphaZero&rsquo;s weights and games are proprietary in both PNAS papers, so neither the probes nor the concept vectors can be re-derived.</p>
+<p>Consequently every causal result in the field runs on Leela or chess-GPT, never on AlphaZero.</p>
+<p><strong>TCAV proper has never been run on chess.</strong> Both chess &ldquo;CAV&rdquo; papers borrow the vector construction and drop the directional-derivative sensitivity score. An unclaimed and cheap baseline.</p>
+<hr />
+<h2 id="7-datasets">7. Datasets</h2>
+<table>
+<thead>
+<tr>
+<th>Dataset</th>
+<th>Size</th>
+<th>Explanation side</th>
+<th>Move-aligned</th>
+<th>License</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GameKnot commentary</strong> (Jhamtani 2018)</td>
+<td>11,578 games / <strong>298,008</strong> pairs</td>
+<td>free text + 6 category tags</td>
+<td><strong>yes</strong></td>
+<td>none stated</td>
+</tr>
+<tr>
+<td>↳ <em>mirror</em>: ChessGPT <code>annotated_pgn_free.tar.gz</code></td>
+<td>12,770 GameKnot PGNs</td>
+<td>inline <code>{}</code> prose</td>
+<td>yes</td>
+<td>apache-2.0 declared; upstream grey</td>
+</tr>
+<tr>
+<td>Waterhorse/chess_data (ChessGPT full)</td>
+<td>37.6 GB / 461 files</td>
+<td>mixed</td>
+<td>partly</td>
+<td>apache-2.0 (mixed upstream)</td>
+</tr>
+<tr>
+<td><strong>Lichess puzzles</strong></td>
+<td><strong>6,057,356</strong></td>
+<td><strong>73 motif tags</strong></td>
+<td>position-level</td>
+<td><strong>CC0-1.0</strong></td>
+</tr>
+<tr>
+<td>Lichess standard games</td>
+<td>~7.14B</td>
+<td><code>%eval</code>, NAGs</td>
+<td>move-level eval</td>
+<td><strong>CC0-1.0</strong></td>
+</tr>
+<tr>
+<td>Lichess eval DB</td>
+<td><strong>394,669,566</strong> positions</td>
+<td>SF cp/mate + PVs</td>
+<td>position-level</td>
+<td><strong>CC0-1.0</strong></td>
+</tr>
+<tr>
+<td><strong>ChessBench</strong> (Ruoss 2024)</td>
+<td>10M games / <strong>15B</strong> annotations</td>
+<td>scalar win-prob — <strong>no language</strong></td>
+<td>move-level</td>
+<td>CC-BY-4.0</td>
+</tr>
+<tr>
+<td>MATE (Wang 2025)</td>
+<td>~1M positions</td>
+<td><strong>templated</strong> phrases</td>
+<td>move-level</td>
+<td>MIT</td>
+</tr>
+<tr>
+<td>ChessQA</td>
+<td>3,500 items (Semantic = 400)</td>
+<td>structured gold answers</td>
+<td>position-level</td>
+<td>MIT</td>
+</tr>
+<tr>
+<td>Icannos/chess_studies</td>
+<td>6,110 rows</td>
+<td>PGN prose + arrows</td>
+<td>yes</td>
+<td>CC0 self-declared</td>
+</tr>
+<tr>
+<td>Shogi Commentary Corpus</td>
+<td>4,327 games / <strong>218,615</strong> JP comments</td>
+<td>free text + <strong>factuality layer</strong></td>
+<td>yes</td>
+<td>not stated</td>
+</tr>
+</tbody>
+</table>
+<p><strong>The GameKnot corpus is downloadable after all.</strong> Jhamtani&rsquo;s repo ships only a Python-2.7 and PyQt4 crawler, expects you to re-scrape gameknot.com, and its <code>license</code> field is <code>null</code>.</p>
+<p>ChessGPT&rsquo;s release mirrors it: <code>chessclip_data/annotated_pgn/annotated_pgn_free.tar.gz</code>, 57.6 MB, 12,770 GameKnot PGNs with move-aligned <code>{}</code> prose. Rights are grey either way — forum comments were never licensed by their authors.</p>
+<p><strong>Correction worth recording:</strong> Zang/Yu/Wan 2019 released <em>no</em> commentary-dataset extension. They use Jhamtani&rsquo;s data unchanged.</p>
+<p>What they added is an <em>engine</em>-training corpus: FICS games with both players rated 2000+, giving 36M single-move records. They also drop the <em>General</em> category as &ldquo;irrelevant to game analysis,&rdquo; running on 5 of 6.</p>
+<p><strong>Lichess themes number 73.</strong> That is 75 <code>categorized</code> entries in <code>PuzzleTheme.scala</code>, minus <code>mate</code> duplicated across two groups, minus the <code>mix</code> UI pseudo-theme. One hidden theme, <code>checkFirst</code>, is never exported.</p>
+<p>The generator is <code>ornicar/lichess-puzzler</code>, <code>tagger/cook.py</code>, AGPL-3.0. Frequency skew is roughly 2,500:1 — <code>short</code> at 50.5% and <code>endgame</code> at 50.0% against <code>underPromotion</code> at 0.02%.</p>
+<p>23 themes are rule-derived <code>staticThemes</code>; the rest are vote-refined and carry crowd noise. <code>cook.py</code> still emits an <code>overloading</code> tag that appears <strong>zero</strong> times in the live export.</p>
+<p><strong>Label provenance is worse than it looks.</strong> Jhamtani&rsquo;s category labels are SVM output on 297K of 298K rows — only 1K comments were hand-annotated, by two annotators.</p>
+<p>The &ldquo;Comparative&rdquo; category falls back to a hand-written rule, the presence of the word &ldquo;better.&rdquo; Roughly 30% of comments are &ldquo;General&rdquo; with no chess content, and 23% are five words or fewer.</p>
+<p>MATE&rsquo;s &ldquo;annotated by chess experts&rdquo; means experts wrote about 20 template phrases per category, which were then applied by rule. It is not 1M hand-written explanations, and strategy classes are heavily imbalanced.</p>
+<p><strong>ChessBench contains no natural language at all.</strong> Its 15B &ldquo;annotations&rdquo; are Stockfish win-probabilities. It is an oracle, not an explanation corpus.</p>
+<p><strong>What does not exist:</strong></p>
+<p>No dataset pairs a position with a <em>verified causal</em> explanation.</p>
+<p>No corpus of plausible-but-wrong chess explanations exists, so there are no negatives for training or evaluating a discriminator.</p>
+<p>No human-adjudicated motif labels on arbitrary positions with reported inter-annotator agreement. Lichess themes are <code>cook.py</code> output on puzzles; Jhamtani&rsquo;s are SVM output.</p>
+<p>No cleanly redistributable expert-prose corpus. GameKnot is grey, ChessBase Mega and NIC are proprietary, and Lichess studies&rsquo; prose is user copyright even though the moves are CC0.</p>
+<p>No move-aligned explanations at master strength under a permissive license, and no multimodal board-image-to-explanation pairing.</p>
+<hr />
+<h2 id="8-evaluation-and-the-faithfulness-gap">8. Evaluation and the faithfulness gap</h2>
+<p><strong>Is there any benchmark measuring causal faithfulness of chess move explanations? No.</strong></p>
+<p>Every chess explanation artifact grades plausibility or chess-correctness: Jhamtani (BLEU plus validity judgements), Zang (BLEU/METEOR plus Likert), CCC&rsquo;s GCC-Eval, ChessQA Semantic, SARFA.</p>
+<p>GCC-Eval deserves a note. It is an LLM judge <em>validated by correlation with human ratings</em>, which under Jacovi &amp; Goldberg&rsquo;s guidelines makes it definitionally a plausibility metric, however much better than BLEU.</p>
+<p>The word &ldquo;faithful&rdquo; appears in none of Jhamtani, Kim et al., or ChessQA.</p>
+<p>Every causal intervention in chess targets internals, the board, or the training data — <strong>never a stated reason</strong>. No paper takes a natural-language chess explanation, intervenes on the factor it names, and checks whether the move changes.</p>
+<h3 id="nearest-things-that-exist">Nearest things that exist</h3>
+<p><strong>1. Pálsson &amp; Björnsson, ECAI 2024</strong>, FAIA vol. 392, pp. 874–881, DOI <code>10.3233/FAIA240574</code>. The closest precedent, and it builds a genuine causal ground truth.</p>
+<p>Method: retrain the Stockfish NNUE with the concept&rsquo;s positions <em>skipped from training</em>, via a patched <code>make_skip_predicate</code> in <code>training_data_loader.cpp</code>, so minibatch size and hyperparameters are unchanged.</p>
+<p>Then play the ablated net against the unmodified one — 3,000 games each at depths 14, 15 and 16, so 9,000 per agent — and convert the strength difference to Elo.</p>
+<p>Probing methods are scored by Pearson correlation against that Elo drop: <strong>0.69–0.73</strong> for raw probe accuracy, rising to <strong>0.83–0.92</strong> for the differential between probes on the regular and concept-removed nets.</p>
+<p>The published abstract states that interpreting linear-probe accuracy as concept importance is &ldquo;somewhat unreliable,&rdquo; and proposes amnesic-style techniques instead.</p>
+<p>It ablates training data rather than rules, and grades probes rather than stated reasons. But the gauntlet design is directly reusable.</p>
+<p><strong>2. Atrey, Clary &amp; Jensen, ICLR 2020</strong> (arXiv:1912.05743). The falsification design, in Atari.</p>
+<p>From 90 papers they extract 46 claims across 11 papers that read saliency as evidence about agent behaviour. <strong>87% reason backwards from the saliency pattern to a hypothesis, and only 3 of 46 carry additional direct experimental evidence.</strong></p>
+<p>Their key move is shifting the do-operator from pixels to game state. Pixel interventions &ldquo;change the image in a way that is inconsistent with the generative process F&rdquo;; latent-state interventions leave that process intact.</p>
+<p>Three intervention classes — distortion, semantics-preserving, fat-hand — plus an invariance test: a static learned representation should give saliency invariant under semantics-preserving interventions. All three case studies come back negative.</p>
+<p>Their verdict: &ldquo;saliency maps cannot be trusted to reflect causal relationships between semantic concepts and agent behavior.&rdquo;</p>
+<p><strong>3. Juozapaitis et al., IJCAI-19 XAI Workshop.</strong> The only verified ground-truth explanation evaluation in RL, in a gridworld &ldquo;small enough to solve for the ground truth decomposed Q-values.&rdquo;</p>
+<p>It catches HRA producing values that do not reflect its own policy — a precedent for the claim that interpretable-by-construction is not automatically faithful.</p>
+<p><strong>4–5.</strong> Karvonen COLM 2024 (41% → 92% legal-move rate under a probe-directed residual edit) and Jenner et al. NeurIPS 2024 (1.88 vs 0.55 log-odds).</p>
+<p><strong>6. SARFA, Puri et al., ICLR 2020</strong> (arXiv:1912.12191) — the chess explanation benchmark that exists, on the wrong axis.</p>
+<p>Its Chess Saliency Dataset is 100 Lichess puzzles with pieces marked relevant by three experts rated over 2200, majority vote as label, methods scored by ROC-AUC. SARFA reaches 0.92.</p>
+<p>The human study runs N=40 at ELO 1600–2000 over 15 puzzles: solve accuracy rises from 56.67% with no saliency to 72.41% with SARFA.</p>
+<p>Huber et al. name the problem in print: this &ldquo;does not measure the saliency maps&rsquo; fidelity to the agent&rsquo;s reasoning, but whether the saliency maps coincide with human reasoning.&rdquo;</p>
+<h3 id="two-results-the-field-should-cite-more">Two results the field should cite more</h3>
+<p><strong>Das &amp; Chernova, IUI 2020</strong> (arXiv:2002.04202), N=60, four conditions. The rationale generated <em>faithfully</em> from Stockfish&rsquo;s utility function produced no significant gain.</p>
+<p>Only the hand-augmented variant — adding criteria the utility function does not represent, such as capture-next-move and mate-in-three — beat the baseline. Faithful does not imply useful, demonstrated in chess.</p>
+<p>It is also the only chess paper cited in Lai et al.&rsquo;s survey of 100+ AI-assisted decision-making studies.</p>
+<p><strong>Shymanski et al. (arXiv:2511.03730)</strong> ran a placebo control in chess, with chess players. Satisfaction ratings could not distinguish an actionable explanation from a vacuous one (p=0.851) while performance diverged (p=0.0236).</p>
+<p>Any chess explanation evaluation resting on human judgement inherits this failure.</p>
+<h3 id="the-objection-to-pre-empt">The objection to pre-empt</h3>
+<p><strong>Parcalabescu &amp; Frank, ACL 2024</strong>: existing self-explanation faithfulness tests &ldquo;do not investigate the correspondence between the LLM&rsquo;s explanation and its internal processes.&rdquo;</p>
+<p>Instead they &ldquo;design special LLM inputs and check whether the LLM returns self-consistent answers.&rdquo; A movegen-level intervention changes what the engine <em>can compute</em>, which is materially stronger than an input edit.</p>
+<p>That argument should be made in their vocabulary, not around it.</p>
+<p>Two further framings are worth reusing. Jacovi &amp; Goldberg&rsquo;s graded-over-input-subspaces argument — &ldquo;strictly faithful interpretation is a &lsquo;unicorn&rsquo;&rdquo; — makes a restricted-scope faithfulness score principled rather than a compromise.</p>
+<p>And Lyu, Apidianaki &amp; Callison-Burch (<em>Computational Linguistics</em> 50(2):657–723, 2024) have a white-box, ground-truth-referenced evaluation category that is the thinnest in their survey precisely because ground truth is rare. That is the slot a rule-defined domain fills.</p>
+<hr />
+<h2 id="9-the-recognitioncomputation-dissociation">9. The recognition/computation dissociation</h2>
+<p>ChessQA (arXiv:2510.23948) scores 23 models across five categories. <strong>Semantic ranges 80% → 37% while Short Tactics ranges 77% → 0%.</strong></p>
+<p>Mid-tier models often sit at 65–75% on Semantic and 15–25% on Short Tactics. They recognise plausible-sounding commentary far better than they can compute the tactics that commentary asserts.</p>
+<p>Lomasov et al. (arXiv:2510.26025) corroborate from the inside. Named human concepts decode at up to 85% in early layers but drop to <strong>50–65% in the deep layers that drive performance</strong>.</p>
+<p>A further 10–20% degrades on Chess960, once opening theory is removed. The CCC paradigm&rsquo;s grounding substrate is weakest exactly where the model is strongest.</p>
+<p>Fluent, plausible, and tactically wrong is the modal failure — and it is precisely what preference-based and LLM-judge evaluation cannot see.</p>
+<hr />
+<h2 id="10-delta-vs-papersmd">10. Delta vs <code>PAPERS.md</code></h2>
+<p>Verified additions, absent from the current 64:</p>
+<ul>
+<li>Jhamtani et al., ACL 2018 — the foundational commentary dataset. Its absence is the biggest hole.</li>
+<li>Feng et al., ChessGPT, NeurIPS 2023 D&amp;B, arXiv:2306.09200.</li>
+<li>Pálsson &amp; Björnsson, ECAI 2024, FAIA 392:874–881 — <strong>highest-value addition</strong>.</li>
+<li>Pálsson &amp; Björnsson, IJCAI 2023, pp. 4864–4872 — probes on Stockfish NNUE.</li>
+<li>Karvonen et al., NeurIPS 2024, arXiv:2408.00113 — SAE board-game benchmark.</li>
+<li>Puri et al., SARFA, ICLR 2020 — the only existing chess explanation benchmark.</li>
+<li>Das &amp; Chernova, IUI 2020 — faithful does not imply useful.</li>
+<li>Wilkins, PARADISE, <em>AI</em> 14(2):165–203, 1980.</li>
+<li>Michie &amp; Bratko Advice Language cluster, plus the Janičić/Marić/Maliković LMCS 2019 re-formalisation.</li>
+<li>Sadikov et al., Automated Chess Tutor, CG 2006 — CCC&rsquo;s direct ancestor.</li>
+<li>Možina et al., ABML, <em>AI</em> 171(10–15):922–937, 2007, and the chess applications (ECAI 2008, CG 2008, ACG 2009, ITS 2012).</li>
+<li>Costeff, CQL, <em>ICGA Journal</em> 27(4):217–225, 2004.</li>
+<li>Bizjak &amp; Guid, ACG 2021.</li>
+<li>Cui, Ling &amp; Ng, arXiv:2607.11486, 2026.</li>
+<li>Atrey et al., ICLR 2020, arXiv:1912.05743.</li>
+<li>Parcalabescu &amp; Frank, ACL 2024; Lyu et al., <em>Computational Linguistics</em> 50(2), 2024.</li>
+<li>Kameko, Mori &amp; Tsuruoka, IEEE CIG 2015 — the grounding problem.</li>
+<li>Edwards, PGN Specification, 1994 — NAGs.</li>
+<li>Zheng et al., arXiv:2506.17294 — AI-generated game commentary survey with a datasheet repository.</li>
+<li>Björnsson, &ldquo;Chess and explainable AI,&rdquo; <em>ICGA Journal</em> 46(2):67–75, 2024 — the natural framing citation. Full content <strong>UNVERIFIED</strong> (paywalled).</li>
+</ul>
+<p>Deliberately <strong>excluded</strong>: chess2vec (arXiv:2011.01014) shares no task, dataset, or evaluation with this literature.</p>
+<p>Also excluded as a generation system: SentiMATE (arXiv:1907.08321) runs sentiment analysis <em>over</em> commentary to learn a move-evaluation function. The direction is text → chess. Cite it only as evidence that commentary carries recoverable move-quality signal.</p>
+<p>Already present and unchanged: McGrath, Schut, Karvonen COLM, Jenner, Sandmann, Lin, Ruoss, Chessformer, Maia-2, Kim/CCC, Tang/C1, ChessQA, Lee, Zang, Spinnato, Caïssa, Guid CSEDU 2013.</p>
+<hr />
+<h2 id="11-open-ground">11. Open ground</h2>
+<p><strong>Rule-level intervention is unoccupied.</strong> Nothing in this survey modifies the rules of the game to test an explanation.</p>
+<p>The only counterfactuals anywhere are Jenner&rsquo;s single-square piece corruptions, SHAP and SARFA piece removal, Lichess&rsquo;s null-move zugzwang test, and Pálsson &amp; Björnsson&rsquo;s training-data ablation. Chess960 is used as a memorisation control, not an explanation probe.</p>
+<p><strong>No witness-returning, validated motif detector exists.</strong> Lichess returns <code>bool</code>; Caïssa returns witnesses but is unevaluated.</p>
+<p><strong>No compositional motif language exists.</strong> CQL queries, Bizjak &amp; Guid tokenise, <code>cook.py</code> is imperative. Nobody has written a typed, compositional language whose expressions denote a move&rsquo;s reason.</p>
+<p><strong>No concept-bottleneck model for chess</strong> — a confirmed negative. The nearest neighbours are RL-general: SCoBots (NeurIPS 2024) and LICORICE (arXiv:2407.15786).</p>
+<p><strong>Argumentation is applied to <em>learning</em> chess concepts, never to <em>justifying</em> a move.</strong> ABML uses arguments to constrain rule induction.</p>
+<p>Epstein&rsquo;s FORR (<em>Cognitive Science</em> 18(3):479–511, 1994), with multiple disagreeing Advisors collaborating per decision, is the only per-decision reasons architecture found — and it is game-general.</p>
+<p><strong>No ASP or Prolog chess-explanation work between AL3 (1982) and Caïssa (2025)</strong> could be found. A forty-year gap.</p>
+<p><strong>No simulatability measurement exists in chess.</strong> No study gives a human a chess explanation and measures their ability to predict the engine&rsquo;s move against a no-explanation control.</p>
+<p>Jhamtani&rsquo;s Q2 — can the move be inferred from the commentary? — is the nearest, and it asks about the move, not the model.</p>
+<p><strong>Comment-to-game-tree grounding is unsolved in chess</strong>, per §3. It is upstream of the faithfulness question.</p>
+<p><strong>NAGs are an unused output target.</strong> An explainer emitting them would be gradeable against an existing standard vocabulary and comparable across systems.</p>
+<h3 id="primary-source-holes-worth-a-library-request">Primary-source holes worth a library request</h3>
+<p>PARADISE&rsquo;s production-rule syntax and concept vocabulary. <em>AI</em> 14(2) and SRI Technical Note 509 are both unreachable online.</p>
+<p>The exact AL0/AL1 advice-clause syntax. Every primary text is paywalled or pre-digital; LMCS 2019 substitutes for AL&rsquo;s content, not its syntax.</p>
+<p>Michie&rsquo;s &ldquo;A theory of advice&rdquo; (<em>Machine Intelligence</em> 8) versus &ldquo;King and rook against king&rdquo; (<em>Advances in Computer Chess 1</em>) — both cited as pp. 30–59, so one attribution is garbled.</p>
+<p>Michie&rsquo;s original 1976 <em>Computer Bulletin</em> AL0 note. No bibliographic record was found at all.</p>
+<p>Možina et al.&rsquo;s bad-bishop worked example. <code>ailab.si/matej/bad_bishop.html</code> now returns 404.</p></body></html>
