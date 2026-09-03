@@ -1,0 +1,121 @@
+{
+ "meta": {
+  "cohort": 131634,
+  "layer": "l1",
+  "folds": 5,
+  "seed": 0,
+  "draw_seed": 0,
+  "probe": "MLPClassifier",
+  "mlp": {
+   "hidden_layer_sizes": "(512, 128)",
+   "activation": "relu",
+   "solver": "adam",
+   "alpha": "0.0001",
+   "batch_size": "512",
+   "learning_rate_init": "0.001",
+   "max_iter": "200",
+   "early_stopping": "True",
+   "n_iter_no_change": "15",
+   "validation_fraction": "0.1",
+   "random_state": "0"
+  },
+  "classes": [
+   "negative",
+   "d=0",
+   "d=1"
+  ],
+  "negatives": "length-matched to the pooled positives"
+ },
+ "arms": {
+  "max": {
+   "arm": "max",
+   "n": 48250,
+   "cm": [
+    [
+     19254,
+     2938,
+     1933
+    ],
+    [
+     3848,
+     9658,
+     1632
+    ],
+    [
+     3256,
+     2006,
+     3725
+    ]
+   ],
+   "per_class": {
+    "negative": {
+     "n": 24125,
+     "recall": 0.7980932642487046,
+     "precision": 0.7304803095834281
+    },
+    "d=0": {
+     "n": 15138,
+     "recall": 0.6379970934073194,
+     "precision": 0.661416244350089
+    },
+    "d=1": {
+     "n": 8987,
+     "recall": 0.4144875931901636,
+     "precision": 0.5109739368998628
+    }
+   },
+   "accuracy": 0.6764145077720207,
+   "accuracy_sd": 0.0061696248007273346,
+   "majority": 0.5,
+   "macro_f1": 0.6233293713617781,
+   "pin_vs_neg_accuracy": 0.7518134715025907,
+   "pin_vs_neg_auroc": 0.8362423766544068,
+   "d0_vs_d1_auroc": 0.8040547713235849
+  },
+  "uniform": {
+   "arm": "uniform",
+   "n": 26961,
+   "cm": [
+    [
+     5524,
+     1515,
+     1948
+    ],
+    [
+     1566,
+     5496,
+     1925
+    ],
+    [
+     1937,
+     1769,
+     5281
+    ]
+   ],
+   "per_class": {
+    "negative": {
+     "n": 8987,
+     "recall": 0.6146656281295204,
+     "precision": 0.6119419519220117
+    },
+    "d=0": {
+     "n": 8987,
+     "recall": 0.6115500166907756,
+     "precision": 0.6259681093394077
+    },
+    "d=1": {
+     "n": 8987,
+     "recall": 0.587626571714699,
+     "precision": 0.576906270482849
+    }
+   },
+   "accuracy": 0.6046140721783316,
+   "accuracy_sd": 0.006265329437310731,
+   "majority": 0.3333333333333333,
+   "macro_f1": 0.604730971723905,
+   "pin_vs_neg_accuracy": 0.7416267942583732,
+   "pin_vs_neg_auroc": 0.7965447513054631,
+   "d0_vs_d1_auroc": 0.7978860431030224
+  }
+ }
+}
