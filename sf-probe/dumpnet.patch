@@ -1,0 +1,361 @@
+diff --git a/src/engine.cpp b/src/engine.cpp
+index dfd2099..bde1b73 100644
+--- a/src/engine.cpp
++++ b/src/engine.cpp
+@@ -336,6 +336,11 @@ void Engine::trace_eval() const {
+     sync_cout << "\n" << Eval::trace(p, *networks) << sync_endl;
+ }
+ 
++std::size_t Engine::nnue_dump(const std::string& fenFile, const std::string& outFile) const {
++    verify_networks();
++    return Eval::NNUE::dump_forward(fenFile, outFile, *networks, options["UCI_Chess960"]);
++}
++
+ const OptionsMap& Engine::get_options() const { return options; }
+ OptionsMap&       Engine::get_options() { return options; }
+ 
+diff --git a/src/engine.h b/src/engine.h
+index 10c92d7..e50b1fe 100644
+--- a/src/engine.h
++++ b/src/engine.h
+@@ -95,6 +95,9 @@ class Engine {
+ 
+     void trace_eval() const;
+ 
++    // xai-chess: dump the big net's forward pass for a list of FENs.
++    std::size_t nnue_dump(const std::string& fenFile, const std::string& outFile) const;
++
+     const OptionsMap& get_options() const;
+     OptionsMap&       get_options();
+ 
+diff --git a/src/nnue/nnue_architecture.h b/src/nnue/nnue_architecture.h
+index 71fce9b..a389e8e 100644
+--- a/src/nnue/nnue_architecture.h
++++ b/src/nnue/nnue_architecture.h
+@@ -32,6 +32,7 @@
+ #include "layers/clipped_relu.h"
+ #include "layers/sqr_clipped_relu.h"
+ #include "nnue_common.h"
++#include "nnue_dump.h"
+ 
+ namespace Stockfish::Eval::NNUE {
+ 
+@@ -136,6 +137,21 @@ struct NetworkArchitecture {
+           (buffer.fc_0_out[FC_0_OUTPUTS]) * (600 * OutputScale) / (127 * (1 << WeightScaleBits));
+         std::int32_t outputValue = buffer.fc_2_out[0] + fwdOut;
+ 
++        // xai-chess: capture the affine/activation stack (big net only).
++        if constexpr (TransformedFeatureDimensions == TransformedFeatureDimensionsBig)
++            if (dumpTarget != nullptr)
++            {
++                static_assert(FC_0_OUTPUTS + 1 == DumpFC0 && FC_0_OUTPUTS * 2 == DumpAC0
++                                && FC_1_OUTPUTS == DumpFC1,
++                              "Dump geometry must match the big net architecture");
++                std::memcpy(dumpTarget->fc0, buffer.fc_0_out, DumpFC0 * sizeof(std::int32_t));
++                std::memcpy(dumpTarget->ac0, buffer.ac_sqr_0_out, DumpAC0 * sizeof(std::uint8_t));
++                std::memcpy(dumpTarget->fc1, buffer.fc_1_out, DumpFC1 * sizeof(std::int32_t));
++                std::memcpy(dumpTarget->ac1, buffer.ac_1_out, DumpFC1 * sizeof(std::uint8_t));
++                dumpTarget->fc2      = buffer.fc_2_out[0];
++                dumpTarget->captured = true;
++            }
++
+         return outputValue;
+     }
+ 
+diff --git a/src/nnue/nnue_dump.h b/src/nnue/nnue_dump.h
+new file mode 100644
+index 0000000..ed729e5
+--- /dev/null
++++ b/src/nnue/nnue_dump.h
+@@ -0,0 +1,41 @@
++/*
++  xai-chess NNUE forward-pass dump (Stockfish 18).
++
++  Capture buffer for every intermediate tensor of the BIG network's forward pass.
++  Inactive unless dumpTarget is non-null. The hooks are a null-pointer test on a
++  thread_local, never taken during search, so search behaviour is unchanged --
++  verified by the bench signature, not by binary equality (the code does differ).
++*/
++
++#ifndef NNUE_DUMP_H_INCLUDED
++#define NNUE_DUMP_H_INCLUDED
++
++#include <cstdint>
++
++namespace Stockfish::Eval::NNUE {
++
++// Big-net geometry. Mirrored from nnue_architecture.h; static_assert'd there.
++constexpr int DumpL1  = 1024;  // TransformedFeatureDimensionsBig (2 persp x 512 pairs)
++constexpr int DumpFC0 = 16;    // L2Big + 1  (index 15 is the skip term)
++constexpr int DumpAC0 = 30;    // L2Big * 2  (ac_sqr_0 || ac_0), fc_1 input width
++constexpr int DumpFC1 = 32;    // L3Big
++
++struct DumpBuffer {
++    std::int16_t acc[2][DumpL1];   // accumulation, perspective order (stm first)
++    std::int16_t tacc[2][DumpL1];  // threatAccumulation, same order
++    std::uint8_t l1[DumpL1];       // transformer output: the first nonlinearity
++    std::int32_t fc0[DumpFC0];
++    std::uint8_t ac0[DumpAC0];
++    std::int32_t fc1[DumpFC1];
++    std::uint8_t ac1[DumpFC1];
++    std::int32_t fc2;
++    int          bucket;
++    bool         captured;
++};
++
++// Null in every ordinary code path, including search.
++inline thread_local DumpBuffer* dumpTarget = nullptr;
++
++}  // namespace Stockfish::Eval::NNUE
++
++#endif  // #ifndef NNUE_DUMP_H_INCLUDED
+diff --git a/src/nnue/nnue_feature_transformer.h b/src/nnue/nnue_feature_transformer.h
+index f4cf348..4a88066 100644
+--- a/src/nnue/nnue_feature_transformer.h
++++ b/src/nnue/nnue_feature_transformer.h
+@@ -32,6 +32,7 @@
+ #include "nnue_accumulator.h"
+ #include "nnue_architecture.h"
+ #include "nnue_common.h"
++#include "nnue_dump.h"
+ #include "simd.h"
+ 
+ namespace Stockfish::Eval::NNUE {
+@@ -257,6 +258,21 @@ class FeatureTransformer {
+         const auto& threatAccumulation =
+           (threatAccumulatorState.acc<HalfDimensions>()).accumulation;
+ 
++        // xai-chess: capture the pre-nonlinearity accumulators (big net only).
++        if constexpr (UseThreats)
++            if (dumpTarget != nullptr)
++            {
++                static_assert(HalfDimensions == DumpL1, "DumpL1 must match the big net L1");
++                for (IndexType dp = 0; dp < 2; ++dp)
++                {
++                    std::memcpy(dumpTarget->acc[dp], &accumulation[perspectives[dp]][0],
++                                HalfDimensions * sizeof(std::int16_t));
++                    std::memcpy(dumpTarget->tacc[dp], &threatAccumulation[perspectives[dp]][0],
++                                HalfDimensions * sizeof(std::int16_t));
++                }
++                dumpTarget->bucket = bucket;
++            }
++
+         for (IndexType p = 0; p < 2; ++p)
+         {
+             const IndexType offset = (HalfDimensions / 2) * p;
+@@ -406,6 +422,11 @@ class FeatureTransformer {
+ #endif
+         }
+ 
++        // xai-chess: capture the transformer output (clip + pairwise product).
++        if constexpr (UseThreats)
++            if (dumpTarget != nullptr)
++                std::memcpy(dumpTarget->l1, output, HalfDimensions * sizeof(OutputType));
++
+         return psqt;
+     }  // end of function transform()
+ 
+diff --git a/src/nnue/nnue_misc.cpp b/src/nnue/nnue_misc.cpp
+index 66a6764..13615ed 100644
+--- a/src/nnue/nnue_misc.cpp
++++ b/src/nnue/nnue_misc.cpp
+@@ -35,6 +35,9 @@
+ #include "../uci.h"
+ #include "network.h"
+ #include "nnue_accumulator.h"
++#include "nnue_dump.h"
++#include <fstream>
++#include <deque>
+ 
+ namespace Stockfish::Eval::NNUE {
+ 
+@@ -190,4 +193,146 @@ trace(Position& pos, const Eval::NNUE::Networks& networks, Eval::NNUE::Accumulat
+ }
+ 
+ 
++
++
++// xai-chess ---------------------------------------------------------------
++// Fixed-size binary dump of the big net's forward pass, one record per FEN.
++// Layout is little-endian and naturally aligned; see tools/nnue_dump.py.
++
++namespace {
++
++constexpr int DumpMaxHalfKA  = 32;   // HalfKAv2_hm::MaxActiveDimensions
++constexpr int DumpMaxThreats = 128;  // FullThreats::MaxActiveDimensions
++
++// Fields are ordered widest-first so the layout is padding-free and the
++// trailing pad is explicit; sizeof is asserted below so the Python reader can
++// rely on a fixed 10780-byte record.
++struct DumpRecord {
++    std::int32_t  psqt;
++    std::int32_t  positional;
++    std::int32_t  simpleEval;
++    std::int32_t  fc2;
++    std::int32_t  idxHalfKA[2][DumpMaxHalfKA];
++    std::int32_t  idxThreats[2][DumpMaxThreats];
++    std::int32_t  fc0[DumpFC0];
++    std::int32_t  fc1[DumpFC1];
++    std::int16_t  acc[2][DumpL1];
++    std::int16_t  tacc[2][DumpL1];
++    std::uint16_t nHalfKA[2];
++    std::uint16_t nThreats[2];
++    std::uint8_t  l1[DumpL1];
++    std::uint8_t  ac0[DumpAC0];
++    std::uint8_t  ac1[DumpFC1];
++    std::uint8_t  stm;
++    std::uint8_t  bucket;
++    std::uint8_t  inCheck;
++    std::uint8_t  smallNetWouldRun;
++    std::uint8_t  pad[2];
++};
++
++static_assert(sizeof(DumpRecord) == 10780, "DumpRecord layout changed; update tools/nnue_dump.py");
++
++// simple_eval, replicated from evaluate.cpp so the dump is self-contained.
++int dump_simple_eval(const Position& pos) {
++    Color c = pos.side_to_move();
++    return PawnValue * (pos.count<PAWN>(c) - pos.count<PAWN>(~c)) + pos.non_pawn_material(c)
++         - pos.non_pawn_material(~c);
++}
++
++}  // namespace
++
++std::size_t dump_forward(const std::string& fenFile,
++                         const std::string& outFile,
++                         const Networks&    networks,
++                         bool               chess960) {
++
++    std::ifstream in(fenFile);
++    if (!in)
++        return 0;
++    std::ofstream out(outFile, std::ios::binary);
++    if (!out)
++        return 0;
++
++    const char   magic[8]   = {'X', 'A', 'I', 'N', 'N', 'U', 'E', '1'};
++    std::uint32_t version   = 1;
++    std::uint32_t recSize   = sizeof(DumpRecord);
++    std::uint64_t count     = 0;
++    out.write(magic, 8);
++    out.write(reinterpret_cast<const char*>(&version), 4);
++    out.write(reinterpret_cast<const char*>(&recSize), 4);
++    out.write(reinterpret_cast<const char*>(&count), 8);
++
++    AccumulatorCaches caches(networks);
++    auto              accumulators = std::make_unique<AccumulatorStack>();
++    DumpBuffer        buf{};
++    DumpRecord        rec{};
++
++    std::string fen;
++    while (std::getline(in, fen))
++    {
++        while (!fen.empty() && (fen.back() == '\r' || fen.back() == ' '))
++            fen.pop_back();
++        if (fen.empty())
++            continue;
++
++        std::deque<StateInfo> states(1);
++        Position              pos;
++        pos.set(fen, chess960, &states.back());
++
++        rec = DumpRecord{};
++        buf.captured = false;
++
++        accumulators->reset();
++        dumpTarget = &buf;
++        auto [psqt, positional] = networks.big.evaluate(pos, *accumulators, caches.big);
++        dumpTarget = nullptr;
++
++        if (!buf.captured)
++            continue;
++
++        for (Color perspective : {WHITE, BLACK})
++        {
++            // Perspective order matches the net: index 0 is the side to move.
++            const int d = (perspective == pos.side_to_move()) ? 0 : 1;
++
++            PSQFeatureSet::IndexList ka;
++            PSQFeatureSet::append_active_indices(perspective, pos, ka);
++            rec.nHalfKA[d] = std::uint16_t(std::min<std::size_t>(ka.size(), DumpMaxHalfKA));
++            for (std::size_t i = 0; i < rec.nHalfKA[d]; ++i)
++                rec.idxHalfKA[d][i] = std::int32_t(ka[i]);
++
++            ThreatFeatureSet::IndexList th;
++            ThreatFeatureSet::append_active_indices(perspective, pos, th);
++            rec.nThreats[d] = std::uint16_t(std::min<std::size_t>(th.size(), DumpMaxThreats));
++            for (std::size_t i = 0; i < rec.nThreats[d]; ++i)
++                rec.idxThreats[d][i] = std::int32_t(th[i]);
++        }
++
++        rec.psqt             = std::int32_t(psqt);
++        rec.positional       = std::int32_t(positional);
++        rec.simpleEval       = dump_simple_eval(pos);
++        rec.fc2              = buf.fc2;
++        rec.stm              = std::uint8_t(pos.side_to_move());
++        rec.bucket           = std::uint8_t(buf.bucket);
++        rec.inCheck          = std::uint8_t(pos.checkers() ? 1 : 0);
++        rec.smallNetWouldRun = std::uint8_t(std::abs(rec.simpleEval) > 962 ? 1 : 0);
++
++        std::memcpy(rec.acc, buf.acc, sizeof(rec.acc));
++        std::memcpy(rec.tacc, buf.tacc, sizeof(rec.tacc));
++        std::memcpy(rec.l1, buf.l1, sizeof(rec.l1));
++        std::memcpy(rec.fc0, buf.fc0, sizeof(rec.fc0));
++        std::memcpy(rec.ac0, buf.ac0, sizeof(rec.ac0));
++        std::memcpy(rec.fc1, buf.fc1, sizeof(rec.fc1));
++        std::memcpy(rec.ac1, buf.ac1, sizeof(rec.ac1));
++
++        out.write(reinterpret_cast<const char*>(&rec), sizeof(rec));
++        ++count;
++    }
++
++    out.seekp(16);
++    out.write(reinterpret_cast<const char*>(&count), 8);
++    out.close();
++    return count;
++}
++
+ }  // namespace Stockfish::Eval::NNUE
+diff --git a/src/nnue/nnue_misc.h b/src/nnue/nnue_misc.h
+index ecece55..a9bc7d5 100644
+--- a/src/nnue/nnue_misc.h
++++ b/src/nnue/nnue_misc.h
+@@ -57,6 +57,13 @@ struct AccumulatorCaches;
+ 
+ std::string trace(Position& pos, const Networks& networks, AccumulatorCaches& caches);
+ 
++// xai-chess: dump the big net's full forward pass for each FEN in `fenFile`
++// to `outFile` as fixed-size binary records. Returns the number written.
++std::size_t dump_forward(const std::string& fenFile,
++                         const std::string& outFile,
++                         const Networks&    networks,
++                         bool               chess960);
++
+ }  // namespace Stockfish::Eval::NNUE
+ }  // namespace Stockfish
+ 
+diff --git a/src/uci.cpp b/src/uci.cpp
+index 9270076..35b90cd 100644
+--- a/src/uci.cpp
++++ b/src/uci.cpp
+@@ -148,6 +148,20 @@ void UCIEngine::loop() {
+             sync_cout << engine.visualize() << sync_endl;
+         else if (token == "eval")
+             engine.trace_eval();
++        else if (token == "nnuedump")
++        {
++            std::string fenFile, outFile;
++            if (is >> std::skipws >> fenFile && is >> std::skipws >> outFile)
++            {
++                // Run the dump BEFORE taking the sync_cout lock: nnue_dump calls
++                // verify_networks(), whose callback prints via sync_cout, and the
++                // lock is not recursive.
++                const std::size_t n = engine.nnue_dump(fenFile, outFile);
++                sync_cout << "nnuedump wrote " << n << " records to " << outFile << sync_endl;
++            }
++            else
++                sync_cout << "usage: nnuedump <fen-list-file> <output-file>" << sync_endl;
++        }
+         else if (token == "compiler")
+             sync_cout << compiler_info() << sync_endl;
+         else if (token == "export_net")
