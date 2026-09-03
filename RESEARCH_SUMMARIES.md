@@ -2,9 +2,9 @@
 
 One deep-research pass per paper (a sub-agent each): what it does, what it depends on, its results, its weaknesses, and its relation to the intervention-grounded chess-explanation benchmark. Generated from the verified 64-paper corpus; each agent re-fetched its source and cross-checked the project's prior full-read notes.
 
-*87 papers · grouped by relevance tier · 2026-06-27, extended 2026-08-01.*
+*116 papers · grouped by relevance tier · 2026-06-27, extended 2026-08-01 and 2026-09-03.*
 
-Entries 1–64 are the original corpus. Entries 65–87 come from the move-explanation and dataset sweep of 2026-08-01 and are grouped separately at the end; their numbering matches `PAPERS.md`. Those entries cite authors by surname, because titles, venues and identifiers were confirmed against fetched sources but author initials were not — see the citation convention note in `PAPERS.md`.
+Entries 1–64 are the original corpus. Entries 65–87 come from the move-explanation and dataset sweep of 2026-08-01 and entries 88–116 from the activation-oracle / symbolic-learning / circuits sweep of 2026-09-03; both are grouped separately at the end and their numbering matches `PAPERS.md`. Entries 65–87 cite authors by surname (see the citation convention note in `PAPERS.md`); entries 88–116 carry initials confirmed against the arXiv or publisher page.
 
 
 ---
@@ -1430,3 +1430,473 @@ Entries 1–64 are the original corpus. Entries 65–87 come from the move-expla
 **Weaknesses.** No mechanism, paper, or patent was ever published, so everything known comes from user manuals. Whether the generation is templated or otherwise structured is not documented, and the software is not readily runnable today for inspection.
 
 **Relation to xai-chess.** Dates the engine-eval-delta-to-prose recipe to 1991, fifteen years before Automated Chess Tutor [70] and thirty-four before CCC [11]. Establishes that the recipe has been shipping to users for thirty-five years without anyone once checking whether its assertions are true of the position, which is the gap the benchmark addresses.
+
+
+# Additions — activation-oracle, symbolic-learning and circuits sweep (2026-09-03)
+
+*29 works surfaced by three keyword passes: activation oracles, symbolic knowledge extraction, mechanistic circuits. Tiers as in `PAPERS.md`. Each entry was written by a separate agent from the fetched full text.*
+
+
+## 88. Activation Oracles (AO)
+
+**Citation:** A. Karvonen, J. Chua, C. Dumas, K. Fraser-Taliente, S. Kantamneni, J. Minder, E. Ong, A. Sen Sharma, D. Wen, O. Evans, S. Marks, "[Activation Oracles: Training and Evaluating LLMs as General-Purpose Activation Explainers](https://arxiv.org/abs/2512.15674)," arXiv:2512.15674, 2025 (v2 Jan 2026).
+**Link:** https://arxiv.org/abs/2512.15674 · **Tier:** CORE
+
+**Summary.** An LLM fine-tuned to take another model's activations and answer natural-language questions about them. Target activations (25/50/75% depth) are injected into placeholder tokens after the oracle's layer 2 by norm-matched addition h'_i = h_i + ||h_i||·v_i/||v_i||. Training: ~1M examples (~65M tokens) of system-prompt QA, 7 yes/no classification tasks, and self-supervised previous/next-token prediction. Oracles for Qwen3-8B, Gemma-2-9B-IT, Llama-3.3-70B, Claude Haiku 3.5; each reads only its own base model and its fine-tunes.
+
+**Depends on.** LatentQA (Pan et al. 2024); logit lens, Patchscopes, ADL, SAE baselines; secret-keeping, misalignment and PersonaQA audits.
+
+**Results.** Matches or beats white-box baselines on all four audits, wins three. Taboo secret word 21% vs 4% logit lens; side-constraint 59% vs 52% (Llama-70B); user-gender ~91%; misalignment rubric 2/5, tied with ADL. PersonaQA OOD ~14% (open models), ~35% (Haiku) vs near-random Patchscopes. 10/12 settings peak with the full mixture. Code and models released.
+
+**Weaknesses.** Uncalibrated; answers confidently when wrong. Narrow single-dimension fine-tunes. Verbalizes without mechanism or intervention. Cross-architecture reading untested.
+
+**Relation to xai-chess.** Template for the backlog activation-level surface. A chess AO needs a verbalizer LLM, an adapter from `nnuedump` activations (accumulators/l1/fc) into its residual, and a diversified mix: self-supervised targets (FEN, legal moves, best move from activations) plus factor-DSL yes/no probes ("pin relevant at d=0?"). Reuse norm-matched injection and held-out-task meta-eval. Differentiate: an AO reads what is decodable, not what is causally used — the Pálsson & Björnsson gap; pair every oracle claim with do(remove factor). sf-probe MLPs are the AO's classification slice; multi-task training should lift them. Uncalibrated free text argues for the factor DSL as answer vocabulary.
+
+
+## 89. LatentQA / Latent Interpretation Tuning (LIT)
+
+**Citation:** A. Pan, L. Chen, J. Steinhardt, "[LatentQA: Teaching LLMs to Decode Activations Into Natural Language](https://arxiv.org/abs/2412.08686)," ICLR 2026, arXiv:2412.08686, 2024/2026.
+**Link:** https://arxiv.org/abs/2412.08686 · **Tier:** CORE
+
+**Summary.** LatentQA = answer open-ended natural-language questions about activations. LIT trains a decoder (copy of the target LLM) by patching target layer-15 activations into decoder layer 0, masking the control-prompt tokens so the decoder cannot read them, and supervising on QA pairs. Data: 16,732 points (4,670 goals, 3,359 personas, 8,703 extractive QA) generated by o1-preview (controls → dialogs → QA). Steering: backprop a target answer through the decoder into the target.
+
+**Depends on.** Llama-3-8B-Instruct (also Llama-3.2 1B/3B/70B); o1-preview data; baselines SelfIE, Patchscopes, linear probes, RepE.
+
+**Results.** Unseen hidden-persona recovery: LIT 100%/92% (easy/hard) vs GPT-4 81.3%/73.3%, SelfIE 22.7%/16%. Relational extraction: +32.2 points over linear probes, +38.2 over Patchscope averaged over 6 tasks (country→currency 86.9 vs 17.7 vs 24.3). Control: only method with significant CrowS-Pairs debiasing (stereotype 60.9 vs 64.3); harmful responses on 100% of harmful prompts (prompting 0%), 87% of benign. Scales with data and size (1B 30%/12% → 8B 100%/92%).
+
+**Weaknesses.** Three control types only. Authors concede no ground truth for latents, so the decoder may hallucinate; the only defence is reading accuracy. Single layer read. Steering is offered as causal evidence; reading answers are never tested against target interventions.
+
+**Relation to xai-chess.** The recipe for a chess activation oracle: sf-probe NNUE dumps plus factor-DSL `to_nl` yield (activation, question, answer) triples with ground truth from `detect`, closing LIT's main gap. "Is the pin relevant, at what depth, which type" is the open sf-probe question in oracle form. Differentiator: ChessFaith scores oracle answers under do(remove factor); LIT trusts reading accuracy. Caution: reading success is not causal use (the Pálsson & Björnsson gap).
+
+
+## 90. Train the Model, Not the Reader (RECAP)
+
+**Citation:** H. Dingeto, "[Train the Model, Not the Reader: Decodability Supervision for Verifiable Activation Explanations](https://arxiv.org/abs/2607.20379)," arXiv:2607.20379, 2026.
+**Link:** https://arxiv.org/abs/2607.20379 · **Tier:** CORE
+
+**Summary.** Natural-language autoencoders pass reconstruction tests while individual claims are ungrounded: co-trained pairs develop private codes. RECAP co-trains the *target model* with class-balanced linear heads that keep designated content linearly decodable at a tap layer, so independent probes and fresh verbalizers can verify claims.
+
+**Depends on.** NLA recipe (Fraser-Taliente et al. 2026); activation oracles (Karvonen et al. 2025), LatentQA, Patchscopes as reader-side contrasts; minimal-pair counterfactual grounding audits.
+
+**Results.** Sandbox (8-layer d=256): standard training yields private codes 5/5 runs, grounded-vs-true gaps 0.30–0.80; RECAP gives 100% independent-probe decodability at +0.001 nats. Pythia-160M: probe AUC 0.95–0.97 at +0.010 nats (control 0.77–0.80). Released Qwen-2.5-7B NLA: r̃ = 0.84 yet ~2% of 1,517 claims grounded. Probe monitor vs. score-optimal adversary: AUC 0.952 vs. 0.508. Frozen probes decay to near chance within 1,500 fine-tuning steps; rank ~16–64 affine realignment restores them.
+
+**Weaknesses.** Single seeds, small models, closed-vocabulary claims. Cannot be retrofitted onto a frozen model. Decodable ≠ verbalizable (verbalizer precision 0.44–0.63 vs. probe ~0.80). Certifies storage, not use: patching the tap moves behaviour ~0.003. Unsupervised content gains nothing (AUC 0.66 vs. 0.70).
+
+**Relation to xai-chess.** Direct warning for sf-probe: pin-relevance probe accuracy on NNUE activations certifies encoding, not causal use; pair each probe with tap-patching or MaskPinner. Its counterfactual grounding audit (flip a claim minimally, measure the reader's drop) is ChessFaith's do(remove factor) applied to activation explanations — reuse as the activation-level surface. A chess activation oracle needs decodability supervision at NNUE training time; Stockfish is frozen, so ChessFaith stays post-hoc verification, with the factor DSL as RECAP's "designated content".
+
+
+## 91. Activation Oracles Learn Not to Read (AO blind spots)
+
+**Citation:** T. Bersia, T. Gaintseva, "[When Activation Oracles Learn Not to Read: Concept-Specific Blind Spots in Fine-Tuned Oracles](https://arxiv.org/abs/2607.23379)," arXiv:2607.23379, 2026.
+**Link:** https://arxiv.org/abs/2607.23379 · **Tier:** CORE
+
+**Summary.** An activation oracle (AO) is a LoRA-tuned copy of the subject model (Qwen3-8B) that answers natural-language questions about residual-stream activations (layer 18). Subjects are Taboo models fine-tuned to hide one of five words (leaf, moon, wave, flag, book). AOs fine-tuned on a subject become *anti-readers*: they selectively fail to verbalize the very concept persistent in their training, although linear probes and the base AO still decode it.
+
+**Depends on.** Karvonen et al. 2025 AO recipe; Cywinski et al. 2025 Taboo model organism; LogitLens and LoRA layer-range ablation for localization.
+
+**Results.** Cooperative subjects, α=1.0, HINT regime: exact recovery 94% (base AO), 71% (cross-concept FT-AO), 35% (own-concept FT-AO); semantic 99/86/51%. Linear probes on subject activations ≥99% six-way. Probes on FT-AO hidden states still hit 93% (HINT) to 100% (SAMETEXT), while LogitLens median rank of the target rises from 3 to 8,788. Ablating the FT-AO LoRA at L18–23 restores target probability most; suppression is readout-side. Concept-specific (diagonal heatmap); holds in a two-concept subject.
+
+**Weaknesses.** One backbone, five concepts, LoRA only; controlled organisms. No mitigation; suppression circuit not identified.
+
+**Relation to xai-chess.** Direct warning for the sf-probe "activation oracle" ambition: an oracle trained on NNUE dumps whose training distribution constantly contains pins may learn to *stop reporting* pins, so oracle silence is not evidence of absence. Reuse the three-way audit — behaviour, linear probe on activations, oracle verbalization — and the probe-on-oracle-hidden-state check; this mirrors Pálsson & Björnsson's decodability/causal-use split at a third level (verbalizability). ChessFaith's do(remove) intervention gives the causal ground truth this paper lacks; combine both to grade any chess oracle.
+
+
+## 92. Amnesic Probing
+
+**Citation:** Y. Elazar, S. Ravfogel, A. Jacovi, Y. Goldberg, "[Amnesic Probing: Behavioral Explanation with Amnesic Counterfactuals](https://arxiv.org/abs/2006.00995)," TACL, arXiv:2006.00995, 2021.
+**Link:** https://arxiv.org/abs/2006.00995 · **Tier:** CORE
+
+**Summary.** Replaces "can a probe decode Z" with "does the model use Z": INLP trains linear SVMs for Z, projects onto their nullspace until accuracy is within 1 point of majority; the downstream change (LM accuracy, D_KL) is the causal score. Controls: Rand (same number of random directions) and Selectivity (append a 32-d gold embedding of Z, fine-tune the head).
+
+**Depends on.** INLP (Ravfogel et al. 2020); BERT-base-uncased; UD Treebank (c-pos, f-pos, dep), OntoNotes (ner, phrase start/end).
+
+**Results.** Table 1: removing dep/f-pos drops LM-Acc 94.12→7.05/12.31 (738/585 directions; Rand 12.31/56.47), c-pos →61.92, ner →83.14; phrase start/end *improve* 0.21/0.32 despite 85.12/83.09 probe accuracy. Spearman(probe acc, amnesic drop)=8.5, p=0.871. Per-tag (Table 3): c-pos removal costs particles 77.66, conjunctions 73.73, determiners 65.66 points; nouns 8.65. Masked c-pos matters most at layers 3 and 12 yet is decodable only late.
+
+**Weaknesses.** Linear removal only; dep/f-pos consume most of the rank, Selectivity fails to recover, so damage is not attributable to Z alone; erasure sizes differ, so properties are incomparable; probes may latch onto correlates; counterfactuals are off-distribution.
+
+**Relation to xai-chess.** Template for the backlog activation-level surface: do(remove pin) on the NNUE accumulator via INLP with Rand/Selectivity controls, scored by eval and move-distribution KL. Analogue of Pálsson & Björnsson's retrain-ablation, predicting the same decoupling: sf-probe MLP relevance probes show decodability, not use; validity needs the amnesic drop. The per-tag result suggests relevance *types* can differ in causal weight while equally decodable. Nonlinear l1 breaks INLP's assumption; the accumulator (linear in HalfKA) is the safe layer.
+
+
+## 93. Path Channels and Plan Extension Kernels (Sokoban DRC)
+
+**Citation:** M. Taufeeque, A. D. Tucker, A. Gleave, A. Garriga-Alonso, "[Path Channels and Plan Extension Kernels: a Mechanistic Description of Planning in a Sokoban RNN](https://arxiv.org/abs/2506.10138)," ICLR 2026, arXiv:2506.10138, 2025.
+**Link:** https://arxiv.org/abs/2506.10138 · **Tier:** CORE
+
+**Summary.** Reverse-engineers the DRC(3,3) Sokoban agent (3 ConvLSTM layers × 3 ticks, 32 channels, 10×10 Boxoban). Manual inspection labels 75/96 hidden channels: 59 "path channels" (20 box-movement, 10 agent-movement, 29 combined), 4 GNA, 4 PNA, 8 entity, 21 unlabelled. A path channel's activation at a square means "box/agent here later moves in direction D" — no probe needed. Composed 9×9 encoder kernels seed segments beside boxes/targets; linear and turn plan-extension kernels in the recurrent weights extend forward from boxes and backward from targets; negative activations at obstacles propagate back (backtracking); winner-take-all inhibition among short-term direction channels selects one path.
+
+**Depends on.** Guez 2019 DRC; Taufeeque 2024 checkpoint and 135-parameter action probe (77.9%) for larger grids; Bush 2025 probes.
+
+**Results.** Single-step cache ablation of 59 path channels: −57.6±2.8% solve rate; 37 non-path: −10.5±1.9%; random 37 path: −41.3±2.4%. Intervention success on 10k transitions: PNA 99.7%, GNA 98.9%, box-movement 86.3%, agent-movement 53.2%, vs probes 82.5%/20.7%. Short-term channels predict moves ≤10 steps; long-term, beyond. Extension kernels ×1.4 solve a 40×40 level. Replicates on 4 seeds.
+
+**Weaknesses.** One architecture and game; 21 channels, box-switching unexplained; manual labelling; Q-function reading speculative.
+
+**Relation to xai-chess.** Direct model for sf-probe. Its thesis — "probes find a predictive, not causal representation" (probes weight spuriously correlated channels) — is Pálsson's decodability/use gap at mechanism level: validate pin-relevance MLPs by cache-ablation/steering on NNUE `l1`/accumulator units, not accuracy. The short-/long-term channel split parallels d=0 vs d>0 relevance: test for separate horizon-specific NNUE units as a concrete "type of relevance". Differentiate: NNUE is feed-forward; search lives in alpha-beta (their App. A), so no plan-extension analogue.
+
+
+## 94. Automated Attribution Graph Interpretation via Probe Prompting (CPAS)
+
+**Citation:** G. Birardi, G. Paulo, "[Automated Attribution Graph Interpretation via Probe Prompting](https://arxiv.org/abs/2511.07002)," arXiv:2511.07002, 2025 (v2 June 2026).
+**Link:** https://arxiv.org/abs/2511.07002 · **Tier:** CORE
+
+**Summary.** Rule-based pipeline grouping the 200–700 features of a CLT attribution graph (Gemma-2-2B, public CLT, graphs via Neuronpedia/circuit-tracer) into concept-aligned supernodes. An LLM writes 4–5 concept-targeted probe prompts matching the seed's syntax; each feature's activations across probes become a 7-number Cross-Prompt Activation Signature (CPAS); a hand-authored decision tree assigns four roles (Sem-Dict, Say-X, Rel, Sem-Conc); same-role same-name features merge. Labels are validated by intervention: ablate source-entity supernodes (M=−2), amplify target's (M=20 or adaptive), attention unfrozen.
+
+**Depends on.** Cross-layer transcoders and attribution graphs (Ameisen/Lindsey et al. 2025), circuit-tracer, Neuronpedia; an 87-token English functional vocabulary.
+
+**Results.** Four two-hop factual domains, 44,596 swap runs (abstract says 45,596). Hit% labeled vs matched-random vs influence-top-K: USA 72.8/0.7/4.2 (n=2,450 pairs), Books 77.8/0.0/4.4, Products 41.7/7.6/1.1, Paintings 18.9/1.1/7.1. Dallas: 458 of 1,182 features into 8 supernodes, completeness 0.83, replacement 0.53; swaps 40/49 vs human labels 38/49. Intermediate+answer fields beat input fields (28.5% vs 4.8%); adaptive M-search rescues 17.1% of USA misses.
+
+**Weaknesses.** No grouping baseline exists; thresholds tuned on pilot circuits, no sensitivity sweep; graphs freeze attention, interventions don't; single model, English, factual recall only; Paintings 18.9%; one human-labelled reference circuit.
+
+**Relation to xai-chess.** Template for the sf-probe/ChessFaith bridge: probe prompts = FEN families varying one factor (pin present/relevant/absent), CPAS = per-neuron signature across the family, labels validated by matched-random-controlled intervention rather than probe accuracy — the decodability-vs-causal-use gap Pálsson found. Reuse the matched-random control and Hit%/vsMax metrics for activation-level do(remove pin). Differentiate: NNUE has no attribution graph; needs activation patching on the accumulators/l1 instead. The "types of relevance" question maps onto functional roles (dictionary vs relational).
+
+
+## 95. Building Better Activation Oracles (AObench)
+
+**Citation:** J. Bauer, C. De Schamphelaere, A. Karvonen, N. Luick, N. Nanda, "[Building Better Activation Oracles](https://arxiv.org/abs/2606.02609)," arXiv:2606.02609, 2026.
+**Link:** https://arxiv.org/abs/2606.02609 · **Tier:** SUPPORTING
+
+**Summary.** Revises the Karvonen et al. 2025 activation-oracle (AO) recipe (an LLM answering questions about activations injected additively after its layer 2) on Qwen3-8B. Four changes: a conversational dataset of questions answerable from CoT-prefix activations but not prefix text, on-policy CoT rollouts instead of FineWeb, 5 contiguous input layers (21–25) instead of random ones, 2× injection strength. Releases AObench, an evaluation suite scoring quality, hallucination and vagueness.
+
+**Depends on.** Karvonen et al. 2025 (AO), Pan et al. 2024 (LatentQA), Jakkli et al. 2026 (hallucination diagnosis), Fraser-Taliente et al. 2026 (natural-language autoencoders), Ivanova et al. 2026 (hard CoT tasks).
+
+**Results.** 50M-token runs. AObench chance-adjusted score +0.244 → +0.435 over the ladder; dataset swap alone +0.244 → +0.310; single-layer sweep +0.025, 5 layers +0.05; on-policy +0.03. Non-hallucination rate 68.8% → 84.6% (UNVERIFIED exact ladder endpoints), vagueness 0.076 → 0.205. Taboo-word extraction: 46.6% raw; consensus ≥0.8 over 10 samples keeps 19.4% at 94.3% precision. Narrow task post-training never beats a linear probe.
+
+**Weaknesses.** Authors call capability gains "marginal"; AOs still hallucinate; text-inversion confounds evaluation; LLM-judge and prompt noise; often the CoT can just be read..
+
+**Relation to xai-chess.** Two transferable points for sf-probe: (1) narrow post-training fails to beat linear probes — a chess AO reading NNUE accumulators/l1 likely adds nothing over the current MLP probes unless trained broadly, and NNUE has no text-inversion shortcut but also no pretrained prior; (2) resampling-consensus as a hallucination filter is a reusable precision knob for generated explanations. For ChessFaith an AO is a candidate activation-level explainer to be scored by the intervention metric, not a metric.
+
+
+## 96. Confidence and Calibration of Activation Oracles
+
+**Citation:** F. Torrielli, P. Schneider-Kamp, L. Galke Poech, "[Confidence and Calibration of Activation Oracles for Reliable Interpretation of Language Model Internals](https://arxiv.org/abs/2605.26045)," arXiv:2605.26045, 2026.
+**Link:** https://arxiv.org/abs/2605.26045 · **Tier:** SUPPORTING
+
+**Summary.** An activation oracle is a LoRA-adapted LLM (LatentQA recipe, ~1M training pairs) that reads injected activations from a target model and answers in natural language. Five ways to attach a confidence to its answer are compared on the secret-word task: log-probability, bootstrap agreement over 20 samples, verbalized 0–100 confidence, constrained five-label scoring, forced choice over the 20 candidates. Four oracles (Qwen3-8B, Qwen3.6-27B, Gemma-2-9B, Gemma-3-27B), 6,000 samples per pair; accuracy, ECE, Brier, NLL, AUROC.
+
+**Depends on.** LatentQA-style oracle training; secret-word model organisms (20 targets per oracle); Yuan et al. 2026, Miao & Ungar 2026 (uncertainty in activations, absent from spoken confidence); Jakkli et al. 2026 (scoring beats generation).
+
+**Results.** Method ranking is identical across oracles. Forced choice: AUROC 0.92–0.96, accuracy 0.414→0.646 (Qwen3-8B) to 0.217→0.590 (Gemma-2-9B) over free generation. Bootstrap agreement is the only label-free calibrated method (ECE 0.04–0.12 at tuned T; k=3 fails, ECE 0.22–0.31); temperature-scaled log-probability matches it at one generation. Verbalized confidence carries no signal (AUROC 0.40–0.53); constrained labels recover AUROC 0.68–0.82.
+
+**Weaknesses.** Closed-vocabulary, exact-match task; open-ended answers untested. One training-recipe lineage. Per-word accuracy spans an order of magnitude. Forced choice needs an enumerable candidate set. English only.
+
+**Relation to xai-chess.** A chess activation oracle over NNUE dumps needs a confidence channel and an enumerable answer set; the factor DSL supplies the latter, so the oracle should score DSL predicates rather than generate free text. For sf-probe: relevance-probe outputs must be calibrated and abstention-capable before serving as an oracle. Silent on faithfulness: it never asks whether the oracle's reading is causally used by the target.
+
+
+## 97. Universal Activation Verbalizer (UAV)
+
+**Citation:** H. Zhao, Z. He, G. Wang, A. Payani, Y. Li, M. Du, "[Universal Activation Verbalizer: A Unified Framework for Cross-Model Activation Explanation](https://arxiv.org/abs/2605.25903)," arXiv:2605.25903, 2026.
+**Link:** https://arxiv.org/abs/2605.25903 · **Tier:** SUPPORTING
+
+**Summary.** One frozen decoder LLM (Qwen3-4B default) explains activations of *other* "donor" LLMs via a per-donor, per-layer adapter (Q-Former style) that maps hidden states to soft tokens prepended to a question. Stages: adapter-only input reconstruction (469K samples), then adapter + decoder LoRA on 950K QA pairs (17 text sources). Adapter-only transfer (AOT) keeps the decoder LoRA and trains only a new adapter.
+
+**Depends on.** Activation Oracles (Karvonen et al. 2025), LatentQA, Patchscopes, SelfIE as baselines; VLM projector/Q-Former designs; donors Llama-3.1-8B, Gemma-3-4B/12B, Yi-1.5-34B, Qwen3-4B; decoders Qwen3 0.6B–32B.
+
+**Results.** Self-explanation on Qwen3-4B: ROUGE-L 0.254 vs AO 0.198, LatentQA 0.235, SelfIE/Patchscopes ~0.065. Cross-model with shared Qwen3-4B decoder: ROUGE-L 0.266–0.299 across donors. Decoder size monotone (Qwen3-0.6B 0.239 → 14B 0.296). AOT ≈ full (0.260 vs 0.254). Middle-to-late donor layers best.
+
+**Weaknesses.** Text-only LLM donors; no vision, game or small-MLP activations. Fact retrieval weak (best BERTScore ~0.42); self-decoding beats cross-decoding; short contexts; LLM-judge evaluation; every donor/layer still needs its own adapter; QA data reads *input content*, not model computation, so outputs may be reconstruction, not explanation.
+
+**Relation to xai-chess.** Template for a chess activation oracle: NNUE accumulators/l1 are a donor with an adapter into a text decoder, and AOT says decoder-side skills (chess QA) transfer while the adapter carries activation-grounded content. Reuse the two-stage recipe: reconstruct FEN/features from activations, then factor-DSL questions ("is the e-file pin relevant?") — the DSL supplies the structured QA pairs. Difference: UAV never tests causal use; its scores measure decodability, exactly the gap Pálsson & Björnsson expose. For sf-probe it implies a verbalizer would need do(remove factor) validation, not ROUGE.
+
+
+## 98. ADAG: Automatically Describing Attribution Graphs (ADAG)
+
+**Citation:** A. Arora, Z. Wu, J. Steinhardt, S. Schwettmann, "[ADAG: Automatically Describing Attribution Graphs](https://arxiv.org/abs/2604.07615)," arXiv:2604.07615, 2026.
+**Link:** https://arxiv.org/abs/2604.07615 · **Tier:** SUPPORTING
+
+**Summary.** End-to-end automated circuit tracing plus description on raw MLP neurons of Llama 3.1 8B Instruct. Pipeline: RelP gradient attribution → per-feature "attribution profiles" (input-attribution and output-contribution vectors) → multi-view spectral clustering into supernodes → explainer/simulator LLM descriptions scored by Pearson r between simulated and true scores. Motivation: past layer 3, neurons are not explainable from the 8 preceding tokens.
+
+**Depends on.** Arora et al. 2026 neuron-basis circuit tracing; RelP (Jafari et al. 2025); Transluce llama_8b explainer/simulator for input profiles, Claude Haiku 4.5 / Opus 4.6 for output profiles; FineWeb (1,000 docs), a 3-example capitals set, 150 "pills" jailbreak variants, 10k math examples.
+
+**Results.** Clustering: 0.1% opposing-sign members vs 14.4% for k-means (k=16). Description scores on gold supernodes: LLM 0.774 vs human 0.779 (input), 0.812 vs 0.648 (output). Steering: ablating a "Dallas Texas" cluster drops Austin 96.5%→52.7%; on pills, zeroing the "safety redirect" cluster raises ASR 28%→88±5%, 2× "ridiculous-to-introductory" raises it to 90±5% (r=+0.71).
+
+**Weaknesses.** k chosen by hand; 3 capitals examples; 50 generations per steering condition; descriptions validated by simulator correlation, not by whether the label predicts the intervention effect; BOS attribution dropped; no transcoder baseline.
+
+**Relation to xai-chess.** Reuse the two-profile idea for sf-probe: describe an NNUE unit by what inputs (HalfKA features/pins) drive it *and* what outputs it pushes. Its 0×/2× cluster steering is the activation-level ChessFaith surface on the backlog. Differ: ChessFaith grades explanations by intervention effect, ADAG grades by simulator agreement — the decodability/causal-use gap Pálsson found. LLM-based describers presuppose text-legible features; a chess activation oracle would need the factor DSL as its output language.
+
+
+## 99. Circuit Tracing / attribution graphs (CLT)
+
+**Citation:** E. Ameisen, J. Lindsey, A. Pearce, W. Gurnee, N. L. Turner, B. Chen, C. Citro, D. Abrahams, S. Carter, B. Hosmer, J. Marcus, M. Sklar, A. Templeton, T. Bricken, C. McDougall, H. Cunningham, T. Henighan, A. Jermyn, A. Jones, A. Persic, Z. Qi, T. B. Thompson, S. Zimmerman, K. Rivoire, T. Conerly, C. Olah, J. Batson, "[Circuit Tracing: Revealing Computational Graphs in Language Models](https://transformer-circuits.pub/2025/attribution-graphs/methods.html)," Transformer Circuits Thread, Anthropic, 2025.
+**Link:** https://transformer-circuits.pub/2025/attribution-graphs/methods.html · **Tier:** SUPPORTING
+
+**Summary.** Replaces every MLP with a cross-layer transcoder (CLT): JumpReLU features read the residual stream at layer ℓ and write, via separate decoders, to MLP outputs of layers ℓ..L. A per-prompt replacement model freezes attention and normalization and adds error nodes, making feature→feature effects linear: the attribution graph. Pruning cuts nodes ~10× for ~20% loss of explained behavior. Hypotheses are tested by steering features in the real model.
+
+**Depends on.** Transcoders/SAEs, JumpReLU, frozen-attention linear attribution; an 18-layer model and Claude 3.5 Haiku.
+
+**Results.** 18L CLTs with 300K–10M features (Haiku up to 30M). Largest 18L CLT matches the model's next token on 50% of prompts; reconstruction error ~11.5%, L0 88 (Haiku 21.7%, L0 235). Path length 2.3 vs 3.7 for per-layer transcoders; completeness 0.80, replacement score 0.61. Graph-predicted vs measured intervention influence: Spearman 0.72. Feature interpretability 73% (sort), 76% (contrastive). Acronym, addition and factual-recall circuits confirmed by steering.
+
+**Weaknesses.** QK attention circuits unexplained. Error nodes hide dark matter; inactive/suppressive features invisible. Perturbation agreement decays across layers (~0.8 cosine after one). Per-prompt only; CLT mechanisms differ from the MLPs replaced.
+
+**Relation to xai-chess.** Template for sf-probe's backlog activation-level surface: graph→steer→measure is the same intervention grounding ChessFaith uses at rule level, and Spearman 0.72 is the bar for any probe-derived causal claim. NNUE has no attention, so the main weakness vanishes and a CLT over accumulator/l1/fc layers is cheap; its error node would quantify how much pin-relevance signal is dark matter. Difference: chess factors are named predicates, not discovered features — a chess activation oracle needs a factor→feature map this method does not supply.
+
+
+## 100. On the Biology of a Large Language Model (attribution graphs)
+
+**Citation:** J. Lindsey, W. Gurnee, E. Ameisen, B. Chen, A. Pearce, N. L. Turner, et al., "[On the Biology of a Large Language Model](https://transformer-circuits.pub/2025/attribution-graphs/biology.html)," Transformer Circuits Thread, Anthropic, 27 Mar 2025.
+**Link:** https://transformer-circuits.pub/2025/attribution-graphs/biology.html · **Tier:** SUPPORTING
+
+**Summary.** Case studies of Claude 3.5 Haiku via attribution graphs: a cross-layer transcoder (30M features) replaces MLPs; per-prompt graphs trace feature→feature→output influence, with error nodes for the residual; hypotheses are checked by feature patching. Relevant sections: two-hop reasoning (Dallas→Texas→Austin), forward planning in rhyming poems, and chain-of-thought faithfulness.
+
+**Depends on.** Companion methods paper (Ameisen et al. 2025, cross-layer transcoders); SAE lineage; activation patching.
+
+**Results.** Two-hop: swapping the intermediate "Texas" features for California/British Columbia yields Sacramento/Victoria. Poems: "planned word" features activate at line start before the line is written, in about half of poems inspected; injecting them steers the line ending in 70% of 25 cases; suppressing "rabbit" shifts to the alternate plan "habit". CoT: sqrt(0.64) is computed by features that drive the answer (faithful); cos(23423) unaided shows no computation pathway (guess); with a hinted answer, features backward-chain from the hint, and suppressing hint features changes the answer.
+
+**Weaknesses.** Satisfying insight on "about a quarter of the prompts we've tried"; replacement model is an imperfect reconstruction (error nodes, no attention circuits, feature splitting/absorption); anecdotal case studies, no quantitative faithfulness benchmark.
+
+**Relation to xai-chess.** Template for the backlog activation-level surface: test whether the feature encoding a cited factor is causally used—Pálsson & Björnsson's decodability-vs-use gap. The CoT section shows a cited reason can appear in text yet be absent from the computation—ChessFaith's premise. For sf-probe: a pin-relevance probe on NNUE `l1`/accumulators is only a detector; patching the probe direction would test whether relevance is used; planned-word features are the nearest analogue to relevance depth d. Graphs give a mechanism vocabulary, not an explanation language.
+
+
+## 101. Transcoders Find Interpretable LLM Feature Circuits (Transcoders)
+
+**Citation:** J. Dunefsky, P. Chlenski, N. Nanda, "[Transcoders Find Interpretable LLM Feature Circuits](https://arxiv.org/abs/2406.11944)," arXiv:2406.11944, NeurIPS 2024.
+**Link:** https://arxiv.org/abs/2406.11944 · **Tier:** SUPPORTING
+
+**Summary.** A transcoder is a wide, sparse two-layer ReLU net trained to reproduce an MLP sublayer's *output* from its input (‖MLP(x)−TC(x)‖² + λ₁‖z‖₁), unlike an SAE reconstructing one activation. Feature-to-feature attribution then factorises into an input-dependent scalar (source activation) times an input-invariant weight term (dec·enc), giving weight-based circuits across MLPs; a greedy top-k recursive path search assembles them.
+
+**Depends on.** SAE dictionary learning; the GPT-2 greater-than circuit (Hanna 2023); attention patterns treated as fixed.
+
+**Results.** GPT2-small, Pythia-410M, Pythia-1.4B: transcoders equal or beat SAEs on the sparsity/loss-recovered frontier (Figure 3, no tabulated numbers). Blind rating of 50 Pythia-410M layer-15 features: 41 interpretable / 8 maybe / 1 not, vs SAE 38 / 8 / 4. Greater-than task (100 prompts): a few MLP10 features recover most of the probability-difference metric, versus many more neurons. Training 30 min to 3.5 h on one A100; eval on 3.2M OpenWebText tokens.
+
+**Weaknesses.** Approximation error not compared with SAE error; circuits are qualitative case studies only; attention computation out of scope; interpretability judged by the authors.
+
+**Relation to xai-chess.** Directly applicable to sf-probe: NNUE's fc0/fc1/fc2 are attention-free MLPs, so per-layer transcoders yield input-invariant feature→feature weights and a complete weight-based circuit from HalfKA features to the eval — a mechanistic "why" for pin relevance and a substrate for the backlog activation-level intervention (ablate a transcoder feature, not a probe direction). Chessformer 2026 already does this on Leela; xai-chess differs in that the whole circuit of a tiny net is tractable. Inherit Pálsson & Björnsson's caveat: interpretable ≠ causally used — validate features by ablation against MaskPinner ground truth.
+
+
+## 102. Sparse Feature Circuits (SHIFT)
+
+**Citation:** S. Marks, C. Rager, E. J. Michaud, Y. Belinkov, D. Bau, A. Mueller, "[Sparse Feature Circuits: Discovering and Editing Interpretable Causal Graphs in Language Models](https://arxiv.org/abs/2403.19647)," ICLR 2025, arXiv:2403.19647, 2024.
+**Link:** https://arxiv.org/abs/2403.19647 · **Tier:** SUPPORTING
+
+**Summary.** Circuits whose nodes are sparse-autoencoder (SAE) features, not neurons. Each activation is x = Σ fᵢ(x)vᵢ + b + ε(x); features and the error ε are both graph nodes, so the graph stays complete. Node/edge indirect effects via attribution patching or integrated gradients (N=10), thresholded on |IE|. SHIFT: a human marks circuit features task-irrelevant and ablates them to edit a classifier. Unsupervised: cluster training gradients into thousands of behaviors, one circuit each.
+
+**Depends on.** SAEs on every component: Pythia-70M (self-trained, 64×d, embeddings/attn/MLP/residual); Gemma-2-2B (Gemma Scope JumpReLU, 8×d). Attribution patching; Michaud et al. 2023 clustering.
+
+**Results.** Subject-verb agreement: ~100 feature nodes (Pythia) / ~500 (Gemma) recover most performance vs ~1,500 / ~50,000 neurons; ablating few feature nodes kills the task. SHIFT, Bias in Bios with gender perfectly confounding profession: Pythia profession accuracy 61.9→88.5% (93.1 retrained; oracle 93.0), gender readout 87.4→54.0%; Gemma 67.7→76.0% (95.0 retrained), gender 81.9→51.5%; 55/67 and 43/46 features ablated. Random ablations do nothing.
+
+**Weaknesses.** Needs per-model SAEs (large compute); what SAEs miss hides in ε; feature labels qualitative; models small (70M–2B).
+
+**Relation to xai-chess.** Template for the backlog activation-level surface: SAEs on nnuedump accumulators/l1/fc, a cited factor becomes a feature set with measured IE, do(remove) becomes feature ablation — MaskPinner inside the net. SHIFT's confounded-label setup is the control sf-probe needs: a relevance probe may read a correlate rather than used relevance; ablate the probe's features and check the engine's move — Pálsson & Björnsson's retraining test, cheaply. Differences: NNUE has no residual stream; the factor DSL supplies concepts a priori, here they are found post hoc.
+
+
+## 103. Towards Automated Circuit Discovery (ACDC)
+
+**Citation:** A. Conmy, A. N. Mavor-Parker, A. Lynch, S. Heimersheim, A. Garriga-Alonso, "[Towards Automated Circuit Discovery for Mechanistic Interpretability](https://arxiv.org/abs/2304.14997)," NeurIPS 2023 (spotlight), arXiv:2304.14997, 2023.
+**Link:** https://arxiv.org/abs/2304.14997 · **Tier:** SUPPORTING
+
+**Summary.** Circuit workflow: (1) task dataset + metric, (2) computational DAG, (3) iterative activation patching; ACDC automates (3). It walks the DAG output-to-input, patches each incoming edge to its corrupted-prompt activation, and drops the edge if KL(G‖H) rises by < τ. Baselines: Subnetwork Probing (SP), HISP.
+
+**Depends on.** Interchange interventions (Geiger 2021); hand-found circuits as ground truth: IOI (Wang 2023, 1041 edges), Docstring, Greater-Than, Induction, two tracr toy models.
+
+**Results.** Edge-level AUC with KL, corrupted patching: Docstring 0.982, Greater-Than 0.853, IOI 0.869 (SP 0.937/0.806/0.823; HISP 0.805/0.693/0.789). Greater-Than: 68 of 32,000 GPT-2 Small edges kept, all in the manual circuit. tracr circuits recovered perfectly only with zero-ablation (AUC 1.000). IOI: 8 min on an A100 without Q/K/V split; runs keeping >10% of edges take hours.
+
+**Weaknesses.** Optimizing one metric misses negative heads (IOI negative name-movers only at tiny τ). Sensitive to τ, metric (Greater-Than AUC 0.461 under task loss), corruption distribution, parent order. Ground truth is human-reported. No token-position split, so one head with two positional roles is invisible. Interpreting the circuit stays manual.
+
+**Relation to xai-chess.** Reuse: ChessFaith's do(remove factor) is step-3 patching at the input level; the NNUE dump makes the activation-level analogue (edges = accumulator/l1/fc units, corrupted input = pin-removed board) implementable as-is, with the KL-vs-task-metric ablation as the template for placebo controls. Differentiate: ACDC finds *which* units carry a behavior, not what they encode; sf-probe should patch-validate l1 units before trusting probe accuracy as causal use. Caveat for "types of relevance": single-metric search is blind to negative components, so factors that *suppress* a move may be missed.
+
+
+## 104. Many Circuits, One Mechanism
+
+**Citation:** A. Bayat Makou, J. Niu, S. Dutta, I. Gurevych, "[Many Circuits, One Mechanism: Input Variation and Evaluation Granularity in Circuit Discovery](https://arxiv.org/abs/2606.06267)," TMLR, 2026 (arXiv:2606.06267).
+**Link:** https://arxiv.org/abs/2606.06267 · **Tier:** SUPPORTING
+
+**Summary.** Holds the task fixed (Literal Sequence Copying; Subject-Verb Agreement as replication), varies only input-token frequency (four Pile-frequency bands, ~3.5× ratio each, plus a control), extracts 75 ACDC circuits (5 Pythia models 70M–1.4B × 5 conditions × 3 draws). Names the result "phantom specialization": circuits differ structurally by band but not functionally.
+
+**Depends on.** ACDC activation patching; Pythia; Pile unigram frequencies; source-level (keep all outgoing edges of any selected source node) vs edge-level circuit evaluation.
+
+**Results.** Low-frequency circuits are systematically larger; same-band draws have low Jaccard overlap. Band-specific edges transfer across all bands; a shared core recovers ≥99% of circuit performance above 70M. Source-level evaluation inflates circuit accuracy by up to 85 percentage points over edge-level; the same-band advantage vanishes at edge level. A synthetic two-route positive control shows the pipeline does detect real specialization. Recommends cross-condition transfer tests, edge-level metrics, and edge-consensus over multiple extractions.
+
+**Weaknesses.** ACDC only; SAE feature-level circuits untested; edge-defined circuits miss position- or feature-level specialization; transfer test has 80% power only for advantages ≥0.013–0.026 accuracy; LSC is non-semantic, SVA replication partial.
+
+**Relation to xai-chess.** Bears on sf-probe's open question about relevance *types*: probes differing across d=0 / d=1 / per-motif strata are not evidence of distinct mechanisms — run the cross-condition transfer test (fit on one stratum, evaluate on all) and repeat extractions before claiming a "type". The source-vs-edge inflation mirrors ChessFaith's rule-level >> board-level gap: coarse interventions overstate faithfulness, so an activation-level DSL surface must be as fine-grained as the claim. A chess activation oracle narrating one dumped circuit describes an arbitrary member of an equivalence class.
+
+
+## 105. Interpretive equivalence / Congruity
+
+**Citation:** A. Sun, M. Toneva, "[Tracking Equivalent Mechanistic Interpretations Across Neural Networks](https://arxiv.org/abs/2603.30002)," arXiv:2603.30002, ICLR 2026.
+**Link:** https://arxiv.org/abs/2603.30002 · **Tier:** SUPPORTING
+
+**Summary.** Defines "interpretive equivalence": two interpretations (symbolic causal abstractions of circuits) are equivalent iff all their implementations (weight configurations realising them) are equivalent. Implementations are generated by intervening on non-circuit components (GetImpl), so no explicit interpretation text is needed. Algorithm "Congruity" tests whether bidirectional linear representation similarity can statistically separate two models' implementation sets. Bounds tie representation similarity to equivalence under Lipschitz alignment.
+
+**Depends on.** Causal abstraction (Geiger et al. 2025); InterpBench/RASP models with known interpretations (Gupta 2024; Weiss 2021); published IOI circuits (Tigges 2024; Merullo 2024); POS circuits (Todd 2024); path patching; linear-alignment similarity (Kornblith 2019). No SAEs, transcoders or attribution graphs.
+
+**Results.** 10-permutation detection, 600 Transformers (6 hard-coded interpretations × 100 variants, ≥96% accuracy): same-interpretation congruence ≈0.43, sorting-vs-counting ≈0.01. IOI: Pythia-160M–2.8B congruent with each other (≈0.92), GPT-2 small/medium ≈0.73, cross-family ≈0.13 (Pythia-160M/410M vs GPT-2 ≈0.5, unexplained). GPT-2 next-token vs POS circuits: control 0.48; terminal punctuation and closing brackets more congruent (medium Cohen's d), articles/prepositions not.
+
+**Weaknesses.** Equivalence is abstraction-dependent; circuits not identifiable from interpretations (many-to-many). Linear similarity may fail on curved representation manifolds. GetImpl presupposes correct circuit identification, itself intractable. No finite-sample bounds. Transformers only.
+
+**Relation to xai-chess.** Peripheral to the factor DSL; a method for sf-probe: a principled test of whether two NNUE nets (different Stockfish net generations, or a pin-ablated retrain à la Pálsson & Björnsson) implement the *same* pin-relevance mechanism, replacing probe-accuracy comparisons with implementation-set congruence. Caveats: it presumes a known circuit, which sf-probe lacks, and its similarity criterion is representational, so it inherits the decodability-vs-causal-use gap unless GetImpl's interventions are used directly.
+
+
+## 106. Dictionary Learning for Patch-Free Circuit Discovery in Othello-GPT
+
+**Citation:** Z. He, X. Ge, Q. Tang, T. Sun, Q. Cheng, X. Qiu, "[Dictionary Learning Improves Patch-Free Circuit Discovery in Mechanistic Interpretability: A Case Study on Othello-GPT](https://arxiv.org/abs/2402.12201)," arXiv:2402.12201, 2024.
+**Link:** https://arxiv.org/abs/2402.12201 · **Tier:** SUPPORTING
+
+**Summary.** Sparse autoencoders (128→1024→128, untied, L1) on every module writing to the residual stream — embedding, attention outputs, MLP outputs — of a retrained 6-layer, d=128, 1.2M-param Othello-GPT (legal-move prediction, 99.5%). Circuits are read off without patching: OV and QK are linear, so attention outputs and pre-softmax scores decompose exactly into lower-level features (feature pairs for QK); MLP features are attributed by "Approximate Direct Contribution" (ADC), which freezes each neuron's nonlinearity as a constant gain. Attribution runs top-down from any logit, feature, or attention score.
+
+**Depends on.** Li et al. 2023 Othello-GPT; Nanda 2023 linear board probes; Cunningham/Bricken 2023 SAEs; LayerNorm linearization (direct logit attribution).
+
+**Results.** Features for current-move position, flipped tiles, "tile is legal" (L5M), mine/opponent colour via specific L0A heads; an L1M feature is an AND gate over three consecutive moves on a line detecting a flip. Head-level OV shows attention superposition (heads 6+7 jointly fire L0A629). ADC vs direct patching on 180 MLP features: top-5 contributor IoU 0.68. Claimed linear complexity vs quadratic patching, no OOD activations.
+
+**Weaknesses.** Under-sparse dictionaries: ~75% dead neurons, near-perfect reconstruction, ~1,000 active features per residual stream. ADC misses inhibition and sometimes attributes to decoder biases. QK decomposition ignores softmax. Case study, no universal circuits; Othello has no tactics.
+
+**Relation to xai-chess.** Transfers to sf-probe: the NNUE accumulator is linear in HalfKA features, so ADC-style linearization of the clipped-ReLU / pairwise-product layers gives per-input-feature attribution of any l1/fc unit without patching — a cheap sub-symbolic attribution to set against factor-DSL interventions. The 0.68 IoU between linearized and patched attribution is the decodability-vs-causal-use gap ChessFaith's intervention band must audit. Not an activation oracle; no symbolic rule extraction.
+
+
+## 107. Probing Classifiers: Promises, Shortcomings, and Advances
+
+**Citation:** Y. Belinkov, "[Probing Classifiers: Promises, Shortcomings, and Advances](https://arxiv.org/abs/2102.12452)," arXiv:2102.12452 (accepted to Computational Linguistics as a squib), 2021.
+**Link:** https://arxiv.org/abs/2102.12452 · **Tier:** SUPPORTING
+
+**Summary.** Critical review of probing. Formalises f: x→ŷ on D_O, probe g: f_l(x)→ẑ on D_P; PERF depends on all four; probe training estimates I(z; h). Shortcomings: no principled baselines (random features already decode much); probe expressivity confounds results; probing shows correlation, not that f uses z; datasets are imperfect proxies for tasks and z must be chosen a priori.
+
+**Depends on.** Control tasks/selectivity (Hewitt & Liang 2019); control functions (Pimentel et al. 2020b); control datasets D_{O,z} (Ravichander et al. 2021); MDL probing (Voita & Titov 2020); Pareto probing (Pimentel et al. 2020a); interventions: Giulianelli et al. 2018, Tucker et al. 2021, amnesic probing (Elazar et al. 2021), CausaLM (Feder et al. 2021).
+
+**Results.** No new experiments. Synthesised: linear probes have high selectivity, non-linear low; a probe can decode z even when D_O makes z non-discriminative; amnesic removal shows high probe accuracy need not entail a task-performance drop, contradicting Giulianelli. Advice: set bounds and controls, report accuracy–complexity trade-off, intervene to measure usage, prefer parameter-free probes.
+
+**Weaknesses.** Squib: no quantitative comparison of controls; NLP-only; mediation/patching work (Vig et al. 2020) out of scope.
+
+**Relation to xai-chess.** The checklist sf-probe lacks. The MLP pin-relevance probes on NNUE accumulators/l1 need a shuffled-label control task with selectivity, a random-weight NNUE baseline, a linear-vs-MLP or MDL complexity report, and an amnesic test: project the relevance direction out of l1 and re-run the puzzle solve. Decodability ≠ use is Pálsson & Björnsson's differential finding; the control-dataset idea maps to puzzles with present-but-irrelevant pins. A chess activation oracle inherits every caveat; MaskPinner is the intervention this squib demands.
+
+
+## 108. Neural DNF-MT (NDNF-MT)
+
+**Citation:** K. G. Baugh, L. Dickens, A. Russo, "[Neural DNF-MT: A Neuro-symbolic Approach for Learning Interpretable and Editable Policies](https://arxiv.org/abs/2501.03888)," AAMAS 2025, arXiv:2501.03888, 2025.
+**Link:** https://arxiv.org/abs/2501.03888 · **Tier:** SUPPORTING
+
+**Summary.** An RL actor built from two semi-symbolic layers (conjunctive tanh layer, then a disjunctive layer with "mutex-tanh" = 2·softmax−1, so outputs form an action distribution) is trained end-to-end with PPO, then pruned, thresholded to {−6,0,6}, and translated exactly into ASP normal clauses (deterministic policy) or ProbLog annotated disjunctions (stochastic). The translation is bidirectional: edited ASP rules map back to a working neural actor. An optional image encoder invents predicates, which cannot be translated back.
+
+**Depends on.** pix2rule semi-symbolic layers and neural DNF (Cingillioglu & Russo 2021), neural DNF-EO (Baugh et al. 2023), PPO, ASP/clingo, ProbLog.
+
+**Results.** Toy tasks: Switcheroo corridors (4–11 states), Blackjack, Taxi (500 states), Door Corridor 3×3 images. Neural NDNF-MT matches MLP/Q-table returns. Extraction loses performance: Blackjack policy divergence from Q-table rises 20.66% → 27.92% after thresholding (episodic return −0.050 → −0.099); Taxi needed distillation from an MLP and averages 3.3 start states unfinished; Door Corridor 25/26 finished runs yield valid ASP (6/32 runs fail). Editing one ASP rule solves DC-T/DC-OT zero-shot; the MLP cannot.
+
+**Weaknesses.** Thresholding discards weight magnitudes and can flip node truth values; no chess-scale evaluation; extracted ProbLog policies not evaluated directly ("long ProbLog query time"); Taxi hyperparameter fragility.
+
+**Relation to xai-chess.** Peripheral to sf-probe; a template for the factor-DSL / formal-language thread: a probe head whose disjunctive layer reads out as ASP clauses over factor predicates would give an extractable, editable "explanation program" instead of an opaque MLP score. Its extraction losses are the cautionary number for claiming rules read off a probe are faithful to it. Silent on decodability-vs-causal-use and activation reading.
+
+
+## 109. NUDGE: Neurally Guided Differentiable Logic Policies
+
+**Citation:** Q. Delfosse, H. Shindo, D. Dhami, K. Kersting, "[Interpretable and Explainable Logical Policies via Neurally Guided Symbolic Abstraction](https://arxiv.org/abs/2306.01439)," arXiv:2306.01439 (NeurIPS 2023, per acknowledgements), 2023.
+**Link:** https://arxiv.org/abs/2306.01439 · **Tier:** SUPPORTING
+
+**Summary.** Distils a trained neural RL policy into weighted first-order-logic rules. The neural agent is the oracle: candidate rules are scored by dot-product agreement of their entailed actions with its action distribution, refined by top-k beam search appending state atoms (mode declarations bound the space). M of C candidates are kept; weights are trained by differentiable forward reasoning (softor/softand) over object-centric atoms. Explanations = gradients of action valuations w.r.t. input atoms.
+
+**Depends on.** Object-centric state (OCAtari or env-provided), a hand-written predicate language with mode declarations, a pretrained PPO/DQN policy.
+
+**Results.** Asterix 6259±1150 vs DQN 124.5; Freeway 21.4±0.8 vs DQN 25.8. GetOut 17.86±2.86 vs fixed-weight logic 11.59±4.29; Loot 5.66±0.59 vs 0.51±0.74. Adaptation without retraining: GetOut+ 3.60±2.93 vs neural PPO −20.88±0.57; 3Fishes-C 3.26 vs −0.37. Guided search keeps 5/6/8 rules (GetOut/3Fishes/Loot) vs 55/30/40 unguided. 800k steps; PPO needed 5M on Loot.
+
+**Weaknesses.** Two Atari games, three toy logic envs, tiny vocabularies. "Only complete if provided with a sufficiently expressive language." Gradient explanations never validated causally or with humans; rule faithfulness to the neural policy is only action agreement.
+
+**Relation to xai-chess.** Template for the symbolic-learning thread: score candidate DSL rule bodies by agreement with Stockfish's move distribution, then fit weights — a formal explanation language grown from an engine oracle. Difference to state: ChessFaith grades by intervention, NUDGE by action agreement. For sf-probe, gradients over symbolic atoms are the decodability trap Pálsson & Björnsson expose — attribution is not evidence of causal use. The completeness caveat is the open "types of relevance" question: predicates absent from the DSL cannot be found.
+
+
+## 110. SKE/SKI Systematic Literature Review
+
+**Citation:** G. Ciatto, F. Sabbatini, A. Agiollo, M. Magnini, A. Omicini, "[Symbolic Knowledge Extraction and Injection with Sub-symbolic Predictors: A Systematic Literature Review](https://arxiv.org/abs/2501.14836)," ACM Comput. Surv. 56(6), art. 161, 2024 (arXiv:2501.14836).
+**Link:** https://arxiv.org/abs/2501.14836 · **Tier:** SUPPORTING
+
+**Summary.** Systematic review of 249 primary works: 132 symbolic knowledge extraction (SKE) methods and 117 injection (SKI) methods, from five keyword queries on Google Scholar/Scopus/Springer/ACM DL/DBLP plus snowballing. Defines meta-models and taxonomies: SKE by translucency (pedagogical = query the predictor as an oracle; decompositional = read internal parameters), input data type, output shape, AI task; SKI by strategy (predictor structuring, knowledge embedding, guided learning), input logic, target NN.
+
+**Depends on.** Andrews-style rule-extraction taxonomies [6], prior narrower surveys, the authors' PSyKE/PSyKI libraries.
+
+**Results.** SKE: ~half pedagogical, rest tailored to feed-forward NN, SVM, linear, tree ensembles; 103 output rule lists, 24 decision trees, 3 KGs; 113 classification-only vs 13 regression-only; runnable code for 27/132 (20.5%), 10 as libraries. SKI: virtually all target NNs; 60/117 (51.3%) have code. All SKE logics are effectively propositional (possibly fuzzy); FOL unexploited. No SKE method targets unsupervised or RL predictors.
+
+**Weaknesses.** Counts, no quality/fidelity comparison; keyword-based search admits misses (authors say so); taxonomy stops at 2023, pre-dating sparse-autoencoder/transcoder feature extraction, which is decompositional SKE in all but name.
+
+**Relation to xai-chess.** Vocabulary paper. It places sf-probe: probes on NNUE accumulators/l1 are decompositional SKE, MaskPinner rule-level removal is pedagogical (oracle-query) intervention; the survey's fidelity-vs-consistency duality maps onto ChessFaith's faithfulness scoring. The finding that extracted knowledge is propositional and never recursive is the argument for the factor DSL: chess concepts (pin relevance at ply d) need relational, depth-indexed predicates that no surveyed SKE output form supports. Also confirms the gap the project fills: zero SKE methods for search/RL-trained predictors. Reuse only as citation and taxonomy; nothing runnable applies to engines.
+
+
+## 111. Evaluating Interpretable RL by Distilling Policies into Programs
+
+**Citation:** H. Kohler, Q. Delfosse, W. Radji, R. Akrour, P. Preux, "[Evaluating Interpretable Reinforcement Learning by Distilling Policies into Programs](https://arxiv.org/abs/2503.08322)," arXiv:2503.08322, 2025 (comments: under review).
+**Link:** https://arxiv.org/abs/2503.08322 · **Tier:** SUPPORTING
+
+**Summary.** Human-free interpretability evaluation for RL policies via Lipton's simulatability. Neural experts (PPO/DQN/SAC) are distilled by imitation learning (BC, DAgger, Q-DAgger) into linear policies, CART trees (4–128 nodes), oblique trees and small ReLU MLPs (2×2–16×16); every student is "unfolded" into straight-line Python so inference time and program size (bytes) proxy human simulation cost.
+
+**Depends on.** Imitation learning (DAgger, Q-DAgger), scikit-learn/CART, Gymnasium classic control, MuJoCo, OCAtari object-centric states; ~40,000 baseline policies (35k classic control, 5k MuJoCo, 400 Atari).
+
+**Results.** DAgger >> BC on classic control/MuJoCo; on OCAtari Q-DAgger is best but students on average do not match the expert. No policy class wins the interpretability/performance trade-off across tasks (MLPs on classic control, trees on Atari). LunarLander: interpretability can rise without reward loss; Pong needs a minimum complexity; Seaquest (180-D) has no interpretable solution. Folded parameter counts contradict user studies; unfolded measures agree. State dimension explains 80.87% of inference-time variance. Verification time falls exponentially with MLP interpretability.
+
+**Weaknesses.** Size/time are crude proxies validated only against old tree-vs-MLP user studies; no human evaluation. Unfolding fails for state-dependent loop lengths (Acrobot). Per-state fidelity to the expert is not reported.
+
+**Relation to xai-chess.** Peripheral to faithfulness but relevant to the formal-language thread: chess "explanations" as unfolded programs over DSL predicates would give a measurable simulatability cost (size/inference steps) per explanation, complementing ChessFaith's causal score. Its warning — pin-relevance decoded by an sf-probe MLP is not thereby simulatable — argues for distilling the probe into a small tree over factor predicates and reporting its size and fidelity, not just AUROC.
+
+
+## 112. Prune, Interpret, Evaluate (PIE)
+
+**Citation:** Q. Chen, L. He, N. Mesgarani, "[Prune, Interpret, Evaluate: A Cross-Layer Transcoder-Native Framework for Efficient Circuit Discovery via Feature Attribution](https://arxiv.org/abs/2604.16889)," arXiv:2604.16889, 2026.
+**Link:** https://arxiv.org/abs/2604.16889 · **Tier:** PERIPHERAL
+
+**Summary.** Prune cross-layer-transcoder (CLT) features *before* paying for LLM auto-interpretation. Feature Attribution Patching (FAP) scores a feature by gradient-weighted write contributions, clean-vs-corrupted activation delta times downstream loss gradient, in one forward/backward pass; FAP-Synergy reranks near-threshold "boundary" features by pairwise metric recovery with 8 sampled core partners. Retained features (budgets K∈{50,100,200,400,800}) get descriptions from gpt-5.2 on 40 max-activating exemplars, audited by gpt-5-mini under FADE (clarity/purity/responsiveness).
+
+**Depends on.** Public CLT checkpoints (mntss/clt-gemma-2-2b-426k, mntss/clt-llama-3.2-1b-524k) on Gemma-2-2B and Llama-3.2-1B; IOI (2,000 prompts) and Doc-String tasks; the CLT as replacement model for ablation; FADE auto-interp metrics; ACDC-style perturbation (FActP) and Relevance Patching (CLT-RelP) as baselines. No comparison to Anthropic's circuit-tracer attribution graphs.
+
+**Results.** IOI/Llama-1B, K=50: KL 1.22±0.56 (FAP-Synergy) vs 1.32±0.62 (CLT-RelP) vs 1.59±0.69 (activation magnitude); faithfulness 0.30±0.16 vs 0.15±0.17. FAP-Synergy at K=50 matches baseline fidelity at K=75 (claimed 33% interpretation-cost cut). Random active features need ≈4,000 to match PIE at K=100 (≈40× compression). FActP needs >4,000 forward passes per prompt vs one pass for FAP. FADE gains are within noise (Doc-String/Gemma K=100 clarity 0.620 vs 0.596–0.609).
+
+**Weaknesses.** Two toy tasks, two small models, no CLT training; interpretability evaluated mainly at K=100; synergy under-measured by feature-isolated evaluation; faithfulness scores are low in absolute terms (≤0.30 at K=50); the "first CLT-native" claim is unsupported by a circuit-tracer comparison.
+
+**Relation to xai-chess.** Peripheral: a cost-saving pruning trick for LLM CLT pipelines, with no chess or NNUE content; only the pattern "attribute first, interpret only retained features" would transfer if the project ever trains transcoders on NNUE activations.
+
+
+## 113. Open Problems in Mechanistic Interpretability
+
+**Citation:** L. Sharkey, B. Chughtai, J. Batson, J. Lindsey, J. Wu, L. Bushnaq, N. Goldowsky-Dill, S. Heimersheim, A. Ortega, J. Bloom, S. Biderman, A. Garriga-Alonso, A. Conmy, N. Nanda, J. Rumbelow, M. Wattenberg, N. Schoots, J. Miller, E. J. Michaud, S. Casper, M. Tegmark, W. Saunders, D. Bau, E. Todd, A. Geiger, M. Geva, J. Hoogland, D. Murfet, T. McGrath, "[Open Problems in Mechanistic Interpretability](https://arxiv.org/abs/2501.16496)," arXiv:2501.16496, 2025.
+**Link:** https://arxiv.org/abs/2501.16496 · **Tier:** PERIPHERAL
+
+**Summary.** Survey/position paper (29 authors, Jan 2025), no experiments. Frames reverse engineering as decompose → describe → validate, and says the field routinely conflates hypotheses with conclusions. Validation criteria listed: cross-method consistency, predicting activations/counterfactuals from a natural-language description (by humans or LLMs), explaining failures, handcrafted replacement of a component, ground-truth models with compiled programs or interchange-intervention training, and achieving competitive engineering goals. Section 2.2.3: a probe "does not necessarily imply that those activations causally mediate how that concept is used by the network, or even if the network uses the concept at all"; an arbitrarily powerful probe measures mutual information only; probing should generate hypotheses, confirmed by patching, path patching, causal scrubbing, counterfactual data, or DAS.
+
+**Depends on.** Cited literature only (Bills 2023, Ghandeharioun 2024 patchscopes, Geiger DAS, Makelov 2024, Bolukbasi 2021).
+
+**Results.** None original. Quoted numbers: a 16M-latent SAE in GPT-4 costs loss equal to a model with 10% of its compute; SAE reconstructions cut GPT-2-small performance 10% (task data) to 40% (full distribution); SAE latents depend on training data (refusal latents absent from pretraining-data SAEs).
+
+**Weaknesses.** Agenda, not evidence; no recipes for the chess/NNUE setting; automation section (2.4) is a heading with little content in the HTML **UNVERIFIED**.
+
+**Relation to xai-chess.** Peripheral: a citable authority for the framing already in the project — sf-probe pin-relevance probes are hypotheses, the MaskPinner/board-edit interventions are the validation; the "predict activations from a description" criterion is the validation an eventual chess activation oracle would need.
+
+
+## 114. Mechanistic Interpretability: Circuits, Sparse Features and Symbolic Reasoning
+
+**Citation:** P. Sawant, J. Krejčí, "[Mechanistic Interpretability for Neural Networks: Circuits, Sparse Features and Symbolic Reasoning](https://arxiv.org/abs/2607.07316)," arXiv:2607.07316, 2026.
+**Link:** https://arxiv.org/abs/2607.07316 · **Tier:** PERIPHERAL
+
+**Summary.** PRISMA-ScR scoping review (20 pp., no experiments) covering Transformer circuits (induction heads, IOI, ACDC, EAP, attribution-based discovery), superposition and SAE variants (ReLU/L1, Gated, TopK, JumpReLU, BatchTopK), transcoders and cross-layer transcoders, steering vectors, and a final section on neurosymbolic rule extraction (NeSyFOLD for CNNs, NeSyViT for ViTs, Logic-LM / LLM-Modulo solver coupling).
+
+**Depends on.** Secondary literature only: Anthropic circuits/CLT work, ACDC, EAP, FOLD-SE-M answer-set learning, Elite BackProp, Logic-LM.
+
+**Results.** Reported from cited work, not measured: attribution-based discovery ~100× faster than ACDC (5 s vs 8 min for IOI on one GPU); GPT-2 Small IOI circuit uses 26 heads; SAE reconstruction error scales as a power law and frontier models may need tens to hundreds of millions of features; Elite BackProp shrinks NeSyFOLD rule sets by >60% without accuracy loss. Rule-extraction pipeline: binarize final-layer feature maps or a sparse concept layer → FOLD-SE-M → stratified answer-set program → semantic labeling of kernels via IoU with segmentation masks.
+
+**Weaknesses.** No original evidence; no chess or game models. The paper itself concedes (7.3) that extracted rule programs approximate the decision boundary rather than the computation, and that transcoders can be predictive without being mechanistically faithful (Jacobian matching proposed as a remedy).
+
+**Relation to xai-chess.** Peripheral: a survey with nothing chess-specific. Two reusable pointers only: the NeSyFOLD recipe (binarized sparse features → FOLD-SE-M → default-with-exception rules, then label features by overlap with ground-truth masks) is a concrete template for turning sf-probe's `l1`/accumulator activations into factor-DSL rules with pin/hanging detectors as the "masks"; and its decision-boundary-vs-mechanism caveat is the same decodability-vs-causal-use gap Pálsson & Björnsson found, which ChessFaith's intervention grading already addresses.
+
+
+## 115. Does a NN Really Encode Symbolic Concepts? (interaction concepts)
+
+**Citation:** M. Li, Q. Zhang, "[Does a Neural Network Really Encode Symbolic Concepts?](https://arxiv.org/abs/2302.13080)," arXiv:2302.13080, 2023 (PDF footer: ICML 2023, PMLR 202; no arXiv comments line).
+**Link:** https://arxiv.org/abs/2302.13080 · **Tier:** PERIPHERAL
+
+**Summary.** Tests whether Harsanyi-dividend interaction concepts I(S|x) = Σ_{T⊆S} (−1)^{|S|−|T|} v(x_T) (v = true-class log-odds, masked variables at baseline) are real concepts or a mere additive re-parametrisation of v(x) = Σ_S I(S|x). Four criteria: sparsity, transferability across samples (a small concept dictionary D_k covers most salient concepts), transferability across DNNs, and discrimination power β(S) = max(m⁺,m⁻)/(m⁺+m⁻) (sign consistency within a class).
+
+**Depends on.** Ren et al. 2021a/2023a (Harsanyi decomposition, OR-interaction trick for sparsity), Deng et al. 2022a; input variables are coarse units (8–10 annotated ShapeNet parts, tabular features, image patches) so 2^n subsets stay enumerable.
+
+**Results.** Datasets: UCI tic-tac-toe, UCI wifi (MLP-5/ResMLP-5), MNIST-3, CelebA-eyeglasses, CUB-binary (LeNet/AlexNet/ResNet/VGG), ShapeNet (PointNet/++). Salient set Ω_x = {S : |I(S|x)| > 0.05·max}: 20–80 salient concepts per sample. Dictionaries of 30–100 concepts explain 60–80% of salient concepts (threshold 0.1·max). Cross-DNN transfer γ rises 0.5→0.95 with threshold τ (0.05→0.3·max); random subsets < 0.05. Weighted discrimination β̄ = 0.81–0.99. Label noise, input noise, and a colour-shortcut CUB variant (low multi-variable share κ) destroy transferability.
+
+**Weaknesses.** Purely empirical; authors admit no theory of emergence may exist. Coarse pre-segmented inputs; no causal test beyond additive contribution; tic-tac-toe is the only game.
+
+**Relation to xai-chess.** Peripheral: an input-space AND-interaction decomposition, not activation reading. Its four criteria (sparsity, cross-position dictionary, cross-net transfer, sign consistency) are a reusable validity checklist for discovered NNUE features or DSL factors, and tic-tac-toe shows square interactions can surface as concepts; but n≥64 squares makes exact I(S) infeasible, and the method says nothing about causal use vs decodability.
+
+
+## 116. Agent Symbolic Learning
+
+**Citation:** W. Zhou, Y. Ou, S. Ding, L. Li, J. Wu, T. Wang, J. Chen, S. Wang, X. Xu, N. Zhang, H. Chen, Y. E. Jiang, "[Symbolic Learning Enables Self-Evolving Agents](https://arxiv.org/abs/2406.18532)," arXiv:2406.18532, 2024.
+**Link:** https://arxiv.org/abs/2406.18532 · **Tier:** PERIPHERAL
+
+**Summary.** "Symbolic learning" here means optimizing an LLM agent pipeline (prompts, tools, node arrangement) as "learnable weights" with natural-language simulacrums of loss, gradient, and update. A "language loss" (LLM-written critique plus a prompted numeric score) is back-propagated node-by-node as "language gradients"; PromptOptimizer, ToolOptimizer, and PipelineOptimizer LLM calls apply the edits. Everything happens in text; no network internals are touched.
+
+**Depends on.** Agents framework (Zhou et al. 2023), DSPy, GPTSwarm, MetaGPT as baselines/inspiration; GPT-3.5-turbo-0125 and GPT-4-turbo-0409 as both backbone and optimizer; HotpotQA (hard), MATH, HumanEval, plus custom creative-writing and software-dev tasks.
+
+**Results.** GPT-4: HotpotQA F1/EM 41/54.0 vs DSPy 40/50.5; MATH 60.7 vs 56.0 (Agents); HumanEval 85.8 vs 85.0. GPT-3.5: MATH 38.8 vs 23.8. Software dev 3.8/4 vs 2.4; creative writing 7.4 vs 6.5 (GPT-4 judge). Authors say gains are larger and more stable on the custom tasks than on standard benchmarks.
+
+**Weaknesses.** No seeds, run counts, CIs, or significance tests; creative-writing scored by GPT-4 judge; initialization strongly affects outcome; illegal updates retried three times then discarded; backbone not fine-tuned.
+
+**Relation to xai-chess.** Keyword collision only: this "symbolic learning" is prompt/tool optimization of language agents, not extracting symbols or rules from a network's activations — nothing here bears on NNUE probing, activation oracles, or circuit discovery. Marginally usable idea: an LLM-critiqued loop for tuning the factor-DSL `to_nl` templates, but ChessFaith's faithfulness score is causal, not judge-based, so the mechanism does not transfer.
+

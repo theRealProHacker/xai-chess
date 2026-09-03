@@ -2,9 +2,9 @@
 
 IEEE references for every work touched by this project — the original research-proposal citations, the office-hours/landscape corpus, and the completeness-verifier additions. **Titles are clickable** (canonical URL). Sorted by relevance to the benchmark (Core → Supporting → Peripheral); within a tier, by centrality.
 
-*87 works · 30 core / 46 supporting / 11 peripheral · compiled 2026-06-27, extended 2026-08-01.*
+*116 works · 37 core / 66 supporting / 13 peripheral · compiled 2026-06-27, extended 2026-08-01 and 2026-09-03.*
 
-References [1]–[64] are the original corpus and their numbers are fixed, because the survey and the summaries both cite them as stable tags. The move-explanation and dataset sweep of 2026-08-01 appended [65]–[87] rather than renumbering.
+References [1]–[64] are the original corpus and their numbers are fixed, because the survey and the summaries both cite them as stable tags. The move-explanation and dataset sweep of 2026-08-01 appended [65]–[87], and the activation-oracle / symbolic-learning / circuits sweep of 2026-09-03 appended [88]–[116], rather than renumbering.
 
 
 ## Core (23)
@@ -156,6 +156,8 @@ References [1]–[64] are the original corpus and their numbers are fixed, becau
 
 **Citation convention for this section.** Entries are given by author surname. Titles, venues, years, and DOI/arXiv identifiers were each confirmed against a fetched source; author initials could not be verified in this pass and are deliberately omitted rather than guessed. Fill them from the publisher record before any submission.
 
+*Resolved 2026-08-03:* the three unverified titles ([77], [82], [83]), the unverified subtitle ([67]), and the two missing URLs ([80], [86]) were each confirmed against a primary source and are now given in full, with author initials. The remaining entries in this section still carry surname-only citations.
+
 ### Core (7)
 
 *The move-explanation systems a grading benchmark would consume, and the nearest existing precedents for grading against causal ground truth.*
@@ -164,7 +166,7 @@ References [1]–[64] are the original corpus and their numbers are fixed, becau
 
 [66] Pálsson and Björnsson, "[Empirical Evaluation of Concept Probing for Game-Playing Agents](https://ebooks.iospress.nl/doi/10.3233/FAIA240574)," in Proc. 27th European Conf. Artificial Intelligence (ECAI), Frontiers in Artificial Intelligence and Applications, vol. 392, 2024, pp. 874–881, doi:10.3233/FAIA240574.
 
-[67] Puri, Verma, Gupta, Kayastha, Deshmukh, Krishnamurthy, and Singh, "[Explain Your Move](https://arxiv.org/abs/1912.12191)" (SARFA; full subtitle **not verified**), in Proc. Int. Conf. Learning Representations (ICLR), 2020. arXiv:1912.12191.
+[67] N. Puri, S. Verma, P. Gupta, D. Kayastha, S. Deshmukh, B. Krishnamurthy, and S. Singh, "[Explain Your Move: Understanding Agent Actions Using Specific and Relevant Feature Attribution](https://arxiv.org/abs/1912.12191)" (SARFA), in Proc. Int. Conf. Learning Representations (ICLR), 2020. arXiv:1912.12191.
 
 [68] Das and Chernova, "[Leveraging Rationales to Improve Human Task Performance](https://arxiv.org/abs/2002.04202)," in Proc. 25th Int. Conf. Intelligent User Interfaces (IUI), 2020. arXiv:2002.04202.
 
@@ -188,19 +190,19 @@ References [1]–[64] are the original corpus and their numbers are fixed, becau
 
 [76] Bratko and Michie, "[An advice program for a complex chess programming task](https://doi.org/10.1093/comjnl/23.4.353)," *The Computer Journal*, vol. 23, no. 4, pp. 353–359, 1980, doi:10.1093/comjnl/23.4.353.
 
-[77] Janičić, Marić, and Maliković, **[title not verified — do not cite this string]**, *Logical Methods in Computer Science*, vol. 15, no. 1:34, 2019, doi:10.23638/LMCS-15(1:34)2019. The open-access re-formalisation of Bratko's KRK strategy: names the auxiliary predicates (`room`, `critical square`, `rook exposed`, `rook divides`, `L-pattern`), gives the seven prioritised strategy rules with coverage counts over all 175,168 white-to-move KRK positions, and extends the win result to n×n boards. Resolve the title and author initials from the DOI before use.
+[77] P. Janičić, F. Marić, and M. Maliković, "[Computer-Assisted Proving of Combinatorial Conjectures Over Finite Domains: A Case Study of a Chess Conjecture](https://lmcs.episciences.org/5328/)," *Logical Methods in Computer Science*, vol. 15, no. 1:34, pp. 34:1–34:37, 2019, doi:10.23638/LMCS-15(1:34)2019. The open-access re-formalisation of Bratko's KRK strategy: names the auxiliary predicates (`room`, `critical square`, `rook exposed`, `rook divides`, `L-pattern`), gives the seven prioritised strategy rules with coverage counts over all 175,168 white-to-move KRK positions, and extends the win result to n×n boards. Resolve the title and author initials from the DOI before use.
 
 [78] Možina, Žabkar, and Bratko, "[Argument based machine learning](https://doi.org/10.1016/j.artint.2007.04.007)," *Artificial Intelligence*, vol. 171, no. 10–15, pp. 922–937, 2007, doi:10.1016/j.artint.2007.04.007.
 
 [79] Guid, Možina, Sadikov, and Bratko, "[Deriving Concepts and Strategies from Chess Tablebases](https://doi.org/10.1007/978-3-642-12993-3_18)," in Advances in Computer Games (ACG 2009), Lecture Notes in Computer Science, pp. 195–207, doi:10.1007/978-3-642-12993-3_18.
 
-[80] Kameko, Mori, and Tsuruoka, "Learning a Game Commentary Generator with Grounded Move Expressions," in Proc. IEEE Conf. Computational Intelligence and Games (CIG), 2015, pp. 177–184.
+[80] H. Kameko, S. Mori, and Y. Tsuruoka, "[Learning a Game Commentary Generator with Grounded Move Expressions](https://hirotakakameko.appspot.com/paper/CIG2015Commentary.pdf)," in Proc. IEEE Conf. Computational Intelligence and Games (CIG), 2015, pp. 177–184.
 
 [81] Costeff, "[The Chess Query Language: CQL](https://doi.org/10.3233/ICG-2004-27404)," *ICGA Journal*, vol. 27, no. 4, pp. 217–225, 2004, doi:10.3233/ICG-2004-27404.
 
-[82] Lyu, Apidianaki, and Callison-Burch, **[title not verified](https://aclanthology.org/2024.cl-2.6/)** (the faithfulness survey; 110+ methods in five categories), *Computational Linguistics*, vol. 50, no. 2, pp. 657–723, 2024.
+[82] Q. Lyu, M. Apidianaki, and C. Callison-Burch, "[Towards Faithful Model Explanation in NLP: A Survey](https://aclanthology.org/2024.cl-2.6/)" (110+ methods in five categories), *Computational Linguistics*, vol. 50, no. 2, pp. 657–723, 2024.
 
-[83] Parcalabescu and Frank, **[title not verified](https://aclanthology.org/2024.acl-long.329/)** (the self-consistency critique; introduces CC-SHAP), in Proc. 62nd Annu. Meeting Assoc. Comput. Linguistics (ACL), 2024.
+[83] L. Parcalabescu and A. Frank, "[On Measuring Faithfulness or Self-consistency of Natural Language Explanations](https://aclanthology.org/2024.acl-long.329/)" (introduces CC-SHAP), in Proc. 62nd Annu. Meeting Assoc. Comput. Linguistics (ACL), 2024.
 
 [84] Björnsson, "[Chess and explainable AI](https://content.iospress.com/articles/icga-journal/icg240256)," *ICGA Journal*, vol. 46, no. 2, pp. 67–75, 2024, doi:10.3233/ICG-240256. Content beyond the abstract **UNVERIFIED** (paywalled).
 
@@ -210,7 +212,80 @@ References [1]–[64] are the original corpus and their numbers are fixed, becau
 
 [85] Zheng, et al., "[From Multimodal Perception to Strategic Reasoning: A Survey on AI-Generated Game Commentary](https://arxiv.org/abs/2506.17294)," arXiv:2506.17294, 2025.
 
-[86] S. J. Edwards (coordinator), "Standard: Portable Game Notation Specification and Implementation Guide" (canonical URL **not verified**), 1994. Defines the Numeric Annotation Glyph (NAG) vocabulary, `$0`–`$255`.
+[86] S. J. Edwards (coordinator), "[Standard: Portable Game Notation Specification and Implementation Guide](https://archive.org/details/pgn-standard-1994-03-12)," Mar. 12, 1994. Defines the Numeric Annotation Glyph (NAG) vocabulary, `$0`–`$255`.
 
 [87] The Software Toolworks, *Chessmaster 3000 (1991) PC Manual*. [Online]. Available: https://archive.org/details/chessmaster-3000-pc-manual — documents the "Natural Language Advice" feature (Mentor menu → Advice → Detailed); see also *Chessmaster 4000 Windows 95 Edition (1995) PC Manual*, archive.org/details/chessmaster-4000-windows-95-edition-manual.
 
+
+
+## Additions — activation-oracle, symbolic-learning and circuits sweep (2026-09-03)
+
+*29 works: 7 core, 20 supporting, 2 peripheral. Surfaced by three keyword passes — activation oracles (LLMs that read another model's activations), symbolic knowledge extraction from sub-symbolic predictors, and mechanistic circuit discovery — for the activation-level surface and the NNUE probing work (`sf-probe/`). Every title, author list, date and identifier below was confirmed against the arXiv abstract page or the publisher page on 2026-09-03. One candidate, "Symbolic Policy Distillation for Interpretable Reinforcement Learning" (OpenReview xLycLWUMas), could not be fetched and is omitted.*
+
+### Core (7)
+
+*Activation-reading interfaces and their failure modes, the causal-probing method the NNUE probes need, and the two nearest precedents for validating internal-structure claims against interventions.*
+
+[88] A. Karvonen, J. Chua, C. Dumas, K. Fraser-Taliente, S. Kantamneni, J. Minder, E. Ong, A. Sen Sharma, D. Wen, O. Evans, and S. Marks, "[Activation Oracles: Training and Evaluating LLMs as General-Purpose Activation Explainers](https://arxiv.org/abs/2512.15674)," arXiv:2512.15674, 2025.
+
+[89] A. Pan, L. Chen, and J. Steinhardt, "[LatentQA: Teaching LLMs to Decode Activations Into Natural Language](https://arxiv.org/abs/2412.08686)," in Proc. Int. Conf. Learning Representations (ICLR), 2026. arXiv:2412.08686.
+
+[90] H. Dingeto, "[Train the Model, Not the Reader: Decodability Supervision for Verifiable Activation Explanations](https://arxiv.org/abs/2607.20379)," arXiv:2607.20379, 2026.
+
+[91] T. Bersia and T. Gaintseva, "[When Activation Oracles Learn Not to Read: Concept-Specific Blind Spots in Fine-Tuned Oracles](https://arxiv.org/abs/2607.23379)," arXiv:2607.23379, 2026.
+
+[92] Y. Elazar, S. Ravfogel, A. Jacovi, and Y. Goldberg, "[Amnesic Probing: Behavioral Explanation with Amnesic Counterfactuals](https://arxiv.org/abs/2006.00995)," *Trans. Assoc. Comput. Linguistics*, vol. 9, 2021. arXiv:2006.00995.
+
+[93] M. Taufeeque, A. D. Tucker, A. Gleave, and A. Garriga-Alonso, "[Path Channels and Plan Extension Kernels: a Mechanistic Description of Planning in a Sokoban RNN](https://arxiv.org/abs/2506.10138)," in Proc. Int. Conf. Learning Representations (ICLR), 2026. arXiv:2506.10138.
+
+[94] G. Birardi and G. Paulo, "[Automated Attribution Graph Interpretation via Probe Prompting](https://arxiv.org/abs/2511.07002)," arXiv:2511.07002, 2025.
+
+### Supporting (20)
+
+*The activation-oracle tooling that followed [88], the circuit-discovery method stack from ACDC to attribution graphs and the critiques of it, the probing-methodology background, and the symbolic-extraction lineage.*
+
+[95] J. Bauer, C. De Schamphelaere, A. Karvonen, N. Luick, and N. Nanda, "[Building Better Activation Oracles](https://arxiv.org/abs/2606.02609)," arXiv:2606.02609, 2026.
+
+[96] F. Torrielli, P. Schneider-Kamp, and L. Galke Poech, "[Confidence and Calibration of Activation Oracles for Reliable Interpretation of Language Model Internals](https://arxiv.org/abs/2605.26045)," arXiv:2605.26045, 2026.
+
+[97] H. Zhao, Z. He, G. Wang, A. Payani, Y. Li, and M. Du, "[Universal Activation Verbalizer: A Unified Framework for Cross-Model Activation Explanation](https://arxiv.org/abs/2605.25903)," arXiv:2605.25903, 2026.
+
+[98] A. Arora, Z. Wu, J. Steinhardt, and S. Schwettmann, "[ADAG: Automatically Describing Attribution Graphs](https://arxiv.org/abs/2604.07615)," arXiv:2604.07615, 2026.
+
+[99] E. Ameisen, J. Lindsey, A. Pearce, W. Gurnee, N. L. Turner, B. Chen, et al., "[Circuit Tracing: Revealing Computational Graphs in Language Models](https://transformer-circuits.pub/2025/attribution-graphs/methods.html)," Transformer Circuits Thread, Anthropic, Mar. 2025.
+
+[100] J. Lindsey, W. Gurnee, E. Ameisen, B. Chen, A. Pearce, N. L. Turner, et al., "[On the Biology of a Large Language Model](https://transformer-circuits.pub/2025/attribution-graphs/biology.html)," Transformer Circuits Thread, Anthropic, Mar. 2025.
+
+[101] J. Dunefsky, P. Chlenski, and N. Nanda, "[Transcoders Find Interpretable LLM Feature Circuits](https://arxiv.org/abs/2406.11944)," in Advances in Neural Information Processing Systems (NeurIPS), 2024. arXiv:2406.11944.
+
+[102] S. Marks, C. Rager, E. J. Michaud, Y. Belinkov, D. Bau, and A. Mueller, "[Sparse Feature Circuits: Discovering and Editing Interpretable Causal Graphs in Language Models](https://arxiv.org/abs/2403.19647)," in Proc. Int. Conf. Learning Representations (ICLR), 2025. arXiv:2403.19647.
+
+[103] A. Conmy, A. N. Mavor-Parker, A. Lynch, S. Heimersheim, and A. Garriga-Alonso, "[Towards Automated Circuit Discovery for Mechanistic Interpretability](https://arxiv.org/abs/2304.14997)" (ACDC), in Advances in Neural Information Processing Systems (NeurIPS), 2023. arXiv:2304.14997.
+
+[104] A. Bayat Makou, J. Niu, S. Dutta, and I. Gurevych, "[Many Circuits, One Mechanism: Input Variation and Evaluation Granularity in Circuit Discovery](https://arxiv.org/abs/2606.06267)," *Trans. Machine Learning Research*, 2026. arXiv:2606.06267.
+
+[105] A. Sun and M. Toneva, "[Tracking Equivalent Mechanistic Interpretations Across Neural Networks](https://arxiv.org/abs/2603.30002)," in Proc. Int. Conf. Learning Representations (ICLR), 2026. arXiv:2603.30002.
+
+[106] Z. He, X. Ge, Q. Tang, T. Sun, Q. Cheng, and X. Qiu, "[Dictionary Learning Improves Patch-Free Circuit Discovery in Mechanistic Interpretability: A Case Study on Othello-GPT](https://arxiv.org/abs/2402.12201)," arXiv:2402.12201, 2024.
+
+[107] Y. Belinkov, "[Probing Classifiers: Promises, Shortcomings, and Advances](https://arxiv.org/abs/2102.12452)," *Computational Linguistics*, vol. 48, no. 1, 2022. arXiv:2102.12452.
+
+[108] K. Gu Baugh, L. Dickens, and A. Russo, "[Neural DNF-MT: A Neuro-symbolic Approach for Learning Interpretable and Editable Policies](https://arxiv.org/abs/2501.03888)," in Proc. Int. Conf. Autonomous Agents and Multiagent Systems (AAMAS), 2025. arXiv:2501.03888.
+
+[109] Q. Delfosse, H. Shindo, D. Dhami, and K. Kersting, "[Interpretable and Explainable Logical Policies via Neurally Guided Symbolic Abstraction](https://arxiv.org/abs/2306.01439)" (NUDGE), in Advances in Neural Information Processing Systems (NeurIPS), 2023. arXiv:2306.01439.
+
+[110] G. Ciatto, F. Sabbatini, A. Agiollo, M. Magnini, and A. Omicini, "[Symbolic Knowledge Extraction and Injection with Sub-symbolic Predictors: A Systematic Literature Review](https://arxiv.org/abs/2501.14836)," *ACM Computing Surveys*, vol. 56, 2024. arXiv:2501.14836.
+
+[111] H. Kohler, Q. Delfosse, W. Radji, R. Akrour, and P. Preux, "[Evaluating Interpretable Reinforcement Learning by Distilling Policies into Programs](https://arxiv.org/abs/2503.08322)," arXiv:2503.08322, 2025.
+
+[112] Q. Chen, L. He, and N. Mesgarani, "[Prune, Interpret, Evaluate: A Cross-Layer Transcoder-Native Framework for Efficient Circuit Discovery via Feature Attribution](https://arxiv.org/abs/2604.16889)," arXiv:2604.16889, 2026.
+
+[113] L. Sharkey, B. Chughtai, J. Batson, J. Lindsey, J. Wu, L. Bushnaq, et al., "[Open Problems in Mechanistic Interpretability](https://arxiv.org/abs/2501.16496)," arXiv:2501.16496, 2025.
+
+[114] P. Sawant and J. Krejčí, "[Mechanistic Interpretability for Neural Networks: Circuits, Sparse Features and Symbolic Reasoning](https://arxiv.org/abs/2607.07316)," arXiv:2607.07316, 2026.
+
+### Peripheral (2)
+
+[115] M. Li and Q. Zhang, "[Does a Neural Network Really Encode Symbolic Concepts?](https://arxiv.org/abs/2302.13080)," arXiv:2302.13080, 2023.
+
+[116] W. Zhou, Y. Ou, S. Ding, L. Li, J. Wu, T. Wang, et al., "[Symbolic Learning Enables Self-Evolving Agents](https://arxiv.org/abs/2406.18532)," arXiv:2406.18532, 2024. Listed to disambiguate the keyword: "symbolic learning" here means prompt-and-tool optimisation of language agents, not extraction of symbols from a network.
