@@ -1,0 +1,9 @@
+numpy
+scipy
+scikit-learn
+matplotlib
+chess
+onnx
+onnxruntime
+nbformat
+nbclient
