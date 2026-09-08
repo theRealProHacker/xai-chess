@@ -198,7 +198,9 @@ const BISHOP = [[1,1],[1,-1],[-1,1],[-1,-1]];
 // Rays see through a friendly piece attacking along the same line, because a battery really
 // does bear on the square: on f8-g7-h6 the pawn captures onto h6 and stays on the diagonal,
 // so the bishop behind it is a second defender. Same colour, same direction only — a rook
-// behind its own pawn does not see down the file, and nothing sees through a knight.
+// behind its own pawn does not see down the file, and nothing sees through a knight. A pawn
+// carries the line only from the square next to the target, the one square it actually
+// attacks; further out it blocks like any other piece.
 function attackersOf(game, f, r) {
   const n = {w: 0, b: 0};
   // A white pawn on (f±1, r-1) attacks (f,r); a black pawn on (f±1, r+1) does.
@@ -224,20 +226,21 @@ function attackersOf(game, f, r) {
   }
   for (const [dirs, straight] of [[ROOK, true], [BISHOP, false]]) {
     for (const [df, dr] of dirs) {
-      let ff = f + df, rr = r + dr, line = null;  // colour of the battery being walked, if any
+      let ff = f + df, rr = r + dr, line = null, step = 1;  // colour of the battery walked, if any
       while (onBoard(ff, rr)) {
         const pc = game.get(sqName(ff, rr));
         if (pc) {
           if (line && pc.color !== line) break;   // a battery is one colour
           if (pc.type === 'q' || pc.type === (straight ? 'r' : 'b')) {
             n[pc.color]++; line = pc.color;       // bears on the square, and may carry a battery
-          } else if (!straight && pc.type === 'p' && dr === (pc.color === 'w' ? -1 : 1)) {
+          } else if (!straight && step === 1 && pc.type === 'p' &&
+                     dr === (pc.color === 'w' ? -1 : 1)) {
             line = pc.color;                      // pawn attacks back along this diagonal…
           } else {                                // …counted by the pawn pass, but it carries
             break;                                // knight, king, wrong-way slider: dead end
           }
         }
-        ff += df; rr += dr;
+        ff += df; rr += dr; step++;
       }
     }
   }
