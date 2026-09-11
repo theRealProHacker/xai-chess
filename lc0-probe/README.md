@@ -6,6 +6,10 @@ residual stream, asking *does this pin carry the Lichess `pin` theme tag?* Same
 
 ```
 probe_mlp.ipynb    the sweep: 21 taps x 3 views, plus the raw input, against the Stockfish ladder
+distance_mlp.ipynb how far ahead that relevance is readable, on the sweep's best tap — the
+                   port of sf-probe/distance_mlp.ipynb, same corpus rows and design
+reasons_mlp.ipynb  the same probe sliced by cook.py's four pin conditions — the port of
+                   sf-probe/reasons_mlp.ipynb, labels read from ../sf-probe/data/labels.npz
 lc0_planes.py      INPUT_CLASSICAL_112_PLANE encoder (fen-only history fill), token index helper
 check_encoding.py  our planes through onnxruntime vs lc0's own V and policy on 9 positions
 pin_tokens.py      king / pinned / pinner squares as side-to-move token indices -> data/tokens.npy
@@ -13,6 +17,9 @@ dump_acts.py       runs the ONNX net, stores mean + 3 pin tokens per tap -> data
 sweep.py           one worker's rows -> data/sweep_<name>.json; the notebook reads every sweep*.json
 run_nb.py          headless notebook execution
 results_mlp.*      per-row AUROC, sd, accuracy; layers_mlp.png the plot
+results_distance.* per-distance AUROC, sd, recall, precision, accuracy, rating
+distance_shared.png / distance_own.png   one probe sliced by distance / one probe per distance
+results_reasons.*  per-subgroup AUROC under the three designs; reasons.png the plot
 data/              git-ignored
 ```
 
