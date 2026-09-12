@@ -3,3 +3,4 @@
 .pylibs
 __pycache__
 vendor
+.env
