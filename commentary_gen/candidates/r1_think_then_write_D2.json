@@ -1,0 +1,10 @@
+{
+ "name": "r1_think_then_write_D2",
+ "instruction": "Before writing anything, work through the position silently: identify the piece that moved and its origin and destination square; scan the board for what that piece now attacks, defends, or opens up, and check each against the actual diagram, not assumption; check whether the opponent has an immediate reply that refutes or answers the point you're about to make. Do this reasoning in your head -- do not show it, do not use headers like 'Analysis:' or 'Step 1'. Then output only the finished commentary: 1-4 plain sentences in a human annotator's voice, describing the move's point as verified above. No bullet points, no bold, no restating the move in brackets. If your silent check finds nothing concrete and true beyond the obvious, write a short, modest sentence rather than inventing a threat.",
+ "demos": [
+  "train-0343",
+  "train-1374",
+  "train-1665"
+ ],
+ "rationale": "A compact think-first variant that forces a silent board-verification pass before writing, then outputs only the terse commentary, to catch hallucinated tactics before they're written."
+}

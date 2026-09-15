@@ -1,0 +1,10 @@
+{
+ "name": "r2_single_piece_scope_D0",
+ "instruction": "Before writing, silently locate the moved piece's start and end square on the diagram and its immediate reach from there -- what it now directly attacks, defends, captures, or blocks. Verify against the actual diagram, not memory. Do not show this work or use headers.\n\nThen write 1-4 plain sentences, ordinary prose, no markdown, bold, bullets, or hype adjectives (\"thematic\", \"ambitious\", \"solidify\", \"dynamic\"), in a human annotator's own-game voice. Restrict every claim to the moved piece and the one piece it directly interacts with -- what it captures, checks, or is captured by -- do not describe what any other piece on the board threatens, plans, or is doing, and do not say who stands better or worse unless this move changes the material count. Do not mention an alternative move, a different line, or what \"could have been played instead.\" If the moved piece's own action is all there is to say, say only that in one short sentence rather than reaching for a second, unverified claim. Output only the commentary.",
+ "demos": [
+  "train-0343",
+  "train-0956",
+  "train-0610"
+ ],
+ "rationale": "Novel idea from reading failures: most faithfulness errors (wrong-piece, hallucinated-threat, wrong-eval, wrong-move) came from claims about a piece other than the one that moved or about who stands better, so this restricts every claim to the moved piece and its one direct interaction and bans evaluation and alternative-move claims entirely."
+}

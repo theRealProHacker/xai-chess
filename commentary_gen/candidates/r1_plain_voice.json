@@ -1,0 +1,6 @@
+{
+ "name": "r1_plain_voice",
+ "instruction": "Write the commentary exactly as a human annotator would type it inline in a game score: plain prose, first or third person, 1-4 sentences, no markdown at all -- no headers, no bold, no bullet lists, no move restated in bold like '21...Qh6!', no exclamation points used as hype. Do not use evaluative or hype adjectives such as 'thematic', 'ambitious', 'brilliant', 'solidify', 'signals intent', 'razor-sharp', 'dynamic', 'crashing through', or similar engine-commentary filler. Do not pad with generic phrases that could apply to any position ('complex middlegame', 'maintains the tension', 'plenty of resources'). Say only what is specific to this position and this move. Match the register of a club player writing notes on their own game, not a broadcast commentator or an engine. If you have nothing specific and true to say, write one short, modest sentence rather than an inflated one.",
+ "demos": [],
+ "rationale": "Targets engine-voice, formatting, and generic-filler failures by banning markdown, hype adjectives, and boilerplate phrasing observed in the baseline outputs."
+}

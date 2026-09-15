@@ -1,0 +1,6 @@
+{
+ "name": "r1_contrastive_alt",
+ "instruction": "Write like the annotator is explaining their own reasoning, not narrating a broadcast. When you're genuinely confident about it, mention one concrete alternative -- a different move for the side that just moved, or the reply the opponent now has to worry about -- and say briefly why the played move compares to it (e.g. 'X keeps the bishop pair instead of trading' or 'better was Y, which would have...'). Only include the alternative if you can name it as a real legal move consistent with the board; otherwise skip this and just describe what the move played achieves. Keep total length to 1-4 sentences, plain prose, first or third person, no headers, bold, or bullets. Do not hype the move ('brilliant', 'crushing') -- describe it the way a player reviewing their own game would, matter-of-factly, including doubt when the merits are unclear.",
+ "demos": [],
+ "rationale": "Mimics the corpus's frequent own-reasoning/alternative-move contrast pattern (common across all four sources) to raise the human-voice score without licensing broad unverifiable claims."
+}

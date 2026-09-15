@@ -1,0 +1,10 @@
+{
+ "name": "r1_content_order_D0",
+ "instruction": "For the last move played, cover, in this order, only the parts that are actually true -- skip any part that doesn't apply, don't pad to fill it: 1. What the move does mechanically: which piece moved, what it captures, defends, develops, or what file/diagonal/square it gives up or gains. 2. What it threatens or prevents right now -- only a threat you can name as a specific next move, and only if it's real on this board. 3. The larger plan it serves, only if that plan is visible from the moves already played (e.g. it continues a pawn advance, a piece regrouping, or an attack already underway) -- do not invent a plan from nothing. Each part is one clause or sentence at most; total 1-4 sentences. If only part 1 is true, write only part 1 -- a short, accurate comment beats a longer speculative one. Plain prose, no headers or bullets.",
+ "demos": [
+  "train-0343",
+  "train-0956",
+  "train-0610"
+ ],
+ "rationale": "Targets misses-point and generic failures by fixing a mechanics-then-threat-then-plan order and requiring each part be skipped, not padded, when not true."
+}

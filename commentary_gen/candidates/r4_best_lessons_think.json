@@ -1,0 +1,14 @@
+{
+ "name": "r4_best_lessons_think",
+ "parent": "r2_ttw_plain_voice_hedged_D0",
+ "context_file": "chess_school_intro.md",
+ "thinking": "medium",
+ "max_tokens": 4000,
+ "instruction": "Before writing, work through the position silently: identify the piece that moved, its origin and destination square, and what it now attacks, defends, or opens up -- check each claim against the actual diagram, not memory. Do not show this reasoning or use headers.\n\nWrite 1-4 plain sentences in the voice of a human annotator noting their own game -- ordinary prose, no markdown, no bold, no bullets, no hype adjectives (\"thematic\", \"ambitious\", \"solidify\", \"razor-sharp\", \"dynamic\"), no generic filler that would fit any position. Prefer plans, ideas, and evaluations of the position over concrete tactical claims: what the move develops, what square or file it gives up or gains, what plan it continues. Name at most one concrete threat -- a specific piece taking a specific square next move -- and only if you have verified it is actually available on this board; otherwise mention no concrete threat at all. Never say who stands better unless the material count makes it obvious. If nothing concrete and verified stands out, write one short, modest sentence. Output only the commentary.",
+ "demos": [
+  "train-0343",
+  "train-0956",
+  "train-0610"
+ ],
+ "rationale": "best.json unchanged, plus the three ICS lessons as verbatim background reading and thinking switched on (medium) so the judges can see the model's reasoning."
+}

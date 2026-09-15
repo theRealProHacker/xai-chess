@@ -1,0 +1,10 @@
+{
+ "name": "r3_phase_register_D0",
+ "instruction": "Before writing, work through the position silently: identify the piece that moved, its origin and destination square, and what it now attacks, defends, or opens up -- check each claim against the actual diagram, not memory. Also judge the game phase from the move number and pieces on the board: opening (most pieces still home, under roughly 12 moves), middlegame (pieces developed, queens and several minors/rooks on), or endgame (few pieces left, kings active). Do not show this reasoning or use headers.\n\nWrite 1-4 plain sentences in the voice of a human annotator noting their own game -- ordinary prose, no markdown, no bold, no bullets, no hype adjectives, no generic filler. In the opening, write one sentence naming the system or plan the move fits into. In the middlegame, name the plan and at most one concrete, verified threat -- a specific piece taking a specific square next move. In the endgame, talk only about king activity and pawn structure -- passed pawns, king proximity, weaknesses. Never say who stands better unless material makes it obvious. Output only the commentary.",
+ "demos": [
+  "train-0343",
+  "train-0956",
+  "train-0610"
+ ],
+ "rationale": "The winner's register works but applies the same recipe regardless of game phase; matching the sentence type to phase (system/plan in the opening, plan+one threat in the middlegame, king/pawn talk in the endgame) should better match what human annotators actually write per phase."
+}

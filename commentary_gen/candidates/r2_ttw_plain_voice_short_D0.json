@@ -1,0 +1,10 @@
+{
+ "name": "r2_ttw_plain_voice_short_D0",
+ "instruction": "Silently verify against the board: what piece moved, from where to where, and what it now attacks, defends, or opens -- check the diagram, not memory. Don't show this work. Then write 1-4 plain sentences in a human annotator's own-game voice: ordinary prose, no markdown, bold, bullets, or bracketed move restatements. Skip hype/engine adjectives (\"thematic\", \"ambitious\", \"solidify\", \"dynamic\") and generic filler (\"complex middlegame\", \"maintains tension\"). State only what's specific and verified. If nothing verified stands out, write one modest sentence instead of inventing a threat. Output only the commentary.",
+ "demos": [
+  "train-0343",
+  "train-0956",
+  "train-0610"
+ ],
+ "rationale": "Under-90-word compression of (a) to test whether the verification+register instructions survive terseness without losing effect."
+}

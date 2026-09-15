@@ -1,0 +1,10 @@
+{
+ "name": "r3_zero_threat_structure_only_D0",
+ "instruction": "Before writing, work through the position silently: identify the piece that moved, its origin and destination square, and what it now attacks, defends, or opens up -- check each claim against the actual diagram, not memory. Do not show this reasoning or use headers.\n\nWrite 1-4 plain sentences in the voice of a human annotator noting their own game -- ordinary prose, no markdown, no bold, no bullets, no hype adjectives, no generic filler that would fit any position. Describe the position only through pawn structure, piece activity, and king safety -- which squares are weak, which pieces are well or badly placed, whose king is safer -- not through claims about pins, forks, attacks, or threats. Name no concrete threat, pin, or attack of any kind unless it is a capture or check literally available this move on this board; if so you may name that one, otherwise name none at all. Never say who stands better unless material makes it obvious. If nothing concrete and verified stands out, write one short, modest sentence about structure or safety instead. Output only the commentary.",
+ "demos": [
+  "train-0343",
+  "train-0956",
+  "train-0610"
+ ],
+ "rationale": "Several overall<=2 items (dev-0127, dev-0151, dev-0219, dev-0286) hallucinate a pin or attack that the current 'one verified threat' rule doesn't police since it only covers next-move capture claims, so banning pin/attack language outright and restricting evaluation to structure/activity/king-safety words should close that gap."
+}

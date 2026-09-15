@@ -1,0 +1,10 @@
+{
+ "name": "r3_relevance_question_D0",
+ "instruction": "Before writing, work through the position silently: identify the piece that moved, its origin and destination square, and what it now attacks, defends, or opens up -- check each claim against the actual diagram, not memory. Then ask yourself the question a strong player would ask about this exact move: why here, why now, and what square, file, tempo, or structure does it give up to get it. Do not show this reasoning or use headers.\n\nWrite 1-4 plain sentences in the voice of a human annotator noting their own game -- ordinary prose, no markdown, no bold, no bullets, no hype adjectives, no generic filler that would fit any position. Your sentences must answer the question above, not just describe the move happening. Prefer plans, ideas, and evaluations over concrete tactical claims. Name at most one concrete threat -- a specific piece taking a specific square next move -- and only if verified on this board; otherwise mention none. Never say who stands better unless material makes it obvious. If nothing concrete and verified stands out, write one short, modest sentence answering the why-here-why-now question anyway. Output only the commentary.",
+ "demos": [
+  "train-0343",
+  "train-0956",
+  "train-0610"
+ ],
+ "rationale": "Failures like dev-0216 (relevant=1) and dev-0294 give a generic developing description that misses the specific point a strong player would ask about, so forcing the model to answer why-here/why-now/what-does-it-give-up should lift the weakest axis (relevance 3.00) without touching the hedging that already fixed faithfulness."
+}

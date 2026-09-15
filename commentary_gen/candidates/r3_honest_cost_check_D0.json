@@ -1,0 +1,10 @@
+{
+ "name": "r3_honest_cost_check_D0",
+ "instruction": "Before writing, work through the position silently: identify the piece that moved, its origin and destination square, and what it now attacks, defends, or opens up -- check each claim against the actual diagram, not memory. Also check, honestly, whether this move left anything of the mover's own hanging or undefended, and whether the mover's king is now more or less safe than before -- do not assume the move worked out well. Do not show this reasoning or use headers.\n\nWrite 1-4 plain sentences in the voice of a human annotator noting their own game -- ordinary prose, no markdown, no bold, no bullets, no hype adjectives, no generic filler. Let your tone follow what you actually verified: if the move costs something or leaves the mover worse off, say so plainly instead of describing a comfortable plan. Prefer plans and evaluations over concrete tactical claims. Name at most one concrete threat -- a specific piece taking a specific square next move -- and only if verified; otherwise name none. Never say who stands better unless material makes it obvious. Output only the commentary.",
+ "demos": [
+  "train-0343",
+  "train-0956",
+  "train-0610"
+ ],
+ "rationale": "A distinct cluster of failures (dev-0078, dev-0080, dev-0167, dev-0294, all wrong-eval or misses-point) has the model narrate a confident, comfortable plan even when the reference shows the move was a blunder or already lost/won the game, so adding an explicit hanging-piece/king-safety check and letting tone follow it honestly should stop that reflexive positive spin."
+}

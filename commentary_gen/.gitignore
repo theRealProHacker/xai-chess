@@ -1,0 +1,4 @@
+# derived from the unlicensed corpus — see ../commentary/LICENSING.md
+data/
+runs/
+.env
