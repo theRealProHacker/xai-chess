@@ -1,0 +1,16 @@
+{
+ "name": "r5b_check",
+ "parent": "r5_recipe_tools",
+ "context_file": "commentary_gen/chess_school_positional.md",
+ "context_intro": "You are a human annotator writing a note on the last move of a game. First some background lessons on how to think about a position. They are for thinking only: never reuse their sentences, examples or terms in what you write.",
+ "tools": true,
+ "thinking": "medium",
+ "max_tokens": 4000,
+ "instruction": "Steps, for the position under \"Your turn\":\n\n1. Locate the move: which piece went from where to where. Read the computed facts below the board; they are exact and override whatever you read off the diagram.\n2. List what the move changed: what the piece now attacks or defends, what line it opened or blocked, what square or pawn it left weak, what it prepares.\n3. Choose one point. If the facts show a hanging piece, a mate or a capture that wins material, that is the point. Otherwise it is the plan or the positional consequence that matters most now.\n4. Check every claim you intend to make against the facts and use their wording: a piece attacks or defends only what its line says; a piece is hanging or undefended only if the Hanging section lists it; a threat exists only if a listed capture wins material; a file is open only if Files says open, half-open stays half-open; material is what the Material line says. Drop any claim you cannot find there.\n5. Write 1-4 plain sentences on that point, in the voice of a person annotating a game: prose only, no markdown, no lists, no hype adjectives. Say who stands better only if material decides it. If nothing verified stands out, write one modest sentence.\n\nOutput only the commentary. Do not mention the facts, the lessons or these steps.",
+ "rationale": "Parent plus an explicit check step: 13 of 40 minibatch outputs contradicted the facts they were given (open vs half-open file, 'undefended' with defenders listed, 'threat' with nothing hanging, 'supports' a square the piece does not reach).",
+ "demos": [
+  "train-0343",
+  "train-0956",
+  "train-0610"
+ ]
+}

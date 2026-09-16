@@ -1,7 +1,9 @@
 """The 'DSPy program': one predictor  (moves, board) -> comment.
 
-A candidate is {"name", "instruction", "demos": [example ids]}. render() builds the prompt,
-run() executes it over a set of examples with a thread pool and writes runs/<name>/<split>.jsonl.
+A candidate is {"name", "instruction", "demos": [example ids]} plus optional "context_file" (lessons
+prepended verbatim), "tools" (board_tools facts block after every board, demos included),
+"thinking", "max_tokens". render() builds the prompt, run() executes it over a set of examples
+with a thread pool and writes runs/<name>/<split>.jsonl.
 """
 import argparse, concurrent.futures as cf, json, sys, threading, time
 from pathlib import Path
@@ -18,24 +20,44 @@ def by_id(*splits):
     return {e["id"]: e for s in splits for e in load(s)}
 
 
-def fmt_input(e):
-    return (f"Moves so far (the last move is the one to comment on):\n{e['moves']}\n\n"
-            f"Board after {e['move']} ({e['side']} just moved; uppercase = White, lowercase = Black, "
-            f"rank 8 at the top):\n{e['board']}")
+def fmt_input(e, tools=False):
+    s = (f"Moves so far (the last move is the one to comment on):\n{e['moves']}\n\n"
+         f"Board after {e['move']} ({e['side']} just moved; uppercase = White, lowercase = Black, "
+         f"rank 8 at the top):\n{e['board']}")
+    if tools:
+        s += f"\n\nComputed facts (exact, from the board above):\n{tool_block(e)}"
+    return s
+
+
+_tool_cache = {}
+
+
+def tool_block(e):
+    """board_tools.report_after_move for the example's last move, computed from the move list."""
+    if e["id"] not in _tool_cache:
+        import chess, board_tools
+        b = chess.Board()
+        for tok in e["moves"].split():
+            if not tok[0].isdigit():
+                b.push_san(tok)
+        b.pop()
+        _tool_cache[e["id"]] = board_tools.report_after_move(b, e["move"])
+    return _tool_cache[e["id"]]
 
 
 def render(cand, e, pool):
+    tools = bool(cand.get("tools"))
     parts = []
-    if cand.get("context_file"):  # background reading, inserted verbatim before the instruction
-        parts += ["The following chess lessons are background reading. Use their ideas and vocabulary "
-                  "where they apply to the position; do not quote or cite them.",
+    if cand.get("context_file"):
+        parts += [cand.get("context_intro", "Background lessons (use their ideas where they apply; never quote, cite "
+                                            "or borrow their vocabulary):"),
                   "", "=== BEGIN LESSONS ===", (HERE.parent / cand["context_file"]).read_text(encoding="utf-8").strip(),
                   "=== END LESSONS ===", ""]
     parts += [cand["instruction"].strip(), ""]
     for did in cand.get("demos", []):
         d = pool[did]
-        parts += ["--- Example ---", fmt_input(d), "", f"Commentary:\n{d['comment']}", ""]
-    parts += ["--- Your turn ---", fmt_input(e), "", "Commentary:"]
+        parts += ["--- Example ---", fmt_input(d, tools), "", f"Commentary:\n{d['comment']}", ""]
+    parts += ["--- Your turn ---", fmt_input(e, tools), "", "Commentary:"]
     return "\n".join(parts)
 
 

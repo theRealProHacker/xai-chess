@@ -1,0 +1,36 @@
+[
+ {
+  "name": "r5_recipe_tools",
+  "parent": "r2_ttw_plain_voice_hedged_D0",
+  "context_file": "commentary_gen/chess_school_positional.md",
+  "context_intro": "You are a human annotator writing a note on the last move of a game. First some background lessons; use their ideas where they fit the position, never their wording.",
+  "tools": true,
+  "thinking": "medium",
+  "max_tokens": 4000,
+  "instruction": "Steps, for the position under \"Your turn\":\n\n1. Locate the move: which piece went from where to where. Read the computed facts below the board; they are exact and override whatever you read off the diagram.\n2. List what the move changed: what the piece now attacks or defends, what line it opened or blocked, what square or pawn it left weak, what it prepares.\n3. Choose one point. If the facts show a hanging piece, a mate or a capture that wins material, that is the point. Otherwise it is the plan or the positional consequence that matters most now.\n4. Write 1-4 plain sentences on that point, in the voice of a person annotating a game: prose only, no markdown, no lists, no hype adjectives. State a concrete threat only if it appears in the facts. Say who stands better only if material decides it. If nothing verified stands out, write one modest sentence.\n\nOutput only the commentary. Do not mention the facts, the lessons or these steps.",
+  "demos": ["train-0343", "train-0956", "train-0610"],
+  "rationale": "The r2 instruction rewritten as a four-step recipe with no repeated rules; the lessons trimmed to positional content; board_tools facts after every board (demos included)."
+ },
+ {
+  "name": "r5_recipe_tools_nolessons",
+  "parent": "r5_recipe_tools",
+  "tools": true,
+  "thinking": "medium",
+  "max_tokens": 4000,
+  "instruction": "You are a human annotator writing a note on the last move of a game. Steps, for the position under \"Your turn\":\n\n1. Locate the move: which piece went from where to where. Read the computed facts below the board; they are exact and override whatever you read off the diagram.\n2. List what the move changed: what the piece now attacks or defends, what line it opened or blocked, what square or pawn it left weak, what it prepares.\n3. Choose one point. If the facts show a hanging piece, a mate or a capture that wins material, that is the point. Otherwise it is the plan or the positional consequence that matters most now.\n4. Write 1-4 plain sentences on that point, in the voice of a person annotating a game: prose only, no markdown, no lists, no hype adjectives. State a concrete threat only if it appears in the facts. Say who stands better only if material decides it. If nothing verified stands out, write one modest sentence.\n\nOutput only the commentary. Do not mention the facts or these steps.",
+  "demos": ["train-0343", "train-0956", "train-0610"],
+  "rationale": "Control: same recipe and facts, no lessons. Separates the lesson effect (r4 lost 0.42 human to lesson vocabulary) from the tool effect."
+ },
+ {
+  "name": "r5_recipe_tools_voice",
+  "parent": "r5_recipe_tools",
+  "context_file": "commentary_gen/chess_school_positional.md",
+  "context_intro": "You are a human annotator writing a note on the last move of a game. First some background lessons; use their ideas where they fit the position, never their wording.",
+  "tools": true,
+  "thinking": "medium",
+  "max_tokens": 4000,
+  "instruction": "Steps, for the position under \"Your turn\":\n\n1. Locate the move: which piece went from where to where. Read the computed facts below the board; they are exact and override whatever you read off the diagram.\n2. List what the move changed: what the piece now attacks or defends, what line it opened or blocked, what square or pawn it left weak, what it prepares.\n3. Choose one point. If the facts show a hanging piece, a mate or a capture that wins material, that is the point. Otherwise it is the plan or the positional consequence that matters most now.\n4. Write 1-4 sentences on that point the way the annotators in the examples do: talking about the game in plain words, naming the piece and the square (\"the knight on d5\", \"takes on e6\"), often with an opinion. No markdown, no lists, no hype adjectives, no lesson words (consequence, qualitative, mobility, initiative, interaction, dynamic). State a concrete threat only if it appears in the facts. Say who stands better only if material decides it. If nothing verified stands out, write one modest sentence.\n\nOutput only the commentary. Do not mention the facts, the lessons or these steps.",
+  "demos": ["train-0343", "train-0956", "train-0610"],
+  "rationale": "Same as parent with a tighter step 4: point to the example annotators' register and ban the lesson vocabulary that leaked in r4."
+ }
+]
