@@ -33,7 +33,7 @@ def style(ax):
 
 # 1. requested x called x useful
 fig, (a, b) = plt.subplots(1, 2, figsize=(12, 4.6), facecolor=BG)
-tl = [t for t in TOOLS if t in WISH]
+tl = ["inventory", "attack_map", "hanging", "forcing", "pawn_structure", "legal"]
 x = list(range(len(tl)))
 tab = {}
 for t in tl:

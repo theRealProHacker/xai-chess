@@ -14,9 +14,9 @@ BG, BLUE, LIGHT, ORANGE, GRAY, INK = "#fcfcfb", "#2a78d6", "#9ec5f4", "#eb6834",
 r5 = {json.loads(l)["id"]: json.loads(l) for l in open(f"{STATIC}/judge_dev/scores.jsonl")}
 r4 = {json.loads(l)["id"]: json.loads(l) for l in open("runs/r4_best_lessons_think/judge_dev/coded.jsonl")}
 ids = sorted(r5)
-SEC = {"moved": "attack map", "inventory": "inventory", "hanging": "hanging scan", "forcing": "forcing list", "pawns": "pawn structure"}
+SEC = {"inventory": "inventory", "moved": "attack_map", "hanging": "hanging", "forcing": "forcing", "pawns": "pawn_structure"}
 WISH = {"moved": ("per-piece attack",), "inventory": ("piece inventory",), "hanging": ("hanging",),
-        "forcing": ("short forcing",), "pawns": ("pawn-structure", "file status")}
+        "forcing": ("short forcing",), "pawns": ("pawn-structure", "file status")}  # same mapping as charts_r5.py
 
 
 def used(i, s):
