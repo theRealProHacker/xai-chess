@@ -27,6 +27,8 @@
   }
 
   a.back{color:#8a8a8a;text-decoration:none;font-size:.9rem}
+  /* Two lines reserved: mode intros differ in length and the board must not jump. */
+  #intro{min-height:3.4em}
   a.back:hover{color:#0b5fa5}
 
   #board{width:100%;aspect-ratio:1/1;margin:1.25rem 0 .75rem;
@@ -56,7 +58,7 @@
   .readout .verdict.w{color:var(--arrow-w)}
   .readout .verdict.b{color:var(--arrow-b)}
   .readout .verdict.even{color:#555}
-  .readout .counts{font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#333}
+  .readout .counts{font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#333;min-height:3em}
   .readout .totals{font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#8a8a8a}
   .readout .caption{color:#8a8a8a;font-size:.82rem;margin-top:.5rem}
 
@@ -75,6 +77,15 @@
   button:hover{border-color:#0b5fa5;background:#fafafa;box-shadow:var(--shadow-m)}
   button.on{background:#0b5fa5;border-color:#0b5fa5;color:#fff}
   button.on:hover{background:#0a5390;border-color:#0a5390}
+
+  select{font:inherit;font-size:.9rem;padding:.5rem 2rem .5rem .9rem;border:1px solid #e4e4e4;
+      border-radius:8px;background:#fff;color:#1a1a1a;cursor:pointer;box-shadow:var(--shadow-s);
+      appearance:none;-webkit-appearance:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23555' stroke-width='1.5'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:right .7rem center}
+  select:hover{border-color:#0b5fa5;box-shadow:var(--shadow-m)}
+  select:focus{outline:none;border-color:#0b5fa5}
+  [hidden]{display:none !important}
 
   .err{color:#b00020;font-size:.85rem;text-align:center;min-height:1.1em;margin:.1rem 0 .4rem}
 
@@ -95,7 +106,7 @@
 <body>
   <a class="back" href="index.html">&larr; xai-chess</a>
   <h1>Space Visualizer</h1>
-  <p class="intro">Every square goes to whoever attacks it more often, and arrows follow the
+  <p class="intro" id="intro">Every square goes to whoever attacks it more often, and arrows follow the
   pawn chains. Move a piece or load a FEN.</p>
 
   <div id="board"></div>
@@ -103,7 +114,7 @@
   <div class="readout">
     <div class="verdict" id="verdict">&nbsp;</div>
     <div class="counts" id="counts">&nbsp;</div>
-    <div class="caption">Attacker count. Pieces behind a friendly pawn or slider count too.</div>
+    <div class="caption" id="caption">Attacker count. Pieces behind a friendly pawn or slider count too.</div>
   </div>
 
   <div class="gallery" id="gallery"></div>
@@ -118,16 +129,24 @@
   <!-- Toggles carry a tick so "filled = on" is not confusable with "filled = selected"
        in the preset row, and so the outlined one-shot action stays a different thing. -->
   <div class="btns">
-    <span class="rowlabel">Layers</span>
-    <button id="tControl" class="on">&#10003; Control map</button>
-    <button id="tArrows" class="on">&#10003; Arrows</button>
+    <span class="rowlabel">Show</span>
+    <select id="mode" aria-label="What to show">
+      <option value="space">Space</option>
+      <option value="pawns">Pawns</option>
+      <option value="files">Files</option>
+      <option value="holes">Holes</option>
+    </select>
+    <span id="spaceLayers">
+      <button id="tControl" class="on">&#10003; Control map</button>
+      <button id="tArrows" class="on">&#10003; Arrows</button>
+    </span>
     <span class="rowgap"></span>
     <button id="flipBtn">Flip board</button>
   </div>
 
   <!-- Six keys never fit one line, so they are grouped to make the wrap land between
        the shading keys and the arrow keys rather than splitting a pair. -->
-  <div class="legend">
+  <div class="legend" id="legend-space">
     <div class="lgroup">
       <span><i style="background:#bcd0e0"></i>White controls</span>
       <span><i style="background:#8d7c66"></i>Black controls</span>
@@ -139,6 +158,30 @@
         stroke-width="3"/><path d="M16 1l8 4-8 4z" fill="var(--arrow-w)"/></svg>White chain</span>
       <span><svg width="26" height="10" aria-hidden="true"><path d="M1 5h16" stroke="var(--arrow-b)"
         stroke-width="3"/><path d="M16 1l8 4-8 4z" fill="var(--arrow-b)"/></svg>Black chain</span>
+    </div>
+  </div>
+  <div class="legend" id="legend-pawns" hidden>
+    <div class="lgroup">
+      <span><i style="background:#8fbf8f"></i>Passed</span>
+      <span><i style="background:#e0a86a"></i>Isolated</span>
+      <span><i style="background:#c9a0d0"></i>Backward</span>
+      <span><i style="background:#c9c46a"></i>Doubled</span>
+      <span><i style="background:#dcdad5"></i>Plain pawn</span>
+    </div>
+  </div>
+  <div class="legend" id="legend-files" hidden>
+    <div class="lgroup">
+      <span><i style="background:#8fbf8f"></i>Open</span>
+      <span><i style="background:#bcd0e0"></i>Half-open for White</span>
+      <span><i style="background:#8d7c66"></i>Half-open for Black</span>
+      <span><i style="background:#dcdad5"></i>Closed</span>
+    </div>
+  </div>
+  <div class="legend" id="legend-holes" hidden>
+    <div class="lgroup">
+      <span><i style="background:#bcd0e0"></i>Hole in White’s camp</span>
+      <span><i style="background:#8d7c66"></i>Hole in Black’s camp</span>
+      <span><i style="background:#dcdad5"></i>Not a hole</span>
     </div>
   </div>
 
@@ -165,7 +208,7 @@ const GALLERY = [
 ];
 
 let chess = new Chess(GALLERY[0].fen);
-let showControl = true, showArrows = true;
+let showControl = true, showArrows = true, mode = 'space';
 
 const boardEl   = document.getElementById('board');
 const verdictEl = document.getElementById('verdict');
@@ -320,6 +363,70 @@ function pawnChains(game, color) {
 // Long-range pieces get no arrow: one ray each put up to eight crossing lines on the board
 // and buried the control map.
 
+// --- pawn structure (pure, no DOM) ---------------------------------------------
+// Same definitions as commentary_gen/board_tools.pawn_structure_data, so the demo and the
+// commentary tool never disagree:
+//   isolated  no own pawn on either adjacent file
+//   doubled   another own pawn on the same file
+//   passed    no enemy pawn ahead on this file or the two next to it, and no own pawn ahead
+//   backward  not isolated, no own pawn beside or behind it on the adjacent files, and its
+//             stop square is attacked by an enemy pawn
+//   files     open (no pawns), closed (both sides), else half-open for the side without a pawn
+//   holes     c-f squares on ranks 3-4 (White) / 5-6 (Black) that no own pawn can ever guard
+function pawnStructure(game) {
+  const pawns = {w: [], b: []};
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const pc = game.get(sqName(f, r));
+    if (pc && pc.type === 'p') pawns[pc.color].push([f, r]);
+  }
+  const has = (color, f, r) => pawns[color].some(([pf, pr]) => pf === f && pr === r);
+  const filesOf = color => new Set(pawns[color].map(([f]) => f));
+  const labels = new Map();                       // square -> Set of labels
+  for (const color of ['w', 'b']) {
+    const enemy = color === 'w' ? 'b' : 'w', fwd = color === 'w' ? 1 : -1;
+    const own = filesOf(color);
+    for (const [f, r] of pawns[color]) {
+      const set = new Set();
+      const iso = !own.has(f - 1) && !own.has(f + 1);
+      if (iso) set.add('isolated');
+      if (pawns[color].filter(([pf]) => pf === f).length > 1) set.add('doubled');
+      let passed = true;
+      for (let rr = r + fwd; onBoard(0, rr); rr += fwd) {
+        if (has(color, f, rr)) passed = false;
+        for (const ff of [f - 1, f, f + 1]) if (onBoard(ff, rr) && has(enemy, ff, rr)) passed = false;
+      }
+      if (passed) set.add('passed');
+      if (!iso) {
+        let support = false;
+        for (let rr = r; onBoard(0, rr); rr -= fwd)
+          for (const ff of [f - 1, f + 1]) if (onBoard(ff, rr) && has(color, ff, rr)) support = true;
+        const sr = r + fwd;
+        const stopAttacked = onBoard(f, sr) &&
+          [f - 1, f + 1].some(ff => onBoard(ff, sr + fwd) && has(enemy, ff, sr + fwd));
+        if (!support && stopAttacked) set.add('backward');
+      }
+      labels.set(sqName(f, r), set);
+    }
+  }
+  const files = [];
+  for (let f = 0; f < 8; f++) {
+    const w = filesOf('w').has(f), b = filesOf('b').has(f);
+    files.push(!(w || b) ? 'open' : (w && b) ? 'closed' : w ? 'halfB' : 'halfW');
+  }
+  const holes = {w: [], b: []};
+  for (const color of ['w', 'b']) {
+    const camp = color === 'w' ? [2, 3] : [4, 5];
+    for (const r of camp) for (let f = 2; f < 6; f++) {
+      if (has(color, f, r)) continue;
+      let guard = false;
+      for (let rr = r - (color === 'w' ? 1 : -1); onBoard(0, rr); rr -= (color === 'w' ? 1 : -1))
+        for (const ff of [f - 1, f + 1]) if (onBoard(ff, rr) && has(color, ff, rr)) guard = true;
+      if (!guard) holes[color].push(sqName(f, r));
+    }
+  }
+  return {labels, files, holes};
+}
+
 // --- shapes -------------------------------------------------------------------
 // chessground drops customSvg.html into a fixed viewBox="0 0 100 100" sized to one
 // square, so a 100x100 rect fills it exactly. customSvg must be an OBJECT ({html},
@@ -369,6 +476,39 @@ function arrowShapes(game) {
   return out;
 }
 
+// One square, one flat fill, same grid as the control map.
+const fill = (sq, color) => ({orig: sq, customSvg: {html:
+  `<rect width="100" height="100" fill="${color}"/>` + GRID}});
+const PAWN_TINT = {passed:'#8fbf8f', isolated:'#e0a86a', backward:'#c9a0d0', doubled:'#c9c46a'};
+const FILE_TINT = {open:'#8fbf8f', halfW:'#bcd0e0', halfB:'#8d7c66', closed:'#dcdad5'};
+const PAWN_ORDER = ['passed', 'isolated', 'backward', 'doubled'];   // a pawn shows its first label
+
+function pawnShapes(ps) {
+  const out = [];
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const sq = sqName(f, r), set = labelsOf(ps, sq);
+    const lab = PAWN_ORDER.find(l => set.has(l));
+    out.push(fill(sq, lab ? PAWN_TINT[lab] : TINT['.']));
+  }
+  return out;
+}
+const labelsOf = (ps, sq) => ps.labels.get(sq) || new Set();
+
+function fileShapes(ps) {
+  const out = [];
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) out.push(fill(sqName(f, r), FILE_TINT[ps.files[f]]));
+  return out;
+}
+
+function holeShapes(ps) {
+  const out = [];
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const sq = sqName(f, r);
+    out.push(fill(sq, ps.holes.w.includes(sq) ? TINT.W : ps.holes.b.includes(sq) ? TINT.B : TINT['.']));
+  }
+  return out;
+}
+
 // --- board --------------------------------------------------------------------
 const colorOf = () => (chess.turn() === 'w' ? 'white' : 'black');
 function dests(){
@@ -410,12 +550,42 @@ function onMove(orig, dest){
 // setShapes REPLACES drawable.shapes wholesale, so the tints and the arrows must go out
 // in ONE combined call. Two sequential calls would silently drop the tints.
 function render(){
-  const map = controlMap(chess);
-  const shapes = [];
-  if (showControl) shapes.push(...tintShapes(map));
-  if (showArrows)  shapes.push(...arrowShapes(chess));
-  ground.setShapes(shapes);
-  paintVerdict(verdict(map));
+  if (mode === 'space') {
+    const map = controlMap(chess);
+    const shapes = [];
+    if (showControl) shapes.push(...tintShapes(map));
+    if (showArrows)  shapes.push(...arrowShapes(chess));
+    ground.setShapes(shapes);
+    paintVerdict(verdict(map));
+    return;
+  }
+  const ps = pawnStructure(chess);
+  ground.setShapes(mode === 'pawns' ? pawnShapes(ps) : mode === 'files' ? fileShapes(ps) : holeShapes(ps));
+  paintStructure(ps);
+}
+
+// Readout for the three structure modes, in the words the commentary tool uses.
+function paintStructure(ps){
+  verdictEl.className = 'verdict even';
+  if (mode === 'pawns') {
+    const side = color => {
+      const parts = PAWN_ORDER.map(l => {
+        const sqs = [...ps.labels].filter(([sq, set]) => set.has(l) && chess.get(sq).color === color).map(([sq]) => sq);
+        return sqs.length ? `${l} ${sqs.join(' ')}` : '';
+      }).filter(Boolean);
+      return parts.length ? parts.join('; ') : 'no isolated, doubled, passed or backward pawns';
+    };
+    verdictEl.textContent = 'Pawn labels';
+    countsEl.innerHTML = `White: ${side('w')}<br>Black: ${side('b')}`;
+  } else if (mode === 'files') {
+    const word = {open:'open', closed:'closed', halfW:'half-open for White', halfB:'half-open for Black'};
+    const n = k => ps.files.filter(x => x === k).length;
+    verdictEl.textContent = `${n('open')} open · ${n('halfW') + n('halfB')} half-open · ${n('closed')} closed`;
+    countsEl.textContent = ps.files.map((s, f) => `${FILES[f]} ${word[s]}`).join(', ');
+  } else {
+    verdictEl.textContent = `Holes: ${ps.holes.w.length} in White’s camp · ${ps.holes.b.length} in Black’s`;
+    countsEl.textContent = `White’s camp: ${ps.holes.w.join(' ') || 'none'} · Black’s camp: ${ps.holes.b.join(' ') || 'none'}`;
+  }
 }
 
 function paintVerdict(v){
@@ -493,6 +663,27 @@ function toggle(btn, label, get, set){
 }
 toggle(tControl, 'Control map', () => showControl, v => showControl = v);
 toggle(tArrows,  'Arrows',      () => showArrows,  v => showArrows  = v);
+
+const MODE_TEXT = {
+  space: ['Every square goes to whoever attacks it more often, and arrows follow the pawn chains. Move a piece or load a FEN.',
+          'Attacker count. Pieces behind a friendly pawn or slider count too.'],
+  pawns: ['Each pawn is labelled the way the commentary tool labels it. Move a piece or load a FEN.',
+          'A pawn with several labels shows the first of: passed, isolated, backward, doubled.'],
+  files: ['Each file by its pawns: open, half-open for the side with no pawn on it, or closed.',
+          'Half-open for White means White has no pawn there and Black does.'],
+  holes: ['Central squares in each camp that no pawn of that side can ever guard again.',
+          'Files c to f, ranks 3-4 for White and 5-6 for Black.'],
+};
+const modeSel = document.getElementById('mode');
+function setMode(m){
+  mode = m;
+  document.getElementById('spaceLayers').hidden = m !== 'space';
+  for (const k of Object.keys(MODE_TEXT)) document.getElementById('legend-' + k).hidden = k !== m;
+  document.getElementById('intro').textContent = MODE_TEXT[m][0];
+  document.getElementById('caption').textContent = MODE_TEXT[m][1];
+  render();
+}
+modeSel.addEventListener('change', () => setMode(modeSel.value));
 
 document.getElementById('loadBtn').addEventListener('click', () => loadFen(fenInput.value.trim()));
 fenInput.addEventListener('keydown', e => { if(e.key==='Enter') loadFen(fenInput.value.trim()); });
