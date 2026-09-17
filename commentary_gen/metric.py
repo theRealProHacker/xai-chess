@@ -48,14 +48,13 @@ def judge_pack(name, split="dev", batch=25, ids=None):
     if (out / "scores.jsonl").exists():
         scored = {json.loads(l)["id"] for l in open(out / "scores.jsonl")}
     rows = [r for r in rows if r["id"] not in scored]
-    tools = bool(json.load(open(RUNS / name / "candidate.json")).get("tools"))
     paths = []
     for b in range(0, len(rows), batch):
         p = out / f"batch_{b // batch:03d}.md"
         with open(p, "w", encoding="utf-8") as fh:
             for r in rows[b:b + batch]:
                 e = pool[r["id"]]
-                fh.write(f"### {r['id']}\n{fmt_input(e, tools)}\n\nREFERENCE (human):\n{e['comment']}\n\n")
+                fh.write(f"### {r['id']}\n{fmt_input(e)}\n\nREFERENCE (human):\n{e['comment']}\n\n")
                 if r.get("thoughts"):
                     fh.write(f"MODEL THINKING (summary returned by the API, not shown to users):\n{r['thoughts']}\n\n")
                 fh.write(f"GENERATED:\n{r['gen']}\n\n")
