@@ -95,12 +95,12 @@ for a_ in range(n):
     for b_ in range(n):
         if a_ != b_:
             ax.text(b_, a_, f"{P[a_][b_]:.0%}", ha="center", va="center", fontsize=9, color="#ffffff" if P[a_][b_] > 0.33 else "#0b0b0b")
-    ax.text(n, a_, f"100%\n({rowcnt[a_]})", ha="center", va="center", fontsize=8.5, color=INK)
+    ax.text(n, a_, f"{rowcnt[a_]/sum(rowcnt):.0%}\n({rowcnt[a_]})", ha="center", va="center", fontsize=8.5, color=INK)
 for b_ in range(n):
     ax.text(b_, n, f"{colsum[b_]:.0%}", ha="center", va="center", fontsize=9, color=INK)
-ax.text(n, n, f"{sum(colsum):.0%}\n({sum(rowcnt)})", ha="center", va="center", fontsize=8.5, color=INK)
+ax.text(n, n, f"100%\n({sum(rowcnt)})", ha="center", va="center", fontsize=8.5, color=INK)
 ax.plot([-0.5, n - 0.5], [n - 0.5, n - 0.5], color=GRAY, lw=1); ax.plot([n - 0.5, n - 0.5], [-0.5, n - 0.5], color=GRAY, lw=1)
-ax.set_title("Co-use partners per row (static block); margins sum the percentages, counts in brackets", fontsize=8.5, loc="left")
+ax.set_title("Static block, co-use per row; right = share of all co-uses, bottom = column sums", fontsize=8.5, loc="left")
 ax.tick_params(length=0); [s.set_visible(False) for s in ax.spines.values()]
 fig.tight_layout(); fig.savefig("static_tool_cooccurrence_rownorm.png", dpi=150)
 print("ok")
