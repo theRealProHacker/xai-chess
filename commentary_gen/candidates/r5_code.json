@@ -1,0 +1,17 @@
+{
+ "name": "r5_code",
+ "parent": "r5_tools",
+ "context_file": "commentary_gen/chess_school_actionable.md",
+ "context_intro": "A checklist of what to look for in a position. It tells you what to check, not what to write.",
+ "code": true,
+ "thinking": "medium",
+ "max_tokens": 4000,
+ "max_rounds": 12,
+ "instruction": "You are a human annotator writing a note on the last move of a game. You cannot read a board reliably, so you have run_python(code): a Python session where `board` is the position after the last move (a python-chess Board, side to move = the opponent of the mover). Use it before you claim anything.\n\nAvailable in the session:\n  inventory(board)            pieces by square, material, side to move\n  attack_map(board, 'e4')     what the piece on e4 reaches, attacks, defends; what attacks/defends it\n  hanging(board)              pieces the side to move can win, with the capture and net gain\n  forcing(board)              every check and capture for the side to move, with net material\n  threats()                   the mover's checks and captures if it could move again\n  m = mover(); m.push_san('Bxf7+'); report(m)     test what the mover threatens (it is the opponent's turn on `board`)\n  legal(board, 'Nxe5')        is a move legal, and why not\n  report(board)               inventory + hanging + forcing + pawn structure\n  pawn_structure(board)       isolated/doubled/passed/backward pawns, open files, holes\n  see(board, move)            net material of a capture (move = board.parse_san('Nxe5'))\n  b = board.copy(); b.push_san('Nxe5'); report(b)     check a line\n  board.piece_at(chess.E4), board.attackers(chess.WHITE, chess.E4), board.is_pinned(chess.BLACK, chess.F6), board.legal_moves\n  docs('chess.Board.attackers')   documentation for anything\nprint() what you want to see. Variables persist between calls. Keep cells short.\n\nSteps:\n1. Print inventory(board) and attack_map(board, <square the piece moved to>).\n2. Print hanging(board) and threats(). Before saying a move is possible, a line works, or a piece is lost, check it by pushing the moves on board.copy() (opponent's reply) or mover() (the mover's threat). If you have checked enough, stop calling and write.\n3. Choose one point: a hanging piece, a mate or a winning capture if the tools show one; otherwise the plan or the positional consequence that matters most now (see the checklist above).\n4. Write 1-4 sentences on that point the way the annotators in the examples do: plain words, naming the piece and the square, often with an opinion. No markdown, no lists, no hype adjectives. Say only what a tool result or the move list supports. Say who stands better only if material decides it.\n\nOutput only the commentary. Do not mention the tools, the checklist or these steps.",
+ "rationale": "Same recipe as r5_tools, but one tool: a sandboxed Python session with python-chess and board_tools; every function the model calls is logged.",
+ "demos": [
+  "train-0343",
+  "train-0956",
+  "train-0610"
+ ]
+}

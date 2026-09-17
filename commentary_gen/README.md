@@ -9,10 +9,16 @@ deterministic parts and every artifact they produce.
     program.py         candidate json (instruction + demo ids) -> runs/<name>/<split>.jsonl
     metric.py          chrF + length ratio; packs runs into judge batches, unpacks judge scores
     llm.py             REST client (OpenAI / Gemini); sleeps through rate limits and billing outages
-    candidates/        every prompt tried, c0_baseline first
+    board_tools.py     python-chess lookups (attack map, inventory, hanging, forcing, legality, pawns)
+    tools.py           function-calling ToolBox over board_tools (candidate key "functions": true)
+    sandbox.py         code-execution alternative: run_python cells with a call logger ("code": true)
+    tool_usage.py      tool use from the call log, joined with judge scores and the r4 wish list
+    candidates/        every prompt tried, c0_baseline first; best.json = r2 winner, r5_tools.json = current
 
 Loop (MIPROv2 shape): baseline on dev -> judge -> bootstrap demos from train generations the
 judge rates >=4 -> subagent proposes K instructions from the failures -> screen candidates on a
-60-example dev minibatch -> full dev for the top two -> repeat with the winner as parent.
+40-example minibatch (`screen.py --split train` since round 5) -> full dev for the winner ->
+repeat with the winner as parent. Judges: JUDGE.md (r1-3), JUDGE2.md (r4), JUDGE4.md (r5, sees the
+call log; calls_used / calls_contradicted / calls_missing).
 
 `data/` and `runs/` are git-ignored: they contain corpus text (see ../commentary/LICENSING.md).

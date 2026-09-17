@@ -1,7 +1,9 @@
 """The 'DSPy program': one predictor  (moves, board) -> comment.
 
-A candidate is {"name", "instruction", "demos": [example ids]}. render() builds the prompt,
-run() executes it over a set of examples with a thread pool and writes runs/<name>/<split>.jsonl.
+A candidate is {"name", "instruction", "demos": [example ids]} plus optional "context_file",
+"thinking", "max_tokens", and "functions": true to expose tools.ToolBox to the model via function
+calling (calls are logged per row). render() builds the prompt, run() executes it over a set of
+examples with a thread pool and writes runs/<name>/<split>.jsonl.
 """
 import argparse, concurrent.futures as cf, json, sys, threading, time
 from pathlib import Path
@@ -27,8 +29,8 @@ def fmt_input(e):
 def render(cand, e, pool):
     parts = []
     if cand.get("context_file"):  # background reading, inserted verbatim before the instruction
-        parts += ["The following chess lessons are background reading. Use their ideas and vocabulary "
-                  "where they apply to the position; do not quote or cite them.",
+        parts += [cand.get("context_intro", "The following chess lessons are background reading. Use their ideas "
+                                            "and vocabulary where they apply to the position; do not quote or cite them."),
                   "", "=== BEGIN LESSONS ===", (HERE.parent / cand["context_file"]).read_text(encoding="utf-8").strip(),
                   "=== END LESSONS ===", ""]
     parts += [cand["instruction"].strip(), ""]
@@ -51,10 +53,14 @@ def run(cand, examples, pool, out_path, workers=4, temperature=0.7):
     t0 = time.time()
 
     def one(e):
+        tb = None
+        if cand.get("functions") or cand.get("code"):
+            import tools
+            tb = tools.CodeToolBox(e["fen"]) if cand.get("code") else tools.ToolBox(e["fen"])
         r = llm.generate(render(cand, e, pool), temperature=temperature, thinking=cand.get("thinking"),
-                         max_tokens=cand.get("max_tokens", 600))
+                         max_tokens=cand.get("max_tokens", 600), tools=tb, max_rounds=cand.get("max_rounds", 10))
         row = {"id": e["id"], "gen": r["text"], "thoughts": r.get("thoughts", ""), "finish": r["finish"],
-               "usage": r["usage"]}
+               "usage": r["usage"], "calls": r.get("calls", [])}
         with lock, open(out_path, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
         return row

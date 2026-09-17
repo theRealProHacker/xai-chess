@@ -50,14 +50,18 @@ def _post(url, body, headers, log):
 
 
 def generate(prompt, *, model=MODEL, system=None, temperature=1.0, max_tokens=600, log=sys.stderr,
-             thinking=None):
-    """Returns {"text", "thoughts", "usage", "finish"}.
+             thinking=None, tools=None, max_rounds=10):
+    """Returns {"text", "thoughts", "usage", "finish", "calls"}.
 
     thinking: None = model default; an int = thinkingBudget; "low"/"medium"/"high" = thinkingLevel.
-    Gemini returns thought *summaries* in `thoughts` (raw thinking is not exposed by the API)."""
+    Gemini returns thought *summaries* in `thoughts` (raw thinking is not exposed by the API).
+    tools: an object with .declarations() and .call(name, args) -> str (Gemini only). The model may
+    call functions for up to max_rounds turns; every call is logged in `calls`."""
     if model.startswith("gemini"):
         body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
                 "generationConfig": {"temperature": temperature, "maxOutputTokens": max_tokens}}
+        if tools is not None:
+            body["tools"] = [{"functionDeclarations": tools.declarations()}]
         if thinking is None and "LLM_THINKING" in os.environ:
             thinking = os.environ["LLM_THINKING"]
         if thinking is not None:
@@ -71,19 +75,50 @@ def generate(prompt, *, model=MODEL, system=None, temperature=1.0, max_tokens=60
             body["systemInstruction"] = {"parts": [{"text": system}]}
         url = (f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
                f"?key={os.environ['GEMINI_API_KEY']}")
-        try:
-            out = _post(url, body, {}, log)
-        except RuntimeError as e:  # models without a thinking mode reject thinkingConfig
-            if "INVALID_ARGUMENT" not in str(e):
-                raise
-            del body["generationConfig"]["thinkingConfig"]
-            out = _post(url, body, {}, log)
-        cands = out.get("candidates") or []
-        parts = cands[0].get("content", {}).get("parts", []) if cands else []
+        calls, thoughts, usage, nudged = [], [], {}, False
+        for _ in range(max_rounds):
+            try:
+                out = _post(url, body, {}, log)
+            except RuntimeError as e:  # models without a thinking mode reject thinkingConfig
+                if "INVALID_ARGUMENT" not in str(e) or "thinkingConfig" not in body["generationConfig"]:
+                    raise
+                del body["generationConfig"]["thinkingConfig"]
+                out = _post(url, body, {}, log)
+            for k, v in out.get("usageMetadata", {}).items():
+                if isinstance(v, int):
+                    usage[k] = usage.get(k, 0) + v
+            cands = out.get("candidates") or []
+            content = cands[0].get("content", {}) if cands else {}
+            parts = content.get("parts", [])
+            thoughts += [p["text"] for p in parts if p.get("thought") and p.get("text")]
+            fcs = [p["functionCall"] for p in parts if "functionCall" in p]
+            text = "".join(p.get("text", "") for p in parts if not p.get("thought")).strip()
+            if not fcs and not text and tools is not None and calls and not nudged:
+                nudged = True  # a tool round ended with no text: ask once for the answer
+                body["contents"].append(content)
+                body["contents"].append({"role": "user", "parts": [{"text": "Now write the commentary."}]})
+                continue
+            if not fcs or tools is None:
+                return {"text": text,
+                        "thoughts": "\n".join(thoughts).strip(), "usage": usage,
+                        "finish": cands[0].get("finishReason") if cands else out.get("promptFeedback"),
+                        "calls": calls}
+            body["contents"].append(content)  # verbatim, keeps thought signatures
+            responses = []
+            for fc in fcs:
+                res = tools.call(fc["name"], fc.get("args") or {})
+                rec = {"name": fc["name"], "args": fc.get("args") or {}, "result": res}
+                if getattr(tools, "last_functions", None):
+                    rec["functions"] = tools.last_functions
+                calls.append(rec)
+                responses.append({"functionResponse": {"name": fc["name"], "response": {"result": res}}})
+            body["contents"].append({"role": "user", "parts": responses})
+        body.pop("tools", None)  # rounds exhausted: one last turn, no tools, must answer
+        body["contents"].append({"role": "user", "parts": [{"text": "Stop checking. Write the commentary now."}]})
+        out = _post(url, body, {}, log)
+        parts = (out.get("candidates") or [{}])[0].get("content", {}).get("parts", [])
         return {"text": "".join(p.get("text", "") for p in parts if not p.get("thought")).strip(),
-                "thoughts": "".join(p.get("text", "") for p in parts if p.get("thought")).strip(),
-                "usage": out.get("usageMetadata", {}),
-                "finish": cands[0].get("finishReason") if cands else out.get("promptFeedback")}
+                "thoughts": "\n".join(thoughts).strip(), "usage": usage, "finish": "MAX_ROUNDS", "calls": calls}
 
     msgs = ([{"role": "system", "content": system}] if system else []) + [{"role": "user", "content": prompt}]
     body = {"model": model, "messages": msgs, "max_completion_tokens": max_tokens}

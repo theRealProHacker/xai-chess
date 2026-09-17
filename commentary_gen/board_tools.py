@@ -337,16 +337,19 @@ def legal(board, san):
              and (not mm.group(3) or chess.square_rank(s) == int(mm.group(3)) - 1)]
     if pt == chess.PAWN and not mm.group(2):
         cands = [s for s in cands if chess.square_file(s) == chess.square_file(to)]
+    if not cands or all(not board.is_pseudo_legal(chess.Move(s, to, promotion=chess.QUEEN if pt == chess.PAWN and chess.square_rank(to) in (0, 7) else None)) for s in cands):
+        other = _as_mover(board, not board.turn)
+        try:
+            other.parse_san(clean)
+            return (f"{san} is not legal now: it is {me}'s move and {san} is a {_side(not board.turn)} move. "
+                    f"To test what {_side(not board.turn)} threatens, play it on mover().")
+        except Exception:
+            pass
     target = board.piece_at(to)
     if target and target.color == board.turn:
         return f"{san} is not legal: {mm.group(5)} holds {me}'s own {NAME[target.piece_type]}."
     if not cands:
-        other = _as_mover(board, not board.turn)
-        try:
-            other.parse_san(clean)
-            return f"{san} is not legal: it is {me}'s move and that would be a {_side(not board.turn)} move."
-        except Exception:
-            return f"{san} is not legal: {me} has no {NAME[pt]} that could play it."
+        return f"{san} is not legal: {me} has no {NAME[pt]} that could play it."
 
     if pt == chess.PAWN and chess.square_rank(to) in (0, 7) and not mm.group(6):
         for s in cands:

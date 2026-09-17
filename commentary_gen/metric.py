@@ -55,6 +55,11 @@ def judge_pack(name, split="dev", batch=25, ids=None):
             for r in rows[b:b + batch]:
                 e = pool[r["id"]]
                 fh.write(f"### {r['id']}\n{fmt_input(e)}\n\nREFERENCE (human):\n{e['comment']}\n\n")
+                if r.get("calls"):
+                    fh.write("TOOL CALLS (made by the model; results are exact):\n")
+                    for k, c in enumerate(r["calls"], 1):
+                        args = ", ".join(f"{a}={v!r}" for a, v in c["args"].items())
+                        fh.write(f"[{k}] {c['name']}({args})\n{c['result']}\n\n")
                 if r.get("thoughts"):
                     fh.write(f"MODEL THINKING (summary returned by the API, not shown to users):\n{r['thoughts']}\n\n")
                 fh.write(f"GENERATED:\n{r['gen']}\n\n")

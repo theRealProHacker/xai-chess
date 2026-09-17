@@ -118,3 +118,71 @@ and needs a shallow tactics search. Engine evaluation is almost never what the j
 ## Cost
 
 300 Gemini calls × ~12k prompt tokens ≈ 3.7M input tokens (< $1). 12 Sonnet judges ≈ 2.2M tokens.
+
+# Round 5 — 2026-09-18: tool use (Gemini function calling over board_tools)
+
+The model gets eight functions bound to the position after the move (`tools.py`: attack_map,
+inventory, hanging, forcing, threats, legal, after, pawn_structure), a 35-line checklist
+extracted from the ICS lessons (`chess_school_actionable.md`) instead of the 335-line lessons,
+and a four-step recipe (`candidates/r5_tools.json`). Every call is logged per item; judges
+(`JUDGE4.md`) see the call log and mark which calls the output relied on or contradicted.
+A code-sandbox variant (`sandbox.py`, one `run_python` tool with python-chess and the same
+functions, every call counted) lost to function calling on the train minibatch (overall 2.93
+vs 3.25, 18 vs 5 items contradicting their own tool output): Flash-Lite reimplements the
+lookups with raw Board calls and misreads the bitboard grids. Kept for line-checking only.
+
+## Full dev (300)
+
+| | overall | faithful | relevant | human |
+|---|---|---|---|---|
+| r2 winner (no tools, no thinking) | 3.06 | 3.17 | 3.47 | 3.83 |
+| r4 (lessons + thinking) | 3.04 | 3.93 | 3.20 | 3.41 |
+| **r5_tools** | 3.17 | **4.06** | 3.31 | 3.63 |
+
+Paired: vs r2 (257) overall +0.15 (99 W / 81 T / 77 L), faithful +0.94, relevant −0.14,
+human −0.19. vs r4 (300) overall +0.18, faithful +0.22, relevant +0.14, human +0.21.
+Per-batch overall 2.96–3.48. Split: 94 false claim, 91 true but generic, 115 accepted
+(r4: 96 / 101 / 103). Mean 6 calls and 16k tokens per item.
+
+## Tool use, from the log
+
+| tool | items calling it | calls | judged "output relies on it" | failed calls |
+|---|---|---|---|---|
+| inventory | 300 | 301 | 20% | 0 |
+| attack_map | 298 | 433 | 50% | 1 |
+| hanging | 280 | 283 | 33% | 15 |
+| threats | 294 | 295 | 26% | 9 |
+| forcing | 118 | 118 | 22% | 0 |
+| legal | 76 | 117 | 26% | 27 |
+| after | 97 | 140 | 34% | 44 |
+| pawn_structure | 114 | 114 | 29% | 0 |
+
+The recipe's mandatory calls (inventory, attack_map, hanging, threats) are made on every item;
+the optional ones (legal, after, forcing, pawn_structure) on a third. Failed calls are mostly
+`legal`/`after` with a move for the wrong side. Faithfulness does not vary with the number of
+calls (4.0–4.1 from 4 to 8 calls).
+
+Per r4 wish: items whose r4 judge asked for a tool now call it in every case for the attack
+map (98/98), inventory (82/82), hanging (27/28) and forcing (67/68); pawn structure 11/25,
+legality 3/12. Faithful on those items: attack map 3.21 → 4.01, inventory 2.93 → 3.93,
+hanging 3.64 → 4.21, forcing 3.84 → 4.07, pawn structure 3.72 → 3.76.
+
+## What still goes wrong
+
+88 of 300 outputs contradict a result the model itself fetched (mean faithful 2.76 vs 4.60 for
+the rest): a net-negative capture from `forcing`/`threats` sold as a threat, a piece said to
+defend a square its own attack_map line omits, a file called open that pawn_structure marks
+half-open. The tool is called, read in thinking, and paraphrased wrongly at generation.
+Judges name a missing call in 153 items, mostly `after` (51: the line the reference is about
+was never tested) and `attack_map` on a second square (43).
+
+Mistake categories (n of 231 items with a note): true but generic 67, evaluation inverted 47,
+material/count 28, geometry 27, phantom piece 24, undefended square 22, open file 16.
+
+Relevance and voice did not move: the tools fix facts, not the choice of point. Next levers:
+force one `after` on the mover's main threat; return tool verdicts in words ("Nxe4 loses a
+pawn") instead of `net -2`; a verification pass that re-checks the draft's named squares.
+
+## Cost
+
+340 Gemini items × ~6 calls ≈ 5.5M tokens (~$1.5). 20 Sonnet judges ≈ 4.5M tokens.

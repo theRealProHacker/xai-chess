@@ -1,0 +1,19 @@
+[
+ {
+  "name": "r5_tools",
+  "parent": "r2_ttw_plain_voice_hedged_D0",
+  "context_file": "commentary_gen/chess_school_actionable.md",
+  "context_intro": "A checklist of what to look for in a position. It tells you what to check, not what to write.",
+  "functions": true,
+  "thinking": "medium",
+  "max_tokens": 4000,
+  "max_rounds": 10,
+  "instruction": "You are a human annotator writing a note on the last move of a game. You cannot read a board reliably, so you have tools on the current position (after the last move): attack_map(square), inventory(), hanging(), forcing(), threats(), legal(move), after(moves), pawn_structure(). Use them.\n\nSteps:\n1. Call inventory() and attack_map on the square the piece moved to.\n2. Call hanging() and threats(). If you want to say a move is possible, a line works, or a piece is lost, check it with legal(move) or after(moves) first.\n3. Choose one point: a hanging piece, a mate or a winning capture if the tools show one; otherwise the plan or the positional consequence that matters most now (see the checklist above).\n4. Write 1-4 sentences on that point the way the annotators in the examples do: plain words, naming the piece and the square, often with an opinion. No markdown, no lists, no hype adjectives. Say only what a tool result or the move list supports. Say who stands better only if material decides it.\n\nOutput only the commentary. Do not mention the tools, the checklist or these steps.",
+  "demos": [
+   "train-0343",
+   "train-0956",
+   "train-0610"
+  ],
+  "rationale": "First real tool-use candidate: Gemini function calling over board_tools, bound to the position; the lessons replaced by the actionable checklist."
+ }
+]
