@@ -31,7 +31,7 @@
   #intro{min-height:3.4em}
   a.back:hover{color:#0b5fa5}
 
-  #board{width:100%;aspect-ratio:1/1;margin:1.25rem 0 .75rem;
+  #board{width:100%;aspect-ratio:1/1;margin:1rem 0 .75rem;
          box-shadow:var(--shadow-s);border-radius:4px}
 
   /* This page colour-codes squares, so the board itself must not carry colour of
@@ -78,14 +78,10 @@
   button.on{background:#0b5fa5;border-color:#0b5fa5;color:#fff}
   button.on:hover{background:#0a5390;border-color:#0a5390}
 
-  select{font:inherit;font-size:.9rem;padding:.5rem 2rem .5rem .9rem;border:1px solid #e4e4e4;
-      border-radius:8px;background:#fff;color:#1a1a1a;cursor:pointer;box-shadow:var(--shadow-s);
-      appearance:none;-webkit-appearance:none;
-      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23555' stroke-width='1.5'/%3E%3C/svg%3E");
-      background-repeat:no-repeat;background-position:right .7rem center}
-  select:hover{border-color:#0b5fa5;box-shadow:var(--shadow-m)}
-  select:focus{outline:none;border-color:#0b5fa5}
   [hidden]{display:none !important}
+  #mode{display:inline-flex;gap:.4rem}
+  #modeExtras{min-height:4.3rem;display:flow-root}
+  #spaceLayers{display:inline-flex;gap:.4rem;margin-left:.5rem}
 
   .err{color:#b00020;font-size:.85rem;text-align:center;min-height:1.1em;margin:.1rem 0 .4rem}
 
@@ -93,7 +89,7 @@
   .gcap{color:#555;font-size:.9rem;min-height:1.2em;margin:0 0 .75rem}
 
   .legend{display:flex;flex-wrap:wrap;gap:.5rem 1.1rem;
-      color:#555;font-size:.82rem;margin-top:1.25rem}
+      color:#555;font-size:.82rem;margin-top:.9rem}
   .lgroup{display:flex;flex-wrap:wrap;gap:.5rem 1.1rem}
   .legend span{display:inline-flex;align-items:center;gap:.4rem}
   .legend i{width:.85rem;height:.85rem;border-radius:3px;display:inline-block;
@@ -109,41 +105,24 @@
   <p class="intro" id="intro">Every square goes to whoever attacks it more often, and arrows follow the
   pawn chains. Move a piece or load a FEN.</p>
 
-  <div id="board"></div>
-
-  <div class="readout">
-    <div class="verdict" id="verdict">&nbsp;</div>
-    <div class="counts" id="counts">&nbsp;</div>
-    <div class="caption" id="caption">Attacker count. Pieces behind a friendly pawn or slider count too.</div>
-  </div>
-
-  <div class="gallery" id="gallery"></div>
-  <p class="gcap" id="gcap"></p>
-
-  <div class="fenrow">
-    <input id="fen" spellcheck="false" aria-label="FEN">
-    <button id="loadBtn">Load</button>
-  </div>
-  <p class="err" id="err"></p>
-
   <!-- Toggles carry a tick so "filled = on" is not confusable with "filled = selected"
        in the preset row, and so the outlined one-shot action stays a different thing. -->
-  <div class="btns">
+  <div class="btns" style="margin-top:0">
     <span class="rowlabel">Show</span>
-    <select id="mode" aria-label="What to show">
-      <option value="space">Space</option>
-      <option value="pawns">Pawns</option>
-      <option value="files">Files</option>
-      <option value="holes">Holes</option>
-    </select>
+    <span id="mode" role="group" aria-label="What to show">
+      <button data-mode="space" class="on">Space</button>
+      <button data-mode="pawns">Pawns</button>
+      <button data-mode="files">Files</button>
+      <button data-mode="holes">Holes</button>
+    </span>
     <span id="spaceLayers">
       <button id="tControl" class="on">&#10003; Control map</button>
       <button id="tArrows" class="on">&#10003; Arrows</button>
     </span>
-    <span class="rowgap"></span>
-    <button id="flipBtn">Flip board</button>
   </div>
-
+  <!-- Two legend lines reserved (Space has two, the others one) so the board does not move
+       when the mode changes. -->
+  <div id="modeExtras">
   <!-- Six keys never fit one line, so they are grouped to make the wrap land between
        the shading keys and the arrow keys rather than splitting a pair. -->
   <div class="legend" id="legend-space">
@@ -184,6 +163,25 @@
       <span><i style="background:#dcdad5"></i>Not a hole</span>
     </div>
   </div>
+  </div>
+
+  <div id="board"></div>
+
+  <div class="readout">
+    <div class="verdict" id="verdict">&nbsp;</div>
+    <div class="counts" id="counts">&nbsp;</div>
+    <div class="caption" id="caption">Attacker count. Pieces behind a friendly pawn or slider count too.</div>
+  </div>
+
+  <div class="gallery" id="gallery"></div>
+  <p class="gcap" id="gcap"></p>
+
+  <div class="fenrow">
+    <input id="fen" spellcheck="false" aria-label="FEN">
+    <button id="loadBtn">Load</button>
+    <button id="flipBtn">Flip board</button>
+  </div>
+  <p class="err" id="err"></p>
 
 <script type="module">
 import { Chess } from './vendor/chess.js';
@@ -674,16 +672,17 @@ const MODE_TEXT = {
   holes: ['Central squares in each camp that no pawn of that side can ever guard again.',
           'Files c to f, ranks 3-4 for White and 5-6 for Black.'],
 };
-const modeSel = document.getElementById('mode');
+const modeBtns = [...document.querySelectorAll('#mode button')];
 function setMode(m){
   mode = m;
+  modeBtns.forEach(b => b.classList.toggle('on', b.dataset.mode === m));
   document.getElementById('spaceLayers').hidden = m !== 'space';
   for (const k of Object.keys(MODE_TEXT)) document.getElementById('legend-' + k).hidden = k !== m;
   document.getElementById('intro').textContent = MODE_TEXT[m][0];
   document.getElementById('caption').textContent = MODE_TEXT[m][1];
   render();
 }
-modeSel.addEventListener('change', () => setMode(modeSel.value));
+modeBtns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 
 document.getElementById('loadBtn').addEventListener('click', () => loadFen(fenInput.value.trim()));
 fenInput.addEventListener('keydown', e => { if(e.key==='Enter') loadFen(fenInput.value.trim()); });
