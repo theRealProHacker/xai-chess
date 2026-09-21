@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Obstruct Demo &middot; xai-chess</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.base.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.brown.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.cburnett.css">
+<style>
+  :root{
+    --shadow-s:
+      inset 0 1px 2px #ffffff30,
+      0 1px 2px #00000030,
+      0 2px 4px #00000015;
+    --shadow-m:
+      inset 0 1px 2px #ffffff50,
+      0 2px 4px #00000030,
+      0 4px 8px #00000015;
+    /* Blue vs orange: the one hue pair that survives red-green colour blindness. These are the
+       exact colours the board draws, so a legend swatch matches what is under it. */
+    --cut:#0b3d6b; --ctl:#a35c00;
+    --yes:#0b7a2f; --no:#8a6d00;
+  }
+
+  a.back{color:#8a8a8a;text-decoration:none;font-size:.9rem}
+  a.back:hover{color:#0b5fa5}
+
+  /* Full column width: at 448px the board was inset 75px from every other edge on the page. */
+  #board{width:100%;aspect-ratio:1/1;margin:1rem 0 .6rem;
+         box-shadow:var(--shadow-s);border-radius:4px}
+  /* Files render uppercase by default; every square named in the copy is lowercase. */
+  /* chessground ships shapes at z-index 2, the same layer as the pieces, with the layer
+     carrying its own opacity: arrowheads landed under pieces and every ring rendered paler
+     than its legend swatch. Above the pieces, fully opaque. */
+  #board .cg-shapes{z-index:3;opacity:1}
+  /* The stock check glow is the loudest thing on the board; this page is about the line. */
+  #board square.check{background:radial-gradient(ellipse at 50% 50%,#c0303055 0%,#c0303022 42%,#00000000 68%)}
+  #board coords.files{text-transform:lowercase}
+  /* chessground flips coord colour on square parity, which lands at 1.6:1 on the light squares. */
+  #board coords coord{color:#2b2b2b !important;
+      text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff;font-weight:600}
+
+  .turn{color:#555;font-size:.85rem;margin:0 0 .2rem}
+  .turn b{color:#1a1a1a;font-weight:600}
+
+  .gallery{display:flex;flex-wrap:wrap;gap:.4rem;margin:1.5rem 0 .6rem}
+  .gcap{color:#555;font-size:.9rem;min-height:2.4em;margin:0}
+  .gcap b{color:#1a1a1a;font-weight:600}
+
+  .fenrow{display:flex;align-items:center;gap:.4rem;margin:1.25rem 0 .25rem}
+  .fenrow label{color:#8a8a8a;font-size:.8rem;letter-spacing:.02em}
+  .fenrow input{flex:1;min-width:0;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      padding:.5rem .6rem;border:1px solid #e4e4e4;border-radius:8px;color:#1a1a1a}
+  .fenrow input:focus{outline:none;border-color:#0b5fa5}
+
+  .btns{display:flex;flex-wrap:wrap;gap:.4rem;margin:.6rem 0 .35rem}
+  button{font:inherit;font-size:.9rem;padding:.5rem .9rem;border:1px solid #e4e4e4;border-radius:8px;
+      background:#fff;color:#1a1a1a;cursor:pointer;box-shadow:var(--shadow-s);
+      transition:border-color .12s,background .12s,box-shadow .12s}
+  button:hover:not(:disabled){border-color:#0b5fa5;background:#fafafa;box-shadow:var(--shadow-m)}
+  button:disabled{opacity:.5;cursor:default;box-shadow:none}
+  button.primary{background:#0b5fa5;border-color:#0b5fa5;color:#fff}
+  button.primary:hover:not(:disabled){background:#0a5390;border-color:#0a5390}
+  button.on{background:#0b5fa5;border-color:#0b5fa5;color:#fff}
+  button.on:hover{background:#0a5390;border-color:#0a5390}
+
+  .hint{color:#8a6d00;font-size:.82rem;min-height:1.1em;margin:.1rem 0 .3rem}
+  .err{color:#b00020;font-size:.85rem;min-height:1.1em;margin:.1rem 0 .4rem}
+  /* At phone width the buttons squeeze the FEN field down to a few characters. */
+  @media (max-width:430px){
+    .fenrow{flex-wrap:wrap}
+    .fenrow input{flex:1 0 100%;order:-1}
+  }
+
+
+  /* The answer, so it outweighs the button that produced it. */
+  .result{border:1px solid #e4e4e4;border-left:4px solid #d4d4d4;border-radius:10px;
+      padding:1rem 1.15rem;margin-top:1.1rem;box-shadow:var(--shadow-m)}
+  .result.causal{border-left-color:var(--yes)}
+  .result.incidental{border-left-color:var(--no)}
+  .result .verdict{font-size:1.45rem;font-weight:600;letter-spacing:-.015em;margin-bottom:.7rem;
+      line-height:1.25}
+  .result.causal .verdict{color:var(--yes)}
+  .result.incidental .verdict{color:var(--no)}
+  .result.na .verdict,.result.thinking .verdict{color:#555;font-size:1.15rem}
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem;margin:0 0 .7rem}
+  @media (max-width:520px){.grid{grid-template-columns:1fr}}
+  .cell{border:1px solid #eee;border-radius:8px;padding:.55rem .7rem;background:#fafafa;
+      min-height:4.2em}
+  .cell .lbl{font-size:.72rem;letter-spacing:.02em;color:#6b6b6b;margin-bottom:.3rem}
+  .cell .val{font-size:1rem;font-weight:600;color:#1a1a1a;line-height:1.3}
+  .cell .sub{font-size:.76rem;color:#6b6b6b;margin-top:.2rem;line-height:1.35}
+  .result .detail{color:#333;font-size:.95rem;line-height:1.55}
+
+  .legend{display:flex;flex-wrap:wrap;gap:.45rem 1.1rem;color:#555;font-size:.82rem;margin:0 0 .2rem}
+  .legend span{display:inline-flex;align-items:center;gap:.4rem}
+  .legend i{width:.9rem;height:.9rem;border-radius:50%;display:inline-block;border:2.5px solid}
+  .legend i.cut{border-color:var(--cut)}
+  .legend i.best{border-color:var(--cut);background:var(--cut)}
+  .legend i.ctl{border-color:var(--ctl)}
+  .legcap{color:#8a8a8a;font-size:.8rem;margin:.1rem 0 0}
+  .nowrap{white-space:nowrap}
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; xai-chess</a>
+  <h1>Obstruct Demo</h1>
+  <p class="intro">Mark the line an explanation credits and the engine drops a blocker on it: a
+  phantom occupant that stops the ray but has no colour, no value and cannot be taken. It then drops
+  the same blocker on squares <em>off</em> the line. Those set the noise floor. A line earns the
+  credit only if cutting it moves the evaluation further than an off-line square does.</p>
+
+  <div class="gallery" id="gallery"></div>
+  <p class="gcap" id="gcap"></p>
+
+  <div id="board"></div>
+
+  <div class="legend">
+    <span><i class="best"></i>The square that was cut</span>
+    <span><i class="cut"></i>Also tried, on the line</span>
+    <span><i class="ctl"></i>Control square, off the line</span>
+  </div>
+  <p class="legcap">Up to three squares on the line are tried, and as many off it.</p>
+
+  <p class="turn"><b id="turn">&nbsp;</b><span id="engineStatus"> &middot; loading the engine&hellip;</span></p>
+
+  <div class="btns">
+    <button id="cutBtn" class="primary" disabled>Cut the line</button>
+    <button id="flipBtn">Flip board</button>
+  </div>
+  <p class="hint" id="hint"></p>
+
+  <div class="result" id="result" hidden aria-live="polite">
+    <div class="verdict" id="rVerdict"></div>
+    <div class="grid" id="rGrid">
+      <div class="cell">
+        <div class="lbl">Line open</div>
+        <div class="val" id="rBase">&mdash;</div>
+        <div class="sub" id="rBaseSub"></div>
+      </div>
+      <div class="cell">
+        <div class="lbl">Line cut</div>
+        <div class="val" id="rCut">&mdash;</div>
+        <div class="sub" id="rCutSub"></div>
+      </div>
+      <div class="cell">
+        <div class="lbl">Control squares</div>
+        <div class="val" id="rCtl">&mdash;</div>
+        <div class="sub" id="rCtlSub"></div>
+      </div>
+    </div>
+    <div class="detail" id="rDetail"></div>
+  </div>
+
+  <div class="fenrow">
+    <label for="fen">FEN</label>
+    <input id="fen" spellcheck="false">
+    <button id="loadBtn">Load</button>
+  </div>
+  <p class="err" id="err"></p>
+
+<script type="module">
+import { Chess } from './vendor/chess.js';
+import { Chessground } from './vendor/chessground/chessground.min.js';
+
+// Four claims of the form "this line is why the position is what it is". Two open files with
+// opposite verdicts, one diagonal, one pin — and the pin one runs the other way, because
+// occupancy cuts lines for both sides.
+const GALLERY = [
+  {name:'Open file',
+   fen:'6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1', arrow:['a1','a8'],
+   cap:'<b>“White mates because the a-file is open.”</b> The rook has nothing but that file.'},
+  {name:'Long diagonal',
+   fen:'r4rk1/pp3ppp/8/8/3Q4/8/PB4PP/6K1 w - - 0 1', arrow:['b2','g7'],
+   cap:'<b>“The queen mates on g7 because the bishop backs her up.”</b> Queen and bishop share one diagonal.'},
+  {name:'Pin line',
+   fen:'6k1/8/8/b7/4q3/2N5/8/4K3 w - - 0 1', arrow:['a5','e1'],
+   cap:'<b>“Black wins because the bishop pins the knight to the king.”</b> This line is Black’s, so cutting it should help White.'},
+  {name:'Dead rook ending',
+   fen:'r5k1/pp3ppp/8/8/8/8/PP3PPP/2R3K1 w - - 0 1', arrow:['c1','c8'],
+   cap:'<b>“White is better because he owns the open c-file.”</b> Same claim as <b>Open file</b>, four pawns each, nothing to invade.'},
+];
+
+const NODES    = 250000;
+const OFF      = 64;      // SQ_NONE — engine is byte-for-byte stock Stockfish 18
+const SAMPLE   = 3;       // squares tried on the line, and control squares, matched
+const BIG      = 0.15;    // win-probability swing that counts as a real effect
+const MARGIN   = 0.05;    // ...and how far it must clear the control band
+
+let chess = new Chess(GALLERY[0].fen);
+let engineReady = false;
+// The arrow is removed from the board once a run finishes (it cut through the rings it was
+// meant to explain), so the marked line is remembered here or the button would never re-enable.
+let markedLine = null;
+
+const turnEl   = document.getElementById('turn');
+const engineEl = document.getElementById('engineStatus');
+const fenInput = document.getElementById('fen');
+const errEl    = document.getElementById('err');
+const hintEl   = document.getElementById('hint');
+const cutBtn   = document.getElementById('cutBtn');
+const resultEl = document.getElementById('result');
+const gcapEl   = document.getElementById('gcap');
+const rVerdict = document.getElementById('rVerdict');
+const rDetail  = document.getElementById('rDetail');
+const cells = {
+  base: [document.getElementById('rBase'), document.getElementById('rBaseSub')],
+  cut:  [document.getElementById('rCut'),  document.getElementById('rCutSub')],
+  ctl:  [document.getElementById('rCtl'),  document.getElementById('rCtlSub')],
+};
+
+// --- geometry ---------------------------------------------------------------
+// Square index a1=0 … h8=63, matching the engine's LineBlocker convention.
+const FILES = 'abcdefgh';
+const sqIndex = sq => FILES.indexOf(sq[0]) + (parseInt(sq[1],10)-1)*8;
+const sqName  = (f,r) => FILES[f] + (r+1);
+const coords  = sq => [FILES.indexOf(sq[0]), parseInt(sq[1],10)-1];
+const PIECE_WORDS = {p:'pawn',n:'knight',b:'bishop',r:'rook',q:'queen',k:'king'};
+const LETTER = {p:'', n:'N', b:'B', r:'R', q:'Q', k:'K'};
+
+// Squares strictly between two ends of a rank, file or diagonal. null if the arrow is not a line.
+function between(orig, dest){
+  const [f0,r0] = coords(orig), [f1,r1] = coords(dest);
+  const df = f1-f0, dr = r1-r0;
+  if(!(df===0 || dr===0 || Math.abs(df)===Math.abs(dr)) || (df===0 && dr===0)) return null;
+  const sf = Math.sign(df), sr = Math.sign(dr), out = [];
+  for(let f=f0+sf, r=r0+sr; f!==f1 || r!==r1; f+=sf, r+=sr) out.push(sqName(f,r));
+  return out;
+}
+const collinear = (a,b) => {
+  const [fa,ra]=coords(a), [fb,rb]=coords(b);
+  return fa===fb || ra===rb || Math.abs(fa-fb)===Math.abs(ra-rb);
+};
+// A control square may not sit on any line through either end of the marked line. Without that
+// rule a "control" can cut a second load-bearing line — b8 for Ra8# blocks the mating rank — and
+// a real effect reads as noise.
+const offLine = (orig,dest,sq) => !collinear(sq,orig) && !collinear(sq,dest);
+
+// Spread a list to at most SAMPLE entries, keeping both ends.
+const spread = xs => xs.length <= SAMPLE ? xs.slice() : [xs[xs.length-1], xs[(xs.length/2)|0], xs[0]];
+
+function emptySquares(game){
+  const out = [];
+  for(let r=0;r<8;r++) for(let f=0;f<8;f++){ const s = sqName(f,r); if(!game.get(s)) out.push(s); }
+  return out;
+}
+
+// --- board ------------------------------------------------------------------
+const colorOf = () => (chess.turn()==='w' ? 'white' : 'black');
+function dests(){
+  const map = new Map();
+  chess.moves({verbose:true}).forEach(m => {
+    if(!map.has(m.from)) map.set(m.from, []);
+    map.get(m.from).push(m.to);
+  });
+  return map;
+}
+const ground = Chessground(document.getElementById('board'), {
+  fen: chess.fen(), turnColor: colorOf(), coordinates: true,
+  movable:   {free:false, color: colorOf(), dests: dests(), showDests:true, events:{after:onMove}},
+  draggable: {showGhost:true},
+  drawable:  {enabled:true, onChange: onDrawChange, brushes:{
+    // Opaque and matched to the legend swatches: chessground's stock brushes render
+    // translucent, so a saturated legend chip never matched the washed-out ring on the board.
+    line: {key:'obl', color:'#0b3d6b', opacity:1, lineWidth:8},
+    cut:  {key:'obc', color:'#0b3d6b', opacity:1, lineWidth:6},
+    best: {key:'obb', color:'#0b3d6b', opacity:1, lineWidth:13},
+    ctl:  {key:'obt', color:'#a35c00', opacity:1, lineWidth:6},
+  }},
+  check: chess.in_check() ? colorOf() : false,
+});
+function applyBoard(shapes){
+  ground.set({fen: chess.fen(), turnColor: colorOf(), lastMove: null,
+    check: chess.in_check() ? colorOf() : false,
+    movable: {color: colorOf(), dests: dests()}});
+  ground.setShapes(shapes || []);   // ground.set wipes shapes, so the arrow is redrawn here
+}
+function onMove(orig, dest){
+  const arrow = currentArrow();
+  chess.move({from:orig, to:dest, promotion:'q'});
+  clearResult(); gcapEl.innerHTML = '';
+  document.querySelectorAll('.gallery button').forEach(b => b.classList.remove('on'));
+  applyBoard(arrow ? [{orig:arrow.orig, dest:arrow.dest, brush:'line'}] : []);
+  syncStatus(); updateCutState();
+}
+// Keep only the newest arrow so a seeded line and a hand-drawn one don't both linger.
+function onDrawChange(shapes){
+  const arrows = shapes.filter(s => s.dest);
+  if(arrows.length > 1) setTimeout(() => ground.setShapes([arrows[arrows.length-1]]), 0);
+  clearResult(); updateCutState();
+}
+const currentArrow = () => [...ground.state.drawable.shapes].reverse().find(s => s.dest) || null;
+
+// --- the plan: which squares get a blocker ----------------------------------
+function plan(){
+  const a = currentArrow() || markedLine;
+  if(!a) return {error:'Right-drag an arrow along the line you want to cut.'};
+  const seg = between(a.orig, a.dest);
+  if(seg === null) return {error:'That arrow is not a rank, file or diagonal.'};
+  const empty = new Set(emptySquares(chess));
+  const lineAll = seg.filter(s => empty.has(s));
+  if(!lineAll.length) return {error:'That line has no empty square to block.'};
+  const line = spread(lineAll);
+  const seen = new Set(), cand = [];
+  for(const s of line){
+    const [f,r] = coords(s);
+    for(let df=-1;df<=1;df++) for(let dr=-1;dr<=1;dr++){
+      if(!df && !dr) continue;
+      const nf=f+df, nr=r+dr;
+      if(nf<0||nf>7||nr<0||nr>7) continue;
+      const n = sqName(nf,nr);
+      if(empty.has(n) && offLine(a.orig,a.dest,n) && !seen.has(n)){ seen.add(n); cand.push(n); }
+    }
+  }
+  cand.sort((x,y) => (x[1]-y[1]) || (x[0] < y[0] ? -1 : 1));
+  return {orig:a.orig, dest:a.dest, lineAll, line, controls: spread(cand)};
+}
+
+function updateCutState(){
+  if(!engineReady){ cutBtn.disabled = true; hintEl.textContent = ''; return; }
+  const p = plan();
+  cutBtn.disabled = !!p.error;
+  hintEl.textContent = p.error || '';
+}
+
+// --- controls ---------------------------------------------------------------
+function syncStatus(){
+  fenInput.value = chess.fen();
+  turnEl.textContent = (chess.turn()==='w' ? 'White' : 'Black') + ' to move';
+}
+
+// chess.js validate_fen is syntactic only — it accepts kingless boards, pawns on the back rank
+// and a side-not-to-move-in-check position, all of which crash or fool Stockfish.
+function legalityError(game){
+  let wk=0, bk=0;
+  for(let r=0;r<8;r++) for(let f=0;f<8;f++){
+    const pc = game.get(sqName(f,r));
+    if(!pc) continue;
+    if(pc.type==='p' && (r===0||r===7)) return 'A pawn can’t sit on the back rank.';
+    if(pc.type==='k'){ pc.color==='w' ? wk++ : bk++; }
+  }
+  if(wk!==1 || bk!==1) return 'Each side needs exactly one king.';
+  const parts = game.fen().split(' ');
+  parts[1] = parts[1]==='w' ? 'b' : 'w';
+  parts[3] = '-';
+  const probe = new Chess();
+  if(probe.load(parts.join(' ')) && probe.in_check()){
+    const stm = game.turn()==='w' ? 'White' : 'Black';
+    return `${stm==='White'?'Black':'White'} is in check, but it’s ${stm} to move.`;
+  }
+  return '';
+}
+function loadFen(fen, arrow, caption){
+  const test = new Chess();
+  if(!test.load(fen)){ errEl.textContent='Invalid FEN.'; return false; }
+  const bad = legalityError(test);
+  if(bad){ errEl.textContent = bad; return false; }
+  errEl.textContent=''; chess = test;
+  markedLine = null;
+  clearResult();
+  gcapEl.innerHTML = caption || '';
+  applyBoard(arrow ? [{orig:arrow[0], dest:arrow[1], brush:'line'}] : []);
+  syncStatus();
+  updateCutState();
+  return true;
+}
+
+document.getElementById('loadBtn').addEventListener('click', () => loadFen(fenInput.value.trim()));
+fenInput.addEventListener('keydown', e => { if(e.key==='Enter') loadFen(fenInput.value.trim()); });
+document.getElementById('flipBtn').addEventListener('click', () => ground.toggleOrientation());
+cutBtn.addEventListener('click', cut);
+
+const galleryEl = document.getElementById('gallery');
+GALLERY.forEach(g => {
+  const b = document.createElement('button');
+  b.textContent = g.name;
+  b.addEventListener('click', () => {
+    galleryEl.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    loadFen(g.fen, g.arrow, g.cap);
+  });
+  galleryEl.appendChild(b);
+});
+
+// --- result panel -----------------------------------------------------------
+function clearResult(){ resultEl.hidden = true; }
+function showResult({cls='', title='', base=null, cut=null, ctl=null, detail=''}){
+  resultEl.hidden = false;
+  resultEl.className = 'result ' + cls;
+  rVerdict.textContent = title;
+  document.getElementById('rGrid').style.display = base ? 'grid' : 'none';
+  for(const [k, v] of Object.entries({base, cut, ctl})){
+    if(!v) continue;
+    cells[k][0].textContent = v[0];
+    cells[k][1].textContent = v[1] || '';
+  }
+  rDetail.textContent = detail;
+}
+
+// --- engine (patched Stockfish 18 lite, single-threaded, over a Web Worker) ---
+const engine = new Worker('vendor/stockfish/stockfish-18-lite-single.js');
+const lineOf = e => typeof e.data === 'string' ? e.data : (e.data && e.data.data) || '';
+
+function initEngine(){
+  return new Promise(resolve => {
+    function onMsg(e){
+      const line = lineOf(e);
+      if(line==='uciok') engine.postMessage('isready');
+      else if(line==='readyok'){ engine.removeEventListener('message', onMsg); resolve(); }
+    }
+    engine.addEventListener('message', onMsg);
+    engine.postMessage('uci');
+  });
+}
+
+// Analyse at a fixed node count with LineBlocker on `sq` (64 = off). Cold handshake before each
+// search: the blocker is not in the Zobrist key, so a warm TT would answer for the wrong engine.
+// The option is set before `position fen` because set() computes checkers and blockers at the root.
+function analyse(fen, sq){
+  return new Promise(resolve => {
+    let score=null, settled=false, searching=false;
+    function finish(r){ if(settled) return; settled=true; clearTimeout(timer);
+      engine.removeEventListener('message', onMsg); resolve(r); }
+    function onMsg(e){
+      const line = lineOf(e);
+      if(!searching){
+        if(line==='readyok'){ searching=true; engine.postMessage('position fen '+fen); engine.postMessage('go nodes '+NODES); }
+        return;
+      }
+      if(line.startsWith('info')){
+        const m = line.match(/score (cp|mate) (-?\d+)/);
+        if(m) score = m[1]==='cp' ? {cp:parseInt(m[2],10), mate:null} : {cp:null, mate:parseInt(m[2],10)};
+      } else if(line.startsWith('bestmove')){
+        finish({score, bestmove: line.split(' ')[1]});
+      }
+    }
+    const timer = setTimeout(() => finish({score, bestmove:null}), 20000);
+    engine.addEventListener('message', onMsg);
+    engine.postMessage('ucinewgame');
+    engine.postMessage('setoption name LineBlocker value ' + sq);
+    engine.postMessage('setoption name Clear Hash');
+    engine.postMessage('isready');
+  });
+}
+
+engine.onerror = () => { engineEl.textContent = ' · the engine failed to load'; };
+initEngine().then(() => { engineEl.textContent = ''; engineReady = true; updateCutState(); });
+
+// --- evaluation helpers -----------------------------------------------------
+function winProb(score){                 // {cp,mate} from stm POV -> stm win expectation
+  if(!score) return null;
+  if(score.mate !== null) return score.mate > 0 ? 0.9999 : 0.0001;
+  return Math.min(Math.max(1/(1+Math.exp(-0.00368208*score.cp)), 1e-4), 1-1e-4);
+}
+const mateFor     = s => (s && s.mate !== null && s.mate > 0);    // forced mate FOR side to move
+const mateAgainst = s => (s && s.mate !== null && s.mate <= 0);
+function scoreText(s){
+  if(!s) return '—';
+  if(s.mate !== null) return s.mate > 0 ? `mate in ${s.mate}` : (s.mate === 0 ? 'mated' : `mated in ${-s.mate}`);
+  return (s.cp >= 0 ? '+' : '') + (s.cp/100).toFixed(2);
+}
+// A cut line can make a move LEGAL that is illegal on the real board — freeing a pinned piece is
+// the whole point of the pin example — and chess.js only knows the real board, so it refuses to
+// name those. Fall back to piece + from–to rather than printing raw coordinates.
+function uciToSan(fen, uci){
+  if(!uci || uci.length < 4 || uci === '(none)') return '—';
+  const g = new Chess(fen);
+  const mv = g.move({from: uci.slice(0,2), to: uci.slice(2,4), promotion: uci[4] || 'q'});
+  if(mv) return mv.san;
+  const from = uci.slice(0,2), pc = g.get(from);
+  return (pc ? LETTER[pc.type] : '') + from + '–' + uci.slice(2,4);
+}
+
+// --- the intervention -------------------------------------------------------
+async function cut(){
+  const p = plan();
+  if(p.error){ updateCutState(); return; }
+  const fen = chess.fen();
+  const stm = chess.turn()==='w' ? 'White' : 'Black';
+  const other = stm === 'White' ? 'Black' : 'White';
+  const pc  = chess.get(p.orig);
+  const lineName = pc ? `${PIECE_WORDS[pc.type]} on ${p.orig}` : `line ${p.orig}–${p.dest}`;
+
+  cutBtn.disabled = true;
+  markedLine = {orig:p.orig, dest:p.dest};
+  ground.setShapes([{orig:p.orig, dest:p.dest, brush:'line'}]);
+
+  const total = 1 + p.line.length + p.controls.length;
+  let done = 0;
+  const tick = () => showResult({cls:'thinking',
+    title:`Analysing… search ${++done} of ${total}`});
+  tick();
+
+  try{
+    const base = await analyse(fen, OFF);
+    if(!base.score && base.bestmove == null){
+      showResult({cls:'na', title:'The engine did not answer',
+        detail:'Reload the page and try again.'});
+      return;
+    }
+    const wBase = winProb(base.score);
+
+    const runAll = async sqs => {
+      const out = [];
+      for(const s of sqs){ tick(); const r = await analyse(fen, sqIndex(s)); out.push({sq:s, ...r, w:winProb(r.score)}); }
+      return out;
+    };
+    const onLine   = await runAll(p.line);
+    const controls = await runAll(p.controls);
+
+    // A sound blocker never empties the move list: it occupies one square, and the side to move
+    // had moves a moment ago without it. `bestmove (none)` from an armed search means the engine
+    // build is wrong, so say that instead of scoring the noise it returns.
+    const dead = [...onLine, ...controls].find(r => !r.bestmove || r.bestmove === '(none)');
+    if(base.bestmove && base.bestmove !== '(none)' && dead){
+      showResult({cls:'na', title:'The engine build is wrong',
+        detail:`With a blocker on ${dead.sq} it reports no legal move at all. A blocker occupies one `
+             + `square; it cannot take every move away. Re-vendor the engine with `
+             + `tools/stockfish-xai/build-wasm.sh before trusting this page.`});
+      return;
+    }
+
+    // Signed swing from the side to move's point of view: negative = cutting the line hurts them.
+    const swing = r => r.w - wBase;
+    const best  = onLine.reduce((a,b) => Math.abs(swing(b)) > Math.abs(swing(a)) ? b : a);
+    const band  = controls.reduce((m,r) => Math.max(m, Math.abs(swing(r))), 0);
+    const bestSwing = swing(best);
+
+    // Board marks: the arrow is dropped now. It ran straight through the middle of every ring it
+    // was meant to explain, and over the pieces at both ends; the circles are collinear anyway.
+    // A filled disc, not a thicker ring: chessground renders ring widths too close to tell apart,
+    // and the square the verdict names is the whole point. customSvg drops into a 100x100 viewBox
+    // sized to one square.
+    const DISC = '<circle cx="50" cy="50" r="21" fill="#0b3d6b"/>';
+    ground.setShapes([
+      ...onLine.map(r => r === best
+        ? {orig:r.sq, brush:'cut', customSvg:{html:DISC}}
+        : {orig:r.sq, brush:'cut'}),
+      ...controls.map(r => ({orig:r.sq, brush:'ctl'})),
+    ]);
+
+    const ctlTexts = controls.map(r => scoreText(r.score));
+    // One line, always: three scores side by side wrapped the card and dropped its sub-label below
+    // the other two, so the row lost its shared baseline. Collapse to what the three have in common.
+    const allMate = controls.every(r => r.score && r.score.mate !== null);
+    let ctlVal;
+    if (new Set(ctlTexts).size === 1) ctlVal = ctlTexts[0];
+    else if (allMate) ctlVal = mateFor(base.score) ? 'still mate' : 'still mated';
+    else {
+      const cps = controls.map(r => (r.score && r.score.cp !== null) ? r.score.cp : null).filter(v => v !== null);
+      const fmt = c => (c >= 0 ? '+' : '') + (c / 100).toFixed(2);
+      ctlVal = cps.length ? `${fmt(Math.min(...cps))} to ${fmt(Math.max(...cps))}` : ctlTexts.join(' · ');
+    }
+    const cellBase = [scoreText(base.score), `best move ${uciToSan(fen, base.bestmove)}`];
+    const cellCut  = [scoreText(best.score), `blocker on ${best.sq} · ${uciToSan(fen, best.bestmove)}`];
+    const cellCtl  = [ctlVal, controls.map(r => r.sq).join(' ')];
+
+    let cls, title, detail;
+    if(mateFor(base.score) && !mateFor(best.score) && controls.every(r => mateFor(r.score))){
+      cls='causal'; title='The line carries the position';
+      detail=`${stm} has a forced mate only while the line is open. A blocker on ${best.sq} — one square `
+           + `the ${lineName} needs — takes the mate away (${scoreText(best.score)}), while the same `
+           + `blocker on ${controls.map(r => r.sq).join(', ')} leaves it standing. It is the line doing `
+           + `the work, not the extra occupancy.`;
+    } else if(mateAgainst(base.score) && !mateAgainst(best.score) && controls.every(r => mateAgainst(r.score))){
+      cls='causal'; title=`The line carries the position — for ${other}`;
+      detail=`${stm} is getting mated while the line is open. A blocker on ${best.sq} makes the mate `
+           + `disappear (${scoreText(best.score)}): the blocker cuts the ray for whoever owns it, and `
+           + `cutting this one frees the piece it was holding. The control squares change nothing.`;
+    } else if(Math.abs(bestSwing) >= BIG && Math.abs(bestSwing) >= band + MARGIN){
+      cls='causal';
+      title = bestSwing < 0 ? 'The line carries the position'
+                            : `The line carries the position — for ${other}`;
+      detail=`Blocking the line at ${best.sq} moves the evaluation from ${scoreText(base.score)} to `
+           + `${scoreText(best.score)}. The same blocker on a square off the line moves it nowhere near `
+           + `as far, so the swing belongs to the line.`;
+    } else {
+      cls='incidental'; title='Nothing rests on this line';
+      detail=`Cutting the line moves the evaluation from ${scoreText(base.score)} to `
+           + `${scoreText(best.score)}. The same blocker on a square off the line lands at `
+           + `${ctlTexts.join(', ')} — the same neighbourhood. What is being measured is the blocker's `
+           + `own weight on the board, not the line's. The line is real; the position does not rest on it.`;
+    }
+    showResult({cls, title, base:cellBase, cut:cellCut, ctl:cellCtl, detail});
+  } catch(err){
+    showResult({cls:'na', title:'Something went wrong', detail:String(err)});
+  } finally {
+    cutBtn.disabled = false;
+    updateCutState();
+  }
+}
+
+// initial paint
+galleryEl.querySelector('button').click();
+</script>
+</body>
+</html>

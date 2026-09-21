@@ -84,6 +84,12 @@
   #spaceLayers{display:inline-flex;gap:.4rem;margin-left:.5rem}
 
   .err{color:#b00020;font-size:.85rem;text-align:center;min-height:1.1em;margin:.1rem 0 .4rem}
+  /* At phone width the buttons squeeze the FEN field down to a few characters. */
+  @media (max-width:430px){
+    .fenrow{flex-wrap:wrap}
+    .fenrow input{flex:1 0 100%;order:-1}
+  }
+
 
   .gallery{display:flex;flex-wrap:wrap;gap:.4rem;margin:1.25rem 0 .5rem}
   .gcap{color:#555;font-size:.9rem;min-height:1.2em;margin:0 0 .75rem}
@@ -187,25 +193,62 @@
 import { Chess } from './vendor/chess.js';
 import { Chessground } from './vendor/chessground/chessground.min.js';
 
-// Textbook space structures. First paint loads a gallery position, never the start
-// position — a symmetric control map is a dead first impression for this demo.
-const GALLERY = [
-  // f5 goes to Black 3-1 (Qa5 along the empty fifth, Be6, g6), so the caption claims d5 only.
-  {name:'Maróczy', cap:'c4 and e4 clamp d5; Black holds f5.',
-   fen:'r4rk1/pp2ppbp/3pbnp1/q7/2P1P3/2N1B3/PP1QBPPP/R4RK1 w - - 6 12'},
-  {name:'French Advance', cap:'Opposite chains: White points at the kingside, Black at the queenside.',
-   fen:'r1b1kb1r/pp2nppp/1qn1p3/2ppP3/3P4/2P2N2/PP2BPPP/R1BQK2R w KQkq - 2 7'},
-  {name:'King’s Indian', cap:'Locked centre. White plays the queenside, Black the kingside.',
-   fen:'r1bq1rk1/ppp1npbp/3p1np1/3Pp3/2P1P3/2N2P2/PPQBB1PP/R3NRK1 w - - 0 11'},
-  // c7-d6-e5-f4 and e7-d6-c5-b4: both batteries, and the reason this reads even.
-  {name:'Hedgehog', cap:'Cramped behind a6-b6-d6-e6, but Qc7 and Be7 bear straight through d6.',
-   fen:'r4rk1/1bqnbppp/pp1ppn2/8/2P1P3/1PN2N2/PB2QPPP/R4RK1 w - - 4 14'},
-  // The only position here where Black leads, and so the only one that paints a brown verdict.
-  {name:'Scandinavian', cap:'White has the only centre pawn; Black’s c6 and e6 take more board.',
-   fen:'r4rk1/ppqn1ppp/2pbpn2/5b2/2BP4/2N1BN1P/PPPQ1PP1/3RR1K1 w - - 9 13'},
-];
+// One gallery per mode. The four modes label different things, so a single shared gallery
+// left most of each legend unreachable: none of the space structures below carries a single
+// pawn label, and not one of them has an open file. Each list is chosen so that every key in
+// that mode's legend actually appears on the board somewhere.
+const GALLERIES = {
+  // Textbook space structures. First paint loads one of these, never the start position —
+  // a symmetric control map is a dead first impression for this demo.
+  space: [
+    // f5 goes to Black 3-1 (Qa5 along the empty fifth, Be6, g6), so the caption claims d5 only.
+    {name:'Maróczy', cap:'c4 and e4 clamp d5; Black holds f5.',
+     fen:'r4rk1/pp2ppbp/3pbnp1/q7/2P1P3/2N1B3/PP1QBPPP/R4RK1 w - - 6 12'},
+    {name:'French Advance', cap:'Opposite chains: White points at the kingside, Black at the queenside.',
+     fen:'r1b1kb1r/pp2nppp/1qn1p3/2ppP3/3P4/2P2N2/PP2BPPP/R1BQK2R w KQkq - 2 7'},
+    {name:'King’s Indian', cap:'Locked centre. White plays the queenside, Black the kingside.',
+     fen:'r1bq1rk1/ppp1npbp/3p1np1/3Pp3/2P1P3/2N2P2/PPQBB1PP/R3NRK1 w - - 0 11'},
+    // c7-d6-e5-f4 and e7-d6-c5-b4: both batteries, and the reason this reads even.
+    {name:'Hedgehog', cap:'Cramped behind a6-b6-d6-e6, but Qc7 and Be7 bear straight through d6.',
+     fen:'r4rk1/1bqnbppp/pp1ppn2/8/2P1P3/1PN2N2/PB2QPPP/R4RK1 w - - 4 14'},
+    // The only position here where Black leads, and so the only one that paints a brown verdict.
+    {name:'Scandinavian', cap:'White has the only centre pawn; Black’s c6 and e6 take more board.',
+     fen:'r4rk1/ppqn1ppp/2pbpn2/5b2/2BP4/2N1BN1P/PPPQ1PP1/3RR1K1 w - - 9 13'},
+  ],
+  // Between them these four hit every label: passed, isolated, backward, doubled and plain.
+  pawns: [
+    {name:'Isolated', cap:'d4 has no pawn on c or e to defend it.',
+     fen:'r1bq1rk1/pp2bppp/2n1pn2/8/2BP4/2N1BN2/PP3PPP/R2Q1RK1 w - - 0 11'},
+    {name:'Doubled', cap:'c2 and c3 are doubled; c3 is backward as well, and a3 is isolated.',
+     fen:'r1bq1rk1/pp3ppp/2n1pn2/2pp4/3P4/P1P1PN2/2P1BPPP/R1BQ1RK1 w - - 0 10'},
+    {name:'Backward', cap:'d6 has no pawn beside it to advance with, and e4 covers d5.',
+     fen:'r1bqkb1r/pp3ppp/2np1n2/4p3/4P3/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 0 7'},
+    {name:'Passed', cap:'Nothing black stands in front of b5 or beside its path. Isolated too.',
+     fen:'6k1/5ppp/8/1P6/8/8/5PPP/6K1 w - - 0 1'},
+  ],
+  files: [
+    {name:'One open', cap:'Only c is open; the other seven files have pawns of both colours.',
+     fen:'r1bq1rk1/pp3ppp/2n1pn2/3p4/3P4/2NBPN2/PP3PPP/R1BQ1RK1 w - - 0 11'},
+    {name:'Half-open', cap:'c is half-open for Black, d half-open for White. One trade each.',
+     fen:'r1bqkb1r/pp3ppp/2np1n2/4p3/4P3/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 0 7'},
+    {name:'All three', cap:'c open, d half-open for Black, e half-open for White.',
+     fen:'r1bq1rk1/pp2bppp/2n1pn2/8/2BP4/2N1BN2/PP3PPP/R2Q1RK1 w - - 0 11'},
+    {name:'Closed', cap:'Every file carries a pawn of each colour. Nothing for a rook.',
+     fen:'r1bq1rk1/ppp1npbp/3p1np1/3Pp3/2P1P3/2N2P2/PPQBB1PP/R3NRK1 w - - 0 11'},
+  ],
+  holes: [
+    {name:'Both camps', cap:'d3, e3 and d4 for White; f6 for Black. The locked centre made them.',
+     fen:'r1bq1rk1/ppp1npbp/3p1np1/3Pp3/2P1P3/2N2P2/PPQBB1PP/R3NRK1 w - - 0 11'},
+    {name:'Stonewall', cap:'f4 and d4 left e4 behind for good. d6 is Black’s.',
+     fen:'r1bq1rk1/pp2nppp/2p1pn2/3p4/2PP1P2/2N1PN2/PP4PP/R1BQ1RK1 w - - 0 10'},
+    {name:'One-sided', cap:'...e5 gave up d5 forever. White’s camp has no hole at all.',
+     fen:'r1bqkb1r/pp3ppp/2np1n2/4p3/4P3/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 0 7'},
+    {name:'None', cap:'Both pawn masses still guard every central square in their own camp.',
+     fen:'r1bqkb1r/1p3ppp/p1nppn2/8/3NP3/2N1B3/PPP2PPP/R2QKB1R w KQkq - 0 9'},
+  ],
+};
 
-let chess = new Chess(GALLERY[0].fen);
+let chess = new Chess(GALLERIES.space[0].fen);
 let showControl = true, showArrows = true, mode = 'space';
 
 const boardEl   = document.getElementById('board');
@@ -639,17 +682,22 @@ function clearPreset(){
 
 // --- controls -----------------------------------------------------------------
 const galleryEl = document.getElementById('gallery');
-GALLERY.forEach(g => {
-  const b = document.createElement('button');
-  b.textContent = g.name;
-  b.addEventListener('click', () => {
-    if (!loadFen(g.fen, g.cap)) return;
-    // Mark which preset is showing; without it the five buttons look identical and
-    // there is no way to tell what is on the board.
-    galleryEl.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+// Rebuild the preset row for the mode being shown, and load its first position.
+function buildGallery(m){
+  galleryEl.replaceChildren();
+  GALLERIES[m].forEach(g => {
+    const b = document.createElement('button');
+    b.textContent = g.name;
+    b.addEventListener('click', () => {
+      if (!loadFen(g.fen, g.cap)) return;
+      // Mark which preset is showing; without it the buttons look identical and there is
+      // no way to tell what is on the board.
+      galleryEl.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    });
+    galleryEl.appendChild(b);
   });
-  galleryEl.appendChild(b);
-});
+  galleryEl.firstChild.click();   // loadFen -> applyBoard -> render
+}
 
 function toggle(btn, label, get, set){
   const paint = () => {
@@ -680,7 +728,7 @@ function setMode(m){
   for (const k of Object.keys(MODE_TEXT)) document.getElementById('legend-' + k).hidden = k !== m;
   document.getElementById('intro').textContent = MODE_TEXT[m][0];
   document.getElementById('caption').textContent = MODE_TEXT[m][1];
-  render();
+  buildGallery(m);   // ends in a click that renders
 }
 modeBtns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 
@@ -690,8 +738,8 @@ fenInput.addEventListener('keydown', e => { if(e.key==='Enter') loadFen(fenInput
 // colour-relative. Flipping needs no recompute.
 document.getElementById('flipBtn').addEventListener('click', () => ground.toggleOrientation());
 
-// initial paint: go through the preset button so its selected state is set too
-galleryEl.querySelector('button').click();
+// initial paint: through setMode so the gallery, legend and intro all match the mode
+setMode('space');
 </script>
 </body>
 </html>

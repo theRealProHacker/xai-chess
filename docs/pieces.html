@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Positional Tools &middot; xai-chess</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.base.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.brown.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.cburnett.css">
+<style>
+  :root{
+    --shadow-s:
+      inset 0 1px 2px #ffffff30,
+      0 1px 2px #00000030,
+      0 2px 4px #00000015;
+    --shadow-m:
+      inset 0 1px 2px #ffffff50,
+      0 2px 4px #00000030,
+      0 4px 8px #00000015;
+    /* Blue vs orange: the one hue pair that survives red-green colour blindness. */
+    --good:#0b3d6b; --bad:#a35c00; --quiet:#6b6b6b;
+  }
+  a.back{color:#8a8a8a;text-decoration:none;font-size:.9rem}
+  a.back:hover{color:#0b5fa5}
+  #intro{min-height:3.4em}
+
+  #board{width:100%;aspect-ratio:1/1;margin:1rem 0 .6rem;
+         box-shadow:var(--shadow-s);border-radius:4px}
+  /* chessground ships shapes at z-index 2, the same layer as the pieces, with the layer
+     carrying its own opacity: arrowheads landed under pieces and every ring rendered paler
+     than its legend swatch. Above the pieces, fully opaque. */
+  #board .cg-shapes{z-index:3;opacity:1}
+  #board coords.files{text-transform:lowercase}
+  #board coords coord{color:#2b2b2b !important;
+      text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff;font-weight:600}
+
+  .btns{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin:1rem 0 .35rem}
+  .rowlabel{color:#8a8a8a;font-size:.8rem;letter-spacing:.02em;margin-right:.15rem}
+  button{font:inherit;font-size:.9rem;padding:.5rem .9rem;border:1px solid #e4e4e4;border-radius:8px;
+      background:#fff;color:#1a1a1a;cursor:pointer;box-shadow:var(--shadow-s);
+      transition:border-color .12s,background .12s,box-shadow .12s}
+  button:hover{border-color:#0b5fa5;background:#fafafa;box-shadow:var(--shadow-m)}
+  button.on{background:#0b5fa5;border-color:#0b5fa5;color:#fff}
+  button.on:hover{background:#0a5390;border-color:#0a5390}
+
+  .readout{border:1px solid #e4e4e4;border-radius:10px;padding:.9rem 1.05rem;
+      margin:1.1rem 0;box-shadow:var(--shadow-s)}
+  .readout .verdict{font-size:1.15rem;font-weight:600;letter-spacing:-.01em;margin-bottom:.4rem}
+  /* Piece quality emits one paragraph per piece. Uncapped it grew the page by ~900px when you
+     switched tab, moving the tab you had just clicked out from under the cursor. */
+  .readout .body{font:12.5px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      color:#333;white-space:pre-wrap;height:16em;overflow-y:auto}
+  .readout .caption{color:#8a8a8a;font-size:.82rem;margin-top:.55rem}
+
+  .gallery{display:flex;flex-wrap:wrap;gap:.4rem;margin:1.25rem 0 .5rem}
+  .gcap{color:#555;font-size:.9rem;min-height:1.2em;margin:0 0 .75rem}
+
+  .fenrow{display:flex;align-items:center;gap:.4rem;margin:.75rem 0}
+  .fenrow label{color:#8a8a8a;font-size:.8rem;letter-spacing:.02em}
+  .fenrow input{flex:1;min-width:0;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      padding:.5rem .6rem;border:1px solid #e4e4e4;border-radius:8px;color:#1a1a1a}
+  .fenrow input:focus{outline:none;border-color:#0b5fa5}
+  .err{color:#b00020;font-size:.85rem;min-height:1.1em;margin:.1rem 0 .4rem}
+  /* At phone width the buttons squeeze the FEN field down to a few characters. */
+  @media (max-width:430px){
+    .fenrow{flex-wrap:wrap}
+    .fenrow input{flex:1 0 100%;order:-1}
+  }
+
+
+  .legend{display:flex;flex-wrap:wrap;gap:.45rem 1.1rem;color:#555;font-size:.82rem;margin:0 0 .2rem}
+  .legend span{display:inline-flex;align-items:center;gap:.4rem}
+  .legend i{width:.9rem;height:.9rem;border-radius:50%;display:inline-block;border:2.5px solid}
+  .legend i.good{border-color:var(--good)}
+  .legend i.bad{border-color:var(--bad)}
+  .legend i.quiet{border-color:var(--quiet)}
+  .legend svg{flex:none}
+  #legends{min-height:2.6rem;display:flow-root}
+  [hidden]{display:none !important}
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; xai-chess</a>
+  <h1>Positional Tools</h1>
+  <p class="intro" id="intro">The two lookups a positional comment is written from. No engine and no
+  evaluation: just what each piece can reach, what it is stuck holding, and how exposed each king is.</p>
+
+  <div class="btns" style="margin-top:0">
+    <span class="rowlabel">Show</span>
+    <span id="mode" role="group" aria-label="Which tool to show">
+      <button data-mode="king" class="on">King safety</button>
+      <button data-mode="quality">Piece quality</button>
+    </span>
+  </div>
+
+  <div id="legends">
+    <div class="legend" id="legend-king">
+      <span><i class="good"></i>Shield pawn</span>
+      <span><i class="quiet"></i>Flight square</span>
+      <span><svg width="26" height="10" aria-hidden="true"><path d="M1 5h16" stroke="var(--bad)"
+        stroke-width="3"/><path d="M16 1l8 4-8 4z" fill="var(--bad)"/></svg>Enemy piece bearing on the zone</span>
+    </div>
+    <div class="legend" id="legend-quality" hidden>
+      <span><i class="good"></i>Attacking something</span>
+      <span><i class="bad"></i>Tied down, or out of play</span>
+      <span>Unmarked: free</span>
+    </div>
+  </div>
+
+  <div id="board"></div>
+
+  <div class="readout">
+    <div class="verdict" id="verdict">&nbsp;</div>
+    <div class="body" id="body">&nbsp;</div>
+    <div class="caption" id="caption"></div>
+  </div>
+
+  <div class="gallery" id="gallery"></div>
+  <p class="gcap" id="gcap"></p>
+
+  <div class="fenrow">
+    <label for="fen">FEN</label>
+    <input id="fen" spellcheck="false">
+    <button id="loadBtn">Load</button>
+    <button id="flipBtn">Flip board</button>
+  </div>
+  <p class="err" id="err"></p>
+
+<script type="module">
+import { Chess } from './vendor/chess.js';
+import { Chessground } from './vendor/chessground/chessground.min.js';
+
+// A port of commentary_gen/positional.py: king_safety() and piece_quality(). Same arithmetic,
+// same wording. Each mode has its own gallery so every key in its legend turns up somewhere.
+const GALLERIES = {
+  king: [
+    {name:'Intact', cap:'Both kings castled behind three pawns. Two of them have already advanced.',
+     fen:'r4rk1/pp2ppbp/2n3p1/q7/2BPP3/2N1BP2/PP4PP/R2Q1RK1 b - - 0 13'},
+    {name:'Shield broken', cap:'The g-pawn is gone, the queen is on g7, and the king has nowhere to step.',
+     fen:'r1b2rk1/pp1n1pQp/2pbp3/3p4/3P1B2/2NBP3/PPP2PPP/2KR3R b - - 0 13'},
+    {name:'Still in the centre', cap:'Neither king has castled; both can still do it.',
+     fen:'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 6 4'},
+    {name:'Opposite wings', cap:'White went long, Black short. Each shield is a different shape.',
+     fen:'r1b2rk1/pp1n1ppp/2pbpq2/3p4/3P1B2/2NBPN2/PPPQ1PPP/2KR3R w - - 6 11'},
+  ],
+  quality: [
+    {name:'Out of play', cap:'Three white pieces have not moved and cannot do anything yet.',
+     fen:'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 6 4'},
+    {name:'Tied down', cap:'The a1 rook cannot leave: a2 falls the moment it does.',
+     fen:'r4rk1/pp3p1p/2n1p1p1/q7/3P4/2P1BN2/P4PPP/R2Q1RK1 w - - 0 16'},
+    {name:'Two jobs', cap:'The bishop hits the rook on g7 and is the only thing holding a3.',
+     fen:'r5k1/6rp/8/8/8/P7/1B3PPP/6K1 w - - 0 1'},
+    {name:'Bishops and pawns', cap:'Each bishop counts the pawns standing on its own colour.',
+     fen:'r4rk1/pp2bppp/2p1pn2/3p4/3P1B2/2NBP3/PP3PPP/2R2RK1 b - - 4 14'},
+  ],
+};
+
+const VAL  = {p:1, n:3, b:3, r:5, q:9, k:0};
+const NAME = {p:'pawn', n:'knight', b:'bishop', r:'rook', q:'queen', k:'king'};
+const FILES = 'abcdefgh';
+const sqName = (f, r) => FILES[f] + (r + 1);
+const onBoard = (f, r) => f >= 0 && f < 8 && r >= 0 && r < 8;
+const coords = sq => [FILES.indexOf(sq[0]), parseInt(sq[1], 10) - 1];
+const sqIdx = sq => FILES.indexOf(sq[0]) + (parseInt(sq[1], 10) - 1) * 8;
+const byIndex = (a, b) => sqIdx(a) - sqIdx(b);
+const ALL = [];
+for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) ALL.push(sqName(f, r));
+const side = c => (c === 'w' ? 'White' : 'Black');
+const other = c => (c === 'w' ? 'b' : 'w');
+
+let mode = 'king';
+let chess = new Chess(GALLERIES.king[0].fen);
+
+const verdictEl = document.getElementById('verdict');
+const bodyEl    = document.getElementById('body');
+const captionEl = document.getElementById('caption');
+const fenInput  = document.getElementById('fen');
+const errEl     = document.getElementById('err');
+const gcapEl    = document.getElementById('gcap');
+
+const KNIGHT = [[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]];
+const KING   = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+const ROOK   = [[1,0],[-1,0],[0,1],[0,-1]];
+const BISHOP = [[1,1],[1,-1],[-1,1],[-1,-1]];
+
+// Squares the piece on `sq` attacks, blockers respected. python-chess attacks(), which is where
+// both the blocker list and the attack/defend lists in piece_quality come from.
+function attacksFrom(game, sq) {
+  const pc = game.get(sq);
+  if (!pc) return [];
+  const [f0, r0] = coords(sq), out = [];
+  if (pc.type === 'p') {
+    const dr = pc.color === 'w' ? 1 : -1;
+    for (const df of [-1, 1]) if (onBoard(f0 + df, r0 + dr)) out.push(sqName(f0 + df, r0 + dr));
+    return out.sort(byIndex);
+  }
+  if (pc.type === 'n' || pc.type === 'k') {
+    for (const [df, dr] of (pc.type === 'n' ? KNIGHT : KING))
+      if (onBoard(f0 + df, r0 + dr)) out.push(sqName(f0 + df, r0 + dr));
+    return out.sort(byIndex);
+  }
+  const dirs = pc.type === 'r' ? ROOK : pc.type === 'b' ? BISHOP : [...ROOK, ...BISHOP];
+  for (const [df, dr] of dirs) {
+    let f = f0 + df, r = r0 + dr;
+    while (onBoard(f, r)) {
+      out.push(sqName(f, r));
+      if (game.get(sqName(f, r))) break;
+      f += df; r += dr;
+    }
+  }
+  return out.sort(byIndex);
+}
+function attackersOf(game, c, sq) {
+  const [tf, tr] = coords(sq), out = [];
+  const pawnRank = c === 'w' ? tr - 1 : tr + 1;
+  for (const df of [-1, 1]) {
+    if (!onBoard(tf + df, pawnRank)) continue;
+    const pc = game.get(sqName(tf + df, pawnRank));
+    if (pc && pc.type === 'p' && pc.color === c) out.push(sqName(tf + df, pawnRank));
+  }
+  for (const [ds, t] of [[KNIGHT, 'n'], [KING, 'k']])
+    for (const [df, dr] of ds) {
+      if (!onBoard(tf + df, tr + dr)) continue;
+      const pc = game.get(sqName(tf + df, tr + dr));
+      if (pc && pc.type === t && pc.color === c) out.push(sqName(tf + df, tr + dr));
+    }
+  for (const [dirs, kind] of [[ROOK, 'r'], [BISHOP, 'b']])
+    for (const [df, dr] of dirs) {
+      let f = tf + df, r = tr + dr;
+      while (onBoard(f, r)) {
+        const pc = game.get(sqName(f, r));
+        if (pc) {
+          if (pc.color === c && (pc.type === 'q' || pc.type === kind)) out.push(sqName(f, r));
+          break;
+        }
+        f += df; r += dr;
+      }
+    }
+  return out.sort(byIndex);
+}
+
+// --- static exchange (same port as tactics.html) ------------------------------
+function asMover(fen, color) {
+  const p = fen.split(' ');
+  if (p[1] === color) return fen;
+  p[1] = color; p[3] = '-';
+  return p.join(' ');
+}
+const isCapture = m => m.flags.includes('c') || m.flags.includes('e');
+const epVictim = m => m.to[0] + (m.color === 'w' ? +m.to[1] - 1 : +m.to[1] + 1);
+const pyMoveOrder = ms => [...ms].sort((a, b) =>
+  (a.piece === 'p' ? 1 : 0) - (b.piece === 'p' ? 1 : 0) || sqIdx(b.from) - sqIdx(a.from));
+function capturesOn(game, sq) {
+  const out = [];
+  for (const m of game.moves({verbose: true})) {
+    if (m.to === sq && isCapture(m)) out.push(m);
+    else if (m.flags.includes('e') && epVictim(m) === sq) out.push(m);
+  }
+  return pyMoveOrder(out.filter(m => !m.promotion || m.promotion === 'q'));
+}
+function gainOf(m) {
+  let g = m.flags.includes('e') ? 1 : m.captured ? VAL[m.captured] : 0;
+  if (m.promotion) g += VAL[m.promotion] - 1;
+  return g;
+}
+const played = (fen, m) => {
+  const g = new Chess(fen);
+  g.move({from: m.from, to: m.to, promotion: m.promotion || 'q'});
+  return g;
+};
+const seeCache = new Map();
+function seeSquare(fen, sq) {
+  const key = fen + '|' + sq;
+  if (seeCache.has(key)) return seeCache.get(key);
+  const game = new Chess(fen);
+  let best = 0;
+  for (const m of capturesOn(game, sq)) best = Math.max(best, gainOf(m) - seeSquare(played(fen, m).fen(), sq));
+  seeCache.set(key, best);
+  return best;
+}
+const see = (fen, m) => gainOf(m) - seeSquare(played(fen, m).fen(), m.to);
+
+function wouldHang(fen, sq) {
+  const g0 = new Chess(fen);
+  const p = g0.get(sq);
+  if (!p) return false;
+  const f = asMover(fen, other(p.color));
+  const g = new Chess(f);
+  return capturesOn(g, sq).some(m => see(f, m) > 0);
+}
+
+// --- king safety --------------------------------------------------------------
+const zoneOf = (game, c) => {
+  const k = ALL.find(s => { const p = game.get(s); return p && p.type === 'k' && p.color === c; });
+  if (!k) return {king: null, zone: []};
+  const [kf, kr] = coords(k);
+  return {king: k, zone: ALL.filter(s => {
+    const [f, r] = coords(s);
+    return Math.max(Math.abs(f - kf), Math.abs(r - kr)) <= 1;
+  })};
+};
+const CASTLED = new Set(['g1','c1','b1','g8','c8','b8']);
+
+function kingSafetyData(fen) {
+  const game = new Chess(fen), d = {};
+  for (const c of ['w', 'b']) {
+    const {king, zone} = zoneOf(game, c);
+    if (!king) continue;
+    const [kf, kr] = coords(king);
+    const shield = [], missing = [];
+    for (const ff of [kf - 1, kf, kf + 1]) {
+      if (ff < 0 || ff > 7) continue;
+      const own = ALL.filter(s => { const p = game.get(s); return p && p.type === 'p' && p.color === c && coords(s)[0] === ff; });
+      if (!own.length) { missing.push(FILES[ff] + '-file'); continue; }
+      let pick = own[0];
+      for (const s of own) if (Math.abs(coords(s)[1] - kr) < Math.abs(coords(pick)[1] - kr)) pick = s;
+      const home = c === 'w' ? 1 : 6;
+      shield.push(pick + (coords(pick)[1] === home ? '' : ' (advanced)'));
+    }
+    const flight = zone.filter(s => s !== king && !game.get(s) && !attackersOf(game, other(c), s).length);
+    const seen = new Set();
+    for (const s of zone) for (const a of attackersOf(game, other(c), s))
+      if (game.get(a).type !== 'p') seen.add(a);
+    d[side(c)] = {king, castled: CASTLED.has(king),
+                  rights: fen.split(' ')[2].includes(c === 'w' ? 'K' : 'k')
+                       || fen.split(' ')[2].includes(c === 'w' ? 'Q' : 'q'),
+                  shield, missing, flight: flight.sort(byIndex),
+                  attackers: [...seen].sort(), zone};
+  }
+  return d;
+}
+function kingSafetyText(fen) {
+  const d = kingSafetyData(fen), out = [];
+  for (const s of ['White', 'Black']) {
+    const k = d[s];
+    if (!k) continue;
+    const bits = [`king on ${k.king}` + (k.castled ? ', castled' : k.rights ? ', can still castle' : ', has not castled')];
+    bits.push('shield ' + (k.shield.length ? k.shield.join(' ') : 'gone'));
+    if (k.missing.length) bits.push('no pawn left on the ' + k.missing.join(', '));
+    bits.push(k.flight.length ? 'flight squares ' + k.flight.join(' ') : 'no flight square');
+    if (k.attackers.length) bits.push('enemy pieces bearing on the king zone from ' + k.attackers.join(' '));
+    out.push(`${s}: ${bits.join('; ')}.`);
+  }
+  return out.join('\n\n');
+}
+
+// --- piece quality ------------------------------------------------------------
+function isPinned(game, c, sq) {
+  const {king} = zoneOf(game, c);
+  if (!king || king === sq) return false;
+  const [kf, kr] = coords(king), [sf, sr] = coords(sq);
+  const df = Math.sign(sf - kf), dr = Math.sign(sr - kr);
+  if (!(sf === kf || sr === kr || Math.abs(sf - kf) === Math.abs(sr - kr))) return false;
+  const kind = (df === 0 || dr === 0) ? 'r' : 'b';
+  let f = kf + df, r = kr + dr;
+  while (onBoard(f, r) && sqName(f, r) !== sq) {          // nothing may stand between king and sq
+    if (game.get(sqName(f, r))) return false;
+    f += df; r += dr;
+  }
+  f += df; r += dr;
+  while (onBoard(f, r)) {                                 // first piece beyond it decides
+    const pc = game.get(sqName(f, r));
+    if (pc) return pc.color !== c && (pc.type === 'q' || pc.type === kind);
+    f += df; r += dr;
+  }
+  return false;
+}
+function drivenOffBy(fen, sq) {
+  const game = new Chess(fen), p = game.get(sq);
+  if (!p || p.type === 'p') return [];
+  const out = [];
+  for (const a of attackersOf(game, other(p.color), sq))
+    if (VAL[game.get(a).type] < VAL[p.type])
+      out.push(`already attacked by the ${NAME[game.get(a).type]} on ${a}`);
+  const ef = asMover(fen, other(p.color));
+  const eg = new Chess(ef);
+  for (const m of eg.moves({verbose: true})) {
+    if (m.piece !== 'p' || isCapture(m)) continue;
+    const after = played(ef, m);
+    if (attacksFrom(after, m.to).includes(sq) && see(ef, m) >= 0) out.push(`${m.san} drives it off`);
+  }
+  return out.slice(0, 3);
+}
+// a1 is DARK: file 0 + rank 0 is even. sq[1] is the 1-based rank, hence the -1.
+const LIGHT = sq => (FILES.indexOf(sq[0]) + parseInt(sq[1], 10) - 1) % 2 === 1;
+
+function pieceQualityData(fen) {
+  const game = new Chess(fen), out = [];
+  for (const c of ['w', 'b']) {
+    const mover = asMover(fen, c), mg = new Chess(mover);
+    const legal = mg.moves({verbose: true});
+    for (const pt of ['q', 'r', 'b', 'n']) {
+      for (const sq of ALL.filter(s => { const p = game.get(s); return p && p.type === pt && p.color === c; })) {
+        const moves = legal.filter(m => m.from === sq);
+        const safe = moves.filter(m => see(mover, m) >= 0);
+        const blocked = {};
+        if ('qrb'.includes(pt))
+          for (const s of attacksFrom(game, sq)) {
+            const q = game.get(s);
+            if (q && q.color === c) blocked[s] = `${side(q.color)} ${NAME[q.type]}`;
+          }
+        const reach = attacksFrom(game, sq);
+        const attacks = reach.filter(s => { const q = game.get(s); return q && q.color !== c; });
+        const defends = reach.filter(s => { const q = game.get(s); return q && q.color === c; });
+        const tied = [];
+        for (const s of defends) {
+          const g2 = new Chess(fen);
+          g2.remove(sq);
+          if (wouldHang(g2.fen(), s) && !wouldHang(fen, s)) tied.push(s);
+        }
+        const row = {square: sq, side: side(c), piece: NAME[pt], moves: moves.length,
+                     safe: safe.length, blocked, attacks, defends, tied,
+                     pinned: isPinned(game, c, sq), driven: drivenOffBy(fen, sq)};
+        if (pt === 'b') {
+          row.samePawns = ALL.filter(s => { const q = game.get(s); return q && q.type === 'p' && q.color === c && LIGHT(s) === LIGHT(sq); });
+          row.colour = LIGHT(sq) ? 'light' : 'dark';
+        }
+        row.role = attacks.length && tied.length ? 'attacking and defending'
+                 : attacks.length ? 'attacking'
+                 : tied.length ? 'tied to defence'
+                 : safe.length <= 1 ? 'out of play' : 'free';
+        out.push(row);
+      }
+    }
+  }
+  return out;
+}
+function pieceQualityText(fen) {
+  const rows = pieceQualityData(fen);
+  if (!rows.length) return 'No pieces besides kings and pawns.';
+  return rows.map(r => {
+    const bits = [`${r.moves} legal move${r.moves === 1 ? '' : 's'} (${r.safe} without losing material)`];
+    const bl = Object.entries(r.blocked);
+    if (bl.length) bits.push('own ' + bl.map(([k, v]) => `${v.split(' ')[1]} on ${k}`).join(', ') + ' in its way');
+    if (r.attacks.length) bits.push('attacks ' + r.attacks.map(s => {
+      const q = new Chess(fen).get(s);
+      return `${side(q.color)} ${NAME[q.type]} on ${s}`;
+    }).join(', '));
+    if (r.tied.length) bits.push('must stay to defend ' + r.tied.join(' '));
+    else if (r.defends.length) bits.push('defends ' + r.defends.join(' '));
+    if (r.pinned) bits.push('pinned to its king');
+    if (r.driven.length) bits.push(r.driven[0]);
+    if (r.samePawns && r.samePawns.length)
+      bits.push(`${r.samePawns.length} own pawns on its ${r.colour} squares (${r.samePawns.join(' ')})`);
+    return `${r.side} ${r.piece} on ${r.square}: ${bits.join('; ')}. Role: ${r.role}.`;
+  }).join('\n\n');
+}
+
+// --- board --------------------------------------------------------------------
+const colorOf = () => (chess.turn() === 'w' ? 'white' : 'black');
+function dests() {
+  const map = new Map();
+  chess.moves({verbose: true}).forEach(m => {
+    if (!map.has(m.from)) map.set(m.from, []);
+    map.get(m.from).push(m.to);
+  });
+  return map;
+}
+const ground = Chessground(document.getElementById('board'), {
+  fen: chess.fen(), turnColor: colorOf(), coordinates: true,
+  movable: {free: false, color: colorOf(), dests: dests(), showDests: true, events: {after: onMove}},
+  draggable: {showGhost: true},
+  drawable: {enabled: false, brushes: {
+    good:  {key: 'pgd', color: '#0b3d6b', opacity: 1, lineWidth: 6},
+    bad:   {key: 'pbd', color: '#a35c00', opacity: 1, lineWidth: 6},
+    quiet: {key: 'pqt', color: '#6b6b6b', opacity: 1, lineWidth: 6},
+    hit:   {key: 'pht', color: '#a35c00', opacity: 1, lineWidth: 7},
+  }},
+  check: chess.in_check() ? colorOf() : false,
+});
+function applyBoard() {
+  ground.set({fen: chess.fen(), turnColor: colorOf(), lastMove: null,
+    check: chess.in_check() ? colorOf() : false,
+    movable: {color: colorOf(), dests: dests()}});
+  render();
+}
+function onMove(orig, dest) {
+  chess.move({from: orig, to: dest, promotion: 'q'});
+  fenInput.value = chess.fen();
+  gcapEl.textContent = '';
+  document.querySelectorAll('.gallery button').forEach(b => b.classList.remove('on'));
+  applyBoard();
+}
+
+function render() {
+  const fen = chess.fen();
+  if (mode === 'king') {
+    const d = kingSafetyData(fen);
+    const shapes = [];
+    for (const s of ['White', 'Black']) {
+      const k = d[s];
+      if (!k) continue;
+      for (const sh of k.shield) shapes.push({orig: sh.split(' ')[0], brush: 'good'});
+      for (const f of k.flight) shapes.push({orig: f, brush: 'quiet'});
+      for (const a of k.attackers) shapes.push({orig: a, dest: k.king, brush: 'hit'});
+    }
+    ground.setShapes(shapes);
+    const n = ['White', 'Black'].filter(s => d[s] && !d[s].flight.length).length;
+    verdictEl.textContent = n ? `${n} king with no flight square` : 'Both kings have somewhere to step';
+    bodyEl.textContent = kingSafetyText(fen);
+    captionEl.textContent = 'The zone is the king and the eight squares around it. Pawn attackers are left out.';
+    return;
+  }
+  const rows = pieceQualityData(fen);
+  ground.setShapes(rows.filter(r => r.role !== 'free').map(r => ({
+    orig: r.square, brush: r.role.startsWith('attacking') ? 'good' : 'bad',
+  })));
+  const stuck = rows.filter(r => r.role === 'out of play' || r.role === 'tied to defence').length;
+  verdictEl.textContent = stuck
+    ? `${rows.length} pieces · ${stuck} stuck or tied down`
+    : `${rows.length} pieces · every one has something to do`;
+  bodyEl.textContent = pieceQualityText(fen);
+  captionEl.textContent = 'Out of play means one safe move or fewer. Tied means the piece it defends '
+                        + 'would hang the moment it left.';
+}
+
+// --- FEN loading --------------------------------------------------------------
+function legalityError(game) {
+  let wk = 0, bk = 0;
+  for (const sq of ALL) {
+    const pc = game.get(sq);
+    if (!pc) continue;
+    const r = parseInt(sq[1], 10);
+    if (pc.type === 'p' && (r === 1 || r === 8)) return 'A pawn can’t sit on the back rank.';
+    if (pc.type === 'k') { pc.color === 'w' ? wk++ : bk++; }
+  }
+  if (wk !== 1 || bk !== 1) return 'Each side needs exactly one king.';
+  const parts = game.fen().split(' ');
+  parts[1] = parts[1] === 'w' ? 'b' : 'w';
+  parts[3] = '-';
+  const probe = new Chess();
+  if (probe.load(parts.join(' ')) && probe.in_check()) {
+    const stm = game.turn() === 'w' ? 'White' : 'Black';
+    return `${stm === 'White' ? 'Black' : 'White'} is in check, but it’s ${stm} to move.`;
+  }
+  return '';
+}
+function loadFen(fen, caption) {
+  const test = new Chess();
+  if (!test.load(fen)) { errEl.textContent = 'Invalid FEN.'; return false; }
+  const bad = legalityError(test);
+  if (bad) { errEl.textContent = bad; return false; }
+  errEl.textContent = '';
+  chess = test;
+  fenInput.value = chess.fen();
+  gcapEl.textContent = caption || '';
+  document.querySelectorAll('.gallery button').forEach(b => b.classList.remove('on'));
+  applyBoard();
+  return true;
+}
+
+// --- controls -----------------------------------------------------------------
+const galleryEl = document.getElementById('gallery');
+function buildGallery(m) {
+  galleryEl.replaceChildren();
+  GALLERIES[m].forEach(g => {
+    const b = document.createElement('button');
+    b.textContent = g.name;
+    b.addEventListener('click', () => {
+      if (!loadFen(g.fen, g.cap)) return;
+      galleryEl.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    });
+    galleryEl.appendChild(b);
+  });
+  galleryEl.firstChild.click();
+}
+const MODE_TEXT = {
+  king: 'Where each king stands, the pawns still in front of it, the squares it could step to, '
+      + 'and which enemy pieces already bear on that corner of the board.',
+  quality: 'Per piece: how many moves it has, how many keep the material, what it hits, and what '
+         + 'it cannot leave. The role ending each line is the tool’s own verdict.',
+};
+const modeBtns = [...document.querySelectorAll('#mode button')];
+function setMode(m) {
+  mode = m;
+  modeBtns.forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  document.getElementById('legend-king').hidden = m !== 'king';
+  document.getElementById('legend-quality').hidden = m !== 'quality';
+  document.getElementById('intro').textContent = MODE_TEXT[m];
+  buildGallery(m);
+}
+modeBtns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+
+document.getElementById('loadBtn').addEventListener('click', () => loadFen(fenInput.value.trim()));
+fenInput.addEventListener('keydown', e => { if (e.key === 'Enter') loadFen(fenInput.value.trim()); });
+document.getElementById('flipBtn').addEventListener('click', () => ground.toggleOrientation());
+
+setMode('king');
+
+// A seam for the browser checks: chessground rejects synthetic pointer events.
+window.__test = {setMode, loadFen, kingSafetyText, pieceQualityText, get fen() { return chess.fen(); }};
+</script>
+</body>
+</html>
