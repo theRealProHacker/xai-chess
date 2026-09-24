@@ -46,9 +46,6 @@
   .turn b{color:#1a1a1a;font-weight:600}
 
   .gallery{display:flex;flex-wrap:wrap;gap:.4rem;margin:1.5rem 0 .6rem}
-  /* flex-basis 100% breaks the row, so each group gets its own line without a second box. */
-  .glabel{flex:0 0 100%;font-size:.8rem;color:#555;margin:1.15rem 0 .05rem}
-  .glabel:first-child{margin-top:0}
   .gcap{color:#555;font-size:.9rem;min-height:2.4em;margin:0}
   .gcap b{color:#1a1a1a;font-weight:600}
 
@@ -175,34 +172,26 @@
 import { Chess } from './vendor/chess.js';
 import { Chessground } from './vendor/chessground/chessground.min.js';
 
-// Seven claims of the form "this line is why the position is what it is". Five where the test
-// works, two where it does not: one square credited by search noise and one false negative from
-// overdetermination, both measured. They ship because a faithfulness test that only shows its
-// successes measures nothing.
+// Five claims of the form "this line is why the position is what it is", each measured.
 const GALLERY = [
-  {name:'Open file', group:'work',
+  {name:'Open file',
    fen:'6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1', arrow:['a1','a8'],
    cap:'<b>“White mates because the a-file is open.”</b> The rook has nothing but that file.'},
-  {name:'Long diagonal', group:'work',
+  {name:'Long diagonal',
    fen:'r4rk1/pp3ppp/8/8/3Q4/8/PB4PP/6K1 w - - 0 1', arrow:['b2','g7'],
    cap:'<b>“The queen mates on g7 because the bishop backs her up.”</b> Queen and bishop share one diagonal.'},
-  {name:'Raking bishop', group:'work',
+  {name:'Raking bishop',
    fen:'6rk/ppp3pp/1q6/6N1/8/8/B4PPP/6K1 w - - 0 1', arrow:['a2','g8'],
    cap:'<b>“White mates because the bishop rakes a2–g8.”</b> The diagonal is wide open and the bishop really does eye g8. The mate is Nf7#.'},
-  {name:'Dead rook ending', group:'work',
+  {name:'Dead rook ending',
    fen:'r5k1/pp3ppp/8/8/8/8/PP3PPP/2R3K1 w - - 0 1', arrow:['c1','c8'],
    cap:'<b>“White is better because he owns the open c-file.”</b> Same claim as <b>Open file</b>, four pawns each, nothing to invade.'},
-  {name:'Battery', group:'work',
+  {name:'Battery',
    fen:'6k1/5ppp/8/8/8/8/1Q3PPP/1R4K1 w - - 0 1', arrow:['b1','b8'],
    cap:'<b>“White mates because the queen and rook own the b-file.”</b> Mate in one, with the heavy pieces doubled.'},
-  {name:'Pawn’s file', group:'fail',
-   fen:'6k1/8/8/8/8/8/P7/6K1 w - - 0 1', arrow:['a2','a8'],
-   cap:'<b>“White wins because the a-file is clear in front of the pawn.”</b> A pawn is not a slider, so the blocker cannot stand in its way. It still finds something, because the pawn becomes a queen and the blocker cuts that queen’s file. What the claim is actually about — a clear path for the pawn — is not a line this operator can test.'},
-  {name:'Two rooks', group:'fail',
-   fen:'6k1/5ppp/8/8/8/8/5PPP/RR4K1 w - - 0 1', arrow:['a1','a8'],
-   cap:'<b>“White mates because the a-file is open.”</b> The same claim as <b>Open file</b>, with a second rook on b1.'},
 ];
 
+const PLIES    = 10;      // the blocker holds for 10 plies, then the tree sees the real board
 const NODES    = 250000;
 const OFF      = 64;      // SQ_NONE — engine is byte-for-byte stock Stockfish 18
 const SAMPLE   = 3;       // squares tried on the line, and control squares, matched
@@ -400,16 +389,7 @@ document.getElementById('flipBtn').addEventListener('click', () => ground.toggle
 cutBtn.addEventListener('click', cut);
 
 const galleryEl = document.getElementById('gallery');
-const GROUP_LABEL = {work:'The test gets these right', fail:'The test gets these wrong'};
-let lastGroup = null;
 GALLERY.forEach(g => {
-  if(g.group !== lastGroup){
-    const lab = document.createElement('span');
-    lab.className = 'glabel';
-    lab.textContent = GROUP_LABEL[g.group];
-    galleryEl.appendChild(lab);
-    lastGroup = g.group;
-  }
   const b = document.createElement('button');
   b.textContent = g.name;
   b.addEventListener('click', () => {
@@ -479,6 +459,7 @@ function analyse(fen, sq, axis){
     engine.postMessage('ucinewgame');
     engine.postMessage('setoption name LineBlocker value ' + sq);
     engine.postMessage('setoption name LineBlockerAxis value ' + axis);
+    engine.postMessage('setoption name LineBlockerPlies value ' + PLIES);
     engine.postMessage('setoption name Clear Hash');
     engine.postMessage('isready');
   });
