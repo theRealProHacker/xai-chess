@@ -46,6 +46,9 @@
   .turn b{color:#1a1a1a;font-weight:600}
 
   .gallery{display:flex;flex-wrap:wrap;gap:.4rem;margin:1.5rem 0 .6rem}
+  /* flex-basis 100% breaks the row, so each group gets its own line without a second box. */
+  .glabel{flex:0 0 100%;font-size:.8rem;color:#555;margin:1.15rem 0 .05rem}
+  .glabel:first-child{margin-top:0}
   .gcap{color:#555;font-size:.9rem;min-height:2.4em;margin:0}
   .gcap b{color:#1a1a1a;font-weight:600}
 
@@ -79,11 +82,11 @@
   .result{border:1px solid #e4e4e4;border-left:4px solid #d4d4d4;border-radius:10px;
       padding:1rem 1.15rem;margin-top:1.1rem;box-shadow:var(--shadow-m)}
   .result.causal{border-left-color:var(--yes)}
-  .result.incidental{border-left-color:var(--no)}
+  .result.incidental,.result.square{border-left-color:var(--no)}
   .result .verdict{font-size:1.45rem;font-weight:600;letter-spacing:-.015em;margin-bottom:.7rem;
       line-height:1.25}
   .result.causal .verdict{color:var(--yes)}
-  .result.incidental .verdict{color:var(--no)}
+  .result.incidental .verdict,.result.square .verdict{color:var(--no)}
   .result.na .verdict,.result.thinking .verdict{color:#555;font-size:1.15rem}
   .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem;margin:0 0 .7rem}
   @media (max-width:520px){.grid{grid-template-columns:1fr}}
@@ -96,9 +99,13 @@
 
   .legend{display:flex;flex-wrap:wrap;gap:.45rem 1.1rem;color:#555;font-size:.82rem;margin:0 0 .2rem}
   .legend span{display:inline-flex;align-items:center;gap:.4rem}
+  /* An author display: rule outranks the UA [hidden] rule, so hiding a key needs this. */
+  .legend span[hidden]{display:none}
   .legend i{width:.9rem;height:.9rem;border-radius:50%;display:inline-block;border:2.5px solid}
   .legend i.cut{border-color:var(--cut)}
-  .legend i.best{border-color:var(--cut);background:var(--cut)}
+  /* The board draws a ring with a filled centre, not a solid disc -- the swatch has to be the
+     same mark or the legend sends the reader hunting for something that is not there. */
+  .legend i.best{border-color:var(--cut);background:radial-gradient(var(--cut) 42%, transparent 43%)}
   .legend i.ctl{border-color:var(--ctl)}
   .legcap{color:#8a8a8a;font-size:.8rem;margin:.1rem 0 0}
   .nowrap{white-space:nowrap}
@@ -108,9 +115,12 @@
   <a class="back" href="index.html">&larr; xai-chess</a>
   <h1>Obstruct Demo</h1>
   <p class="intro">Mark the line an explanation credits and the engine drops a blocker on it: a
-  phantom occupant that stops the ray but has no colour, no value and cannot be taken. It then drops
-  the same blocker on squares <em>off</em> the line. Those set the noise floor. A line earns the
-  credit only if cutting it moves the evaluation further than an off-line square does.</p>
+  phantom that cuts the ray for the pieces that use it — rooks and queens on a rank or file,
+  bishops and queens on a diagonal — and leaves everything else alone. The square stays open;
+  pawns, knights and kings pass through it as before. It then drops the same blocker on squares
+  <em>off</em> the line. Those set the noise floor. A line earns the credit only if <em>every</em>
+  square tried on it moves the evaluation further than an off-line square does. One square doing
+  all the work is that square’s doing, not the line’s.</p>
 
   <div class="gallery" id="gallery"></div>
   <p class="gcap" id="gcap"></p>
@@ -118,7 +128,7 @@
   <div id="board"></div>
 
   <div class="legend">
-    <span><i class="best"></i>The square that was cut</span>
+    <span id="legBest"><i class="best"></i>Largest change, on the line</span>
     <span><i class="cut"></i>Also tried, on the line</span>
     <span><i class="ctl"></i>Control square, off the line</span>
   </div>
@@ -141,7 +151,7 @@
         <div class="sub" id="rBaseSub"></div>
       </div>
       <div class="cell">
-        <div class="lbl">Line cut</div>
+        <div class="lbl">Blocker on the line</div>
         <div class="val" id="rCut">&mdash;</div>
         <div class="sub" id="rCutSub"></div>
       </div>
@@ -165,29 +175,37 @@
 import { Chess } from './vendor/chess.js';
 import { Chessground } from './vendor/chessground/chessground.min.js';
 
-// Four claims of the form "this line is why the position is what it is". Two open files with
-// opposite verdicts, one diagonal, one pin — and the pin one runs the other way, because
-// occupancy cuts lines for both sides.
+// Seven claims of the form "this line is why the position is what it is". Five where the test
+// works, two where it does not: one square credited by search noise and one false negative from
+// overdetermination, both measured. They ship because a faithfulness test that only shows its
+// successes measures nothing.
 const GALLERY = [
-  {name:'Open file',
+  {name:'Open file', group:'work',
    fen:'6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1', arrow:['a1','a8'],
    cap:'<b>“White mates because the a-file is open.”</b> The rook has nothing but that file.'},
-  {name:'Long diagonal',
+  {name:'Long diagonal', group:'work',
    fen:'r4rk1/pp3ppp/8/8/3Q4/8/PB4PP/6K1 w - - 0 1', arrow:['b2','g7'],
    cap:'<b>“The queen mates on g7 because the bishop backs her up.”</b> Queen and bishop share one diagonal.'},
-  {name:'Pin line',
-   fen:'6k1/8/8/b7/4q3/2N5/8/4K3 w - - 0 1', arrow:['a5','e1'],
-   cap:'<b>“Black wins because the bishop pins the knight to the king.”</b> This line is Black’s, so cutting it should help White.'},
-  {name:'Dead rook ending',
+  {name:'Raking bishop', group:'work',
+   fen:'6rk/ppp3pp/1q6/6N1/8/8/B4PPP/6K1 w - - 0 1', arrow:['a2','g8'],
+   cap:'<b>“White mates because the bishop rakes a2–g8.”</b> The diagonal is wide open and the bishop really does eye g8. The mate is Nf7#.'},
+  {name:'Dead rook ending', group:'work',
    fen:'r5k1/pp3ppp/8/8/8/8/PP3PPP/2R3K1 w - - 0 1', arrow:['c1','c8'],
    cap:'<b>“White is better because he owns the open c-file.”</b> Same claim as <b>Open file</b>, four pawns each, nothing to invade.'},
+  {name:'Battery', group:'work',
+   fen:'6k1/5ppp/8/8/8/8/1Q3PPP/1R4K1 w - - 0 1', arrow:['b1','b8'],
+   cap:'<b>“White mates because the queen and rook own the b-file.”</b> Mate in one, with the heavy pieces doubled.'},
+  {name:'Pawn’s file', group:'fail',
+   fen:'6k1/8/8/8/8/8/P7/6K1 w - - 0 1', arrow:['a2','a8'],
+   cap:'<b>“White wins because the a-file is clear in front of the pawn.”</b> Nothing on the board uses a file: the only piece that ever will is the queen this pawn promotes to. The test still credits one square, and that is the search disagreeing with itself, not the file.'},
+  {name:'Two rooks', group:'fail',
+   fen:'6k1/5ppp/8/8/8/8/5PPP/RR4K1 w - - 0 1', arrow:['a1','a8'],
+   cap:'<b>“White mates because the a-file is open.”</b> The same claim as <b>Open file</b>, with a second rook on b1.'},
 ];
 
 const NODES    = 250000;
 const OFF      = 64;      // SQ_NONE — engine is byte-for-byte stock Stockfish 18
 const SAMPLE   = 3;       // squares tried on the line, and control squares, matched
-const BIG      = 0.15;    // win-probability swing that counts as a real effect
-const MARGIN   = 0.05;    // ...and how far it must clear the control band
 
 let chess = new Chess(GALLERY[0].fen);
 let engineReady = false;
@@ -210,6 +228,9 @@ const cells = {
   cut:  [document.getElementById('rCut'),  document.getElementById('rCutSub')],
   ctl:  [document.getElementById('rCtl'),  document.getElementById('rCtlSub')],
 };
+// Only shown on runs that actually draw the disc -- a legend key with no instance on the board
+// sends the reader hunting for a mark that is not there.
+const legBest = document.getElementById('legBest');
 
 // --- geometry ---------------------------------------------------------------
 // Square index a1=0 … h8=63, matching the engine's LineBlocker convention.
@@ -217,7 +238,6 @@ const FILES = 'abcdefgh';
 const sqIndex = sq => FILES.indexOf(sq[0]) + (parseInt(sq[1],10)-1)*8;
 const sqName  = (f,r) => FILES[f] + (r+1);
 const coords  = sq => [FILES.indexOf(sq[0]), parseInt(sq[1],10)-1];
-const PIECE_WORDS = {p:'pawn',n:'knight',b:'bishop',r:'rook',q:'queen',k:'king'};
 const LETTER = {p:'', n:'N', b:'B', r:'R', q:'Q', k:'K'};
 
 // Squares strictly between two ends of a rank, file or diagonal. null if the arrow is not a line.
@@ -228,6 +248,13 @@ function between(orig, dest){
   const sf = Math.sign(df), sr = Math.sign(dr), out = [];
   for(let f=f0+sf, r=r0+sr; f!==f1 || r!==r1; f+=sf, r+=sr) out.push(sqName(f,r));
   return out;
+}
+// Which slider class owns this line: 0 = rank/file (rooks and queens), 1 = diagonal (bishops
+// and queens). The engine cannot work this out from one square -- every square lies on both a
+// file and a diagonal -- so the page has to tell it which line it marked.
+function axisOf(orig, dest){
+  const [f0,r0] = coords(orig), [f1,r1] = coords(dest);
+  return (f1===f0 || r1===r0) ? 0 : 1;
 }
 const collinear = (a,b) => {
   const [fa,ra]=coords(a), [fb,rb]=coords(b);
@@ -315,7 +342,7 @@ function plan(){
     }
   }
   cand.sort((x,y) => (x[1]-y[1]) || (x[0] < y[0] ? -1 : 1));
-  return {orig:a.orig, dest:a.dest, lineAll, line, controls: spread(cand)};
+  return {orig:a.orig, dest:a.dest, axis: axisOf(a.orig, a.dest), lineAll, line, controls: spread(cand)};
 }
 
 function updateCutState(){
@@ -373,7 +400,16 @@ document.getElementById('flipBtn').addEventListener('click', () => ground.toggle
 cutBtn.addEventListener('click', cut);
 
 const galleryEl = document.getElementById('gallery');
+const GROUP_LABEL = {work:'The test gets these right', fail:'The test gets these wrong'};
+let lastGroup = null;
 GALLERY.forEach(g => {
+  if(g.group !== lastGroup){
+    const lab = document.createElement('span');
+    lab.className = 'glabel';
+    lab.textContent = GROUP_LABEL[g.group];
+    galleryEl.appendChild(lab);
+    lastGroup = g.group;
+  }
   const b = document.createElement('button');
   b.textContent = g.name;
   b.addEventListener('click', () => {
@@ -384,7 +420,9 @@ GALLERY.forEach(g => {
 });
 
 // --- result panel -----------------------------------------------------------
-function clearResult(){ resultEl.hidden = true; }
+// The disc key goes with the disc: clearing the board's marks has to clear it too, or a new
+// position inherits the previous run's legend.
+function clearResult(){ resultEl.hidden = true; legBest.hidden = true; }
 function showResult({cls='', title='', base=null, cut=null, ctl=null, detail=''}){
   resultEl.hidden = false;
   resultEl.className = 'result ' + cls;
@@ -414,10 +452,11 @@ function initEngine(){
   });
 }
 
-// Analyse at a fixed node count with LineBlocker on `sq` (64 = off). Cold handshake before each
-// search: the blocker is not in the Zobrist key, so a warm TT would answer for the wrong engine.
-// The option is set before `position fen` because set() computes checkers and blockers at the root.
-function analyse(fen, sq){
+// Analyse at a fixed node count with a blocker on `sq` (64 = off) cutting `axis` (0 = rank/file,
+// 0 = rooks and queens; 1 = diagonal, bishops and queens). Cold handshake before each search: the
+// blocker is not in the Zobrist key, so a warm TT would answer for the wrong engine. Both options
+// are set before `position fen` because set() computes checkers and blockers at the root.
+function analyse(fen, sq, axis){
   return new Promise(resolve => {
     let score=null, settled=false, searching=false;
     function finish(r){ if(settled) return; settled=true; clearTimeout(timer);
@@ -439,6 +478,7 @@ function analyse(fen, sq){
     engine.addEventListener('message', onMsg);
     engine.postMessage('ucinewgame');
     engine.postMessage('setoption name LineBlocker value ' + sq);
+    engine.postMessage('setoption name LineBlockerAxis value ' + axis);
     engine.postMessage('setoption name Clear Hash');
     engine.postMessage('isready');
   });
@@ -448,11 +488,6 @@ engine.onerror = () => { engineEl.textContent = ' · the engine failed to load';
 initEngine().then(() => { engineEl.textContent = ''; engineReady = true; updateCutState(); });
 
 // --- evaluation helpers -----------------------------------------------------
-function winProb(score){                 // {cp,mate} from stm POV -> stm win expectation
-  if(!score) return null;
-  if(score.mate !== null) return score.mate > 0 ? 0.9999 : 0.0001;
-  return Math.min(Math.max(1/(1+Math.exp(-0.00368208*score.cp)), 1e-4), 1-1e-4);
-}
 const mateFor     = s => (s && s.mate !== null && s.mate > 0);    // forced mate FOR side to move
 const mateAgainst = s => (s && s.mate !== null && s.mate <= 0);
 function scoreText(s){
@@ -460,9 +495,9 @@ function scoreText(s){
   if(s.mate !== null) return s.mate > 0 ? `mate in ${s.mate}` : (s.mate === 0 ? 'mated' : `mated in ${-s.mate}`);
   return (s.cp >= 0 ? '+' : '') + (s.cp/100).toFixed(2);
 }
-// A cut line can make a move LEGAL that is illegal on the real board — freeing a pinned piece is
-// the whole point of the pin example — and chess.js only knows the real board, so it refuses to
-// name those. Fall back to piece + from–to rather than printing raw coordinates.
+// A cut line can make a move LEGAL that is illegal on the real board — cutting a pin frees the
+// piece it was holding — and chess.js only knows the real board, so it refuses to name those.
+// Fall back to piece + from–to rather than printing raw coordinates.
 function uciToSan(fen, uci){
   if(!uci || uci.length < 4 || uci === '(none)') return '—';
   const g = new Chess(fen);
@@ -479,8 +514,6 @@ async function cut(){
   const fen = chess.fen();
   const stm = chess.turn()==='w' ? 'White' : 'Black';
   const other = stm === 'White' ? 'Black' : 'White';
-  const pc  = chess.get(p.orig);
-  const lineName = pc ? `${PIECE_WORDS[pc.type]} on ${p.orig}` : `line ${p.orig}–${p.dest}`;
 
   cutBtn.disabled = true;
   markedLine = {orig:p.orig, dest:p.dest};
@@ -493,17 +526,16 @@ async function cut(){
   tick();
 
   try{
-    const base = await analyse(fen, OFF);
+    const base = await analyse(fen, OFF, p.axis);
     if(!base.score && base.bestmove == null){
       showResult({cls:'na', title:'The engine did not answer',
         detail:'Reload the page and try again.'});
       return;
     }
-    const wBase = winProb(base.score);
 
     const runAll = async sqs => {
       const out = [];
-      for(const s of sqs){ tick(); const r = await analyse(fen, sqIndex(s)); out.push({sq:s, ...r, w:winProb(r.score)}); }
+      for(const s of sqs){ tick(); const r = await analyse(fen, sqIndex(s), p.axis); out.push({sq:s, ...r}); }
       return out;
     };
     const onLine   = await runAll(p.line);
@@ -515,17 +547,53 @@ async function cut(){
     const dead = [...onLine, ...controls].find(r => !r.bestmove || r.bestmove === '(none)');
     if(base.bestmove && base.bestmove !== '(none)' && dead){
       showResult({cls:'na', title:'The engine build is wrong',
-        detail:`With a blocker on ${dead.sq} it reports no legal move at all. A blocker occupies one `
-             + `square; it cannot take every move away. Re-vendor the engine with `
+        detail:`With a blocker on ${dead.sq} it reports no legal move at all. A blocker cuts one `
+             + `line for one slider class; it cannot take every move away. Re-vendor the engine with `
              + `tools/stockfish-xai/build-wasm.sh before trusting this page.`});
       return;
     }
 
-    // Signed swing from the side to move's point of view: negative = cutting the line hurts them.
-    const swing = r => r.w - wBase;
-    const best  = onLine.reduce((a,b) => Math.abs(swing(b)) > Math.abs(swing(a)) ? b : a);
-    const band  = controls.reduce((m,r) => Math.max(m, Math.abs(swing(r))), 0);
-    const bestSwing = swing(best);
+    // You cut a line by blocking it ANYWHERE on it, so a line effect has to show at every square
+    // tried on it. Scoring the loudest square instead credits the line for whatever that one
+    // square happens to be worth -- a knight's landing square, a king's flight square -- which the
+    // line need have nothing to do with. Nor is "moved" a win-probability threshold: losing a mate
+    // that leaves +6.33 is worth 0.09 of win probability, which would call every square on a
+    // mating line inert.
+    // Win probability cannot see mate in 1 against mate in 5 -- both saturate at 0.9999 -- so the
+    // squares on a line are ordered on a scale that can: forced mates by distance, then centipawns,
+    // then being mated. Squares on one line may differ in size; what they all have to do is land
+    // worse than leaving the line alone AND worse than every square off it.
+    const rank = s => !s ? 0
+                    : s.mate !== null ? (s.mate > 0 ? 1e6 - s.mate : -1e6 - s.mate)
+                    : s.cp;
+    const matey = s => !!(s && s.mate !== null);
+    const baseRank = rank(base.score);
+    const ctlWorst = Math.min(...controls.map(r => rank(r.score)));
+    const ctlBest  = Math.max(...controls.map(r => rank(r.score)));
+    // Two scores that are both plain centipawns have to clear the control floor by a real margin;
+    // gaining, losing or merely delaying a forced mate is categorical and always counts.
+    const NOISE_CP = 30;
+    const past = (a, floor, sign) => {
+      if (matey(base.score) || matey(a)) return true;
+      return sign * (floor - rank(a)) >= NOISE_CP;
+    };
+    const worse  = r => rank(r.score) < baseRank && rank(r.score) < ctlWorst && past(r.score, ctlWorst,  1);
+    const better = r => rank(r.score) > baseRank && rank(r.score) > ctlBest  && past(r.score, ctlBest,  -1);
+    const dir = onLine.filter(worse).length >= onLine.filter(better).length ? worse : better;
+    const movers = onLine.filter(dir);
+    const held   = onLine.filter(r => !dir(r));
+    const sqList = rs => rs.map(r => r.sq).join(', ');
+    // Headline the strongest square that actually moved, so the disc never lands on a square the
+    // verdict just ruled out -- and only when one square is strictly strongest. `reduce` keeps the
+    // first element on a tie, which drew "largest change" on a7 when a7, a5 and a3 all came back
+    // +0.00 and none of them had changed anything. No mover, or no unique winner, no disc.
+    // Distance is measured on the same rank scale the verdict uses, not on win probability: two
+    // squares that both saturate at 0.9999 are not the same square, and the board must not name a
+    // winner the verdict's own scale cannot see.
+    const far  = r => Math.abs(rank(r.score) - baseRank);
+    const top  = movers.length ? Math.max(...movers.map(far)) : -1;
+    const tied = movers.filter(r => far(r) === top);
+    const best = tied.length === 1 ? tied[0] : null;
 
     // Board marks: the arrow is dropped now. It ran straight through the middle of every ring it
     // was meant to explain, and over the pieces at both ends; the circles are collinear anyway.
@@ -533,6 +601,7 @@ async function cut(){
     // and the square the verdict names is the whole point. customSvg drops into a 100x100 viewBox
     // sized to one square.
     const DISC = '<circle cx="50" cy="50" r="21" fill="#0b3d6b"/>';
+    legBest.hidden = !best;
     ground.setShapes([
       ...onLine.map(r => r === best
         ? {orig:r.sq, brush:'cut', customSvg:{html:DISC}}
@@ -542,45 +611,48 @@ async function cut(){
 
     const ctlTexts = controls.map(r => scoreText(r.score));
     // One line, always: three scores side by side wrapped the card and dropped its sub-label below
-    // the other two, so the row lost its shared baseline. Collapse to what the three have in common.
-    const allMate = controls.every(r => r.score && r.score.mate !== null);
-    let ctlVal;
-    if (new Set(ctlTexts).size === 1) ctlVal = ctlTexts[0];
-    else if (allMate) ctlVal = mateFor(base.score) ? 'still mate' : 'still mated';
-    else {
-      const cps = controls.map(r => (r.score && r.score.cp !== null) ? r.score.cp : null).filter(v => v !== null);
+    // the other two, so the row lost its shared baseline. Collapse to what the set has in common.
+    const collapse = rs => {
+      const texts = rs.map(r => scoreText(r.score)), uniq = [...new Set(texts)];
+      if (uniq.length === 1) return uniq[0];
+      if (rs.every(r => r.score && r.score.mate !== null))
+        return mateFor(base.score) ? 'still mate' : 'still mated';
+      const cps = rs.map(r => (r.score && r.score.cp !== null) ? r.score.cp : null).filter(v => v !== null);
       const fmt = c => (c >= 0 ? '+' : '') + (c / 100).toFixed(2);
-      ctlVal = cps.length ? `${fmt(Math.min(...cps))} to ${fmt(Math.max(...cps))}` : ctlTexts.join(' · ');
-    }
+      return cps.length === rs.length
+        ? `${fmt(Math.min(...cps))} to ${fmt(Math.max(...cps))}`
+        : uniq.join(' · ');
+    };
     const cellBase = [scoreText(base.score), `best move ${uciToSan(fen, base.bestmove)}`];
-    const cellCut  = [scoreText(best.score), `blocker on ${best.sq} · ${uciToSan(fen, best.bestmove)}`];
-    const cellCtl  = [ctlVal, controls.map(r => r.sq).join(' ')];
+    const cellCut  = [collapse(onLine), onLine.map(r => r.sq).join(' ')];
+    const cellCtl  = [collapse(controls), controls.map(r => r.sq).join(' ')];
 
     let cls, title, detail;
-    if(mateFor(base.score) && !mateFor(best.score) && controls.every(r => mateFor(r.score))){
-      cls='causal'; title='The line carries the position';
-      detail=`${stm} has a forced mate only while the line is open. A blocker on ${best.sq} — one square `
-           + `the ${lineName} needs — takes the mate away (${scoreText(best.score)}), while the same `
-           + `blocker on ${controls.map(r => r.sq).join(', ')} leaves it standing. It is the line doing `
-           + `the work, not the extra occupancy.`;
-    } else if(mateAgainst(base.score) && !mateAgainst(best.score) && controls.every(r => mateAgainst(r.score))){
-      cls='causal'; title=`The line carries the position — for ${other}`;
-      detail=`${stm} is getting mated while the line is open. A blocker on ${best.sq} makes the mate `
-           + `disappear (${scoreText(best.score)}): the blocker cuts the ray for whoever owns it, and `
-           + `cutting this one frees the piece it was holding. The control squares change nothing.`;
-    } else if(Math.abs(bestSwing) >= BIG && Math.abs(bestSwing) >= band + MARGIN){
+    const forOther = dir === better;
+    const side = forOther ? 'better' : 'worse';
+    if(movers.length && !held.length){
       cls='causal';
-      title = bestSwing < 0 ? 'The line carries the position'
-                            : `The line carries the position — for ${other}`;
-      detail=`Blocking the line at ${best.sq} moves the evaluation from ${scoreText(base.score)} to `
-           + `${scoreText(best.score)}. The same blocker on a square off the line moves it nowhere near `
-           + `as far, so the swing belongs to the line.`;
+      title = forOther ? `The line carries the position \u2014 for ${other}` : 'The line carries the position';
+      detail=`Every square tried on the line \u2014 ${sqList(movers)} \u2014 leaves ${stm} ${side} off than `
+           + `with it open: ${scoreText(base.score)} becomes ${collapse(onLine)}. The same blocker off `
+           + `the line lands at ${collapse(controls)}, so none of that is the blocker's own weight.`
+           + (new Set(onLine.map(r => rank(r.score))).size > 1
+                ? ` They do not all move the evaluation equally far; they all move it.` : '');
+    } else if(movers.length){
+      cls='square';
+      title = movers.length === 1 ? 'One square carries it, not the line'
+                                  : 'Part of the line carries it, not all of it';
+      detail=`Only ${sqList(movers)} ${movers.length === 1 ? 'clears' : 'clear'} both bars \u2014 `
+           + `${side} than leaving the line open, and ${side} than every square off it. The same `
+           + `blocker on ${sqList(held)}, the same line, lands at `
+           + `${[...new Set(held.map(r => scoreText(r.score)))].join(', ')}, inside the control band `
+           + `(${collapse(controls)}). A line is cut wherever you block it, so what carries the `
+           + `position here is ${sqList(movers)}, not the line.`;
     } else {
       cls='incidental'; title='Nothing rests on this line';
-      detail=`Cutting the line moves the evaluation from ${scoreText(base.score)} to `
-           + `${scoreText(best.score)}. The same blocker on a square off the line lands at `
-           + `${ctlTexts.join(', ')} — the same neighbourhood. What is being measured is the blocker's `
-           + `own weight on the board, not the line's. The line is real; the position does not rest on it.`;
+      detail=`Blocking the line lands at ${collapse(onLine)} against ${collapse(controls)} off it \u2014 `
+           + `the same neighbourhood. What is being measured is the blocker's own weight on the `
+           + `board, not the line's. The line is real; the position does not rest on it.`;
     }
     showResult({cls, title, base:cellBase, cut:cellCut, ctl:cellCtl, detail});
   } catch(err){
