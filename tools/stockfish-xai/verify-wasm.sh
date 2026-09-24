@@ -34,8 +34,8 @@ checklike(){ # name  got  regex  want-description
 echo "engine: $ENGINE"
 
 OPTS="$(run 'uci' 6)"
-checklike "both operators are registered" \
-  "$(printf '%s' "$OPTS" | grep -cE 'option name (MaskPinner|LineBlocker) ')" '^2$' "2 options"
+checklike "all three options are registered" \
+  "$(printf '%s' "$OPTS" | grep -cE 'option name (MaskPinner|LineBlocker|LineBlockerAxis) ')" '^3$' "3 options"
 
 # The bug that shipped: with a blocker on an EMPTY square the engine returned no legal move at
 # all. The cheapest position with a legal move catches it.
@@ -44,23 +44,52 @@ check "bare kings, blocker off"      "$(perft1 "position fen $BARE")" "5"
 check "blocker on an EMPTY square does not empty the move list" \
       "$(perft1 "setoption name LineBlocker value 0\nposition fen $BARE")" "5"
 
-# G/J, same positions verify.sh uses: the blocker obstructs a ray, and is inert on a square that
-# already holds a piece.
+# G/H/O, same positions verify.sh uses: the blocker cuts the ray of the matching slider class
+# and nothing else.
 R='4k3/8/8/8/8/8/8/R3K3 w - - 0 1'
 check "rook on the open a-file, blocker off" "$(perft1 "position fen $R")" "15"
-check "blocker obstructs the rook ray (a4)" \
-      "$(perft1 "setoption name LineBlocker value 24\nposition fen $R")" "10"
-check "blocker on an OCCUPIED square is inert (e1 holds the king)" \
-      "$(perft1 "setoption name LineBlocker value 4\nposition fen $R")" "15"
+check "blocker cuts the rook ray (a4, orthogonal)" \
+      "$(perft1 "setoption name LineBlocker value 24\nsetoption name LineBlockerAxis value 0\nposition fen $R")" "11"
+check "the wrong axis leaves the rook alone (a4, diagonal)" \
+      "$(perft1 "setoption name LineBlocker value 24\nsetoption name LineBlockerAxis value 1\nposition fen $R")" "15"
+check "a ray FROM the blocker's own square is not cut (a1)" \
+      "$(perft1 "setoption name LineBlocker value 0\nsetoption name LineBlockerAxis value 0\nposition fen $R")" "15"
+
+# The false positive the axis split removes: a pawn is not a rook, so a blocker on its file
+# must not stop the push. Under the old one-OR-into-pieces() blocker it did, and every file a
+# pawn marched down read as load-bearing.
+PAWN='4k3/8/8/8/8/8/P7/4K3 w - - 0 1'
+check "pawn file, blocker off" "$(perft1 "position fen $PAWN")" "7"
+check "an orthogonal blocker does not stop a pawn push (a3)" \
+      "$(perft1 "setoption name LineBlocker value 16\nsetoption name LineBlockerAxis value 0\nposition fen $PAWN")" "7"
 
 AFILE='6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1'
 
 # L: the operator's point -- cut the line that carries the mate, with a placebo off it.
 checklike "mate stands with the line open" "$(evalcp "position fen $AFILE")" 'mate 1$' "score mate 1"
 checklike "cutting the line kills the mate" \
-      "$(evalcp "setoption name LineBlocker value 24\nposition fen $AFILE")" '^score cp' "a cp score"
+      "$(evalcp "setoption name LineBlocker value 24\nsetoption name LineBlockerAxis value 0\nposition fen $AFILE")" '^score cp' "a cp score"
 checklike "a placebo square off the line keeps the mate" \
-      "$(evalcp "setoption name LineBlocker value 25\nposition fen $AFILE")" 'mate 1$' "score mate 1"
+      "$(evalcp "setoption name LineBlocker value 25\nsetoption name LineBlockerAxis value 0\nposition fen $AFILE")" 'mate 1$' "score mate 1"
+checklike "the wrong axis cannot cut a file, so the mate stands" \
+      "$(evalcp "setoption name LineBlocker value 24\nsetoption name LineBlockerAxis value 1\nposition fen $AFILE")" 'mate 1$' "score mate 1"
+
+# REGRESSION (the bug that shipped in the first axis build): a blocker on the PINNER's own
+# square must not cut that pinner's own ray. between_bb() includes the far endpoint, so
+# update_slider_blockers counted a blocker on h5 as a second occupant of the a5-h5 ray,
+# cancelled the pin, and generated b5b6 -- leaving the white king in check from that rook.
+# Legal movegen producing an illegal move, which the assert sweep cannot see.
+PINPOS='8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1'
+check "pin stands, blocker off" \
+      "$(perft1 "position fen $PINPOS")" "14"
+check "a blocker on the PINNER's own square does not cut its own ray (h5)" \
+      "$(perft1 "setoption name LineBlocker value 39\nsetoption name LineBlockerAxis value 0\nposition fen $PINPOS")" "14"
+check "a blocker ON the ray cuts the pin even though a piece stands there (b5)" \
+      "$(perft1 "setoption name LineBlocker value 33\nsetoption name LineBlockerAxis value 0\nposition fen $PINPOS")" "15"
+check "a blocker strictly between cuts the pin (c5)" \
+      "$(perft1 "setoption name LineBlocker value 34\nsetoption name LineBlockerAxis value 0\nposition fen $PINPOS")" "15"
+check "the wrong axis leaves the pin alone (c5 diagonal)" \
+      "$(perft1 "setoption name LineBlocker value 34\nsetoption name LineBlockerAxis value 1\nposition fen $PINPOS")" "14"
 
 # MaskPinner still works here too: Be5 pins g7 to Kh8, so the mate needs the pin.
 PIN='3r3k/6p1/4Q3/4B3/1p3P2/4PKP1/3q4/8 w - - 18 52'

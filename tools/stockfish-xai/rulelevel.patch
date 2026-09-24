@@ -1,8 +1,88 @@
+diff --git a/src/bitboard.cpp b/src/bitboard.cpp
+index 0861222c..defda834 100644
+--- a/src/bitboard.cpp
++++ b/src/bitboard.cpp
+@@ -35,6 +35,12 @@ Bitboard RayPassBB[SQUARE_NB][SQUARE_NB];
+ 
+ alignas(64) Magic Magics[SQUARE_NB][2];
+ 
++// xai-chess obstruct operator (see bitboard.h). Single-threaded use only.
++Bitboard lineBlockerOrth = 0;
++Bitboard lineBlockerDiag = 0;
++Square   lineBlockerSq   = SQ_NONE;
++int      lineBlockerAxis = 0;
++
+ namespace {
+ 
+ Bitboard RookTable[0x19000];   // To store rook attacks
+diff --git a/src/bitboard.h b/src/bitboard.h
+index f97ff321..3b1700ef 100644
+--- a/src/bitboard.h
++++ b/src/bitboard.h
+@@ -100,6 +100,43 @@ constexpr Bitboard square_bb(Square s) {
+ }
+ 
+ 
++// xai-chess obstruct operator: the "magic blocker". A phantom occupant on one square that
++// stops slider rays through it without being a piece -- no colour, no material, no Zobrist
++// key, no NNUE feature, and it does not make the square occupied. It is RAY-CLASS SELECTIVE:
++//   lineBlockerOrth  folds into every ROOK-magic lookup   -> cuts rooks, and the orthogonal
++//                                                            component of queens
++//   lineBlockerDiag  folds into every BISHOP-magic lookup -> cuts bishops, and the diagonal
++//                                                            component of queens
++// At most one is ever non-zero, so a queen can have its rays cut on a file while its
++// diagonals stay intact. Pawns, knights, kings and castling are untouched, and any piece may
++// still move onto the square: this obstructs a LINE, not a square. That is the whole point --
++// an operator that denied the square to everything was measuring occupancy, not the line.
++//
++// Both empty (the default) makes the engine byte-for-byte identical to stock Stockfish.
++//
++// Bitboards::init() builds LineBB/BetweenBB/RayPassBB through attacks_bb, so neither may be
++// armed before it runs. UCI options are only read after init, so this holds.
++//
++// One known divergence, deliberate: NNUE sees the blocked ray (its threat features go through
++// attacks_bb) but never the blocker itself, since it is not a piece and so has no feature. The
++// network therefore still values the line it can no longer be used on, which biases the measured
++// effect DOWNWARD. Read the number as a floor, not an estimate.
++extern Bitboard lineBlockerOrth;
++extern Bitboard lineBlockerDiag;
++
++// The UCI state the two bitboards are derived from: a square (SQ_NONE = off) and an axis
++// (0 = rank/file, 1 = diagonal). Kept apart so the two options can arrive in either order --
++// both callbacks recompute the pair.
++extern Square lineBlockerSq;
++extern int    lineBlockerAxis;
++
++inline void refresh_line_blocker() {
++    Bitboard bb     = lineBlockerSq == SQ_NONE ? Bitboard(0) : (1ULL << lineBlockerSq);
++    lineBlockerOrth = lineBlockerAxis == 0 ? bb : Bitboard(0);
++    lineBlockerDiag = lineBlockerAxis == 1 ? bb : Bitboard(0);
++}
++
++
+ // Overloads of bitwise operators between a Bitboard and a Square for testing
+ // whether a given bit is set in a bitboard, and for setting and clearing bits.
+ 
+@@ -418,9 +455,13 @@ inline Bitboard attacks_bb(Square s, Bitboard occupied) {
+ 
+     switch (Pt)
+     {
++    // xai-chess: the magic blocker enters here and only here -- every ray in the engine is a
++    // magic lookup, and the two classes are separate tables, so one OR per table is the whole
++    // operator. QUEEN falls through to both and picks up whichever axis is armed.
+     case BISHOP :
++        return Magics[s][Pt - BISHOP].attacks_bb(occupied | lineBlockerDiag);
+     case ROOK :
+-        return Magics[s][Pt - BISHOP].attacks_bb(occupied);
++        return Magics[s][Pt - BISHOP].attacks_bb(occupied | lineBlockerOrth);
+     case QUEEN :
+         return attacks_bb<BISHOP>(s, occupied) | attacks_bb<ROOK>(s, occupied);
+     default :
 diff --git a/src/engine.cpp b/src/engine.cpp
-index dfd2099..b7c90de 100644
+index dfd2099d..bdf9733d 100644
 --- a/src/engine.cpp
 +++ b/src/engine.cpp
-@@ -113,6 +113,20 @@ Engine::Engine(std::optional<std::string> path) :
+@@ -113,6 +113,31 @@ Engine::Engine(std::optional<std::string> path) :
  
      options.add("nodestime", Option(0, 0, 10000));
  
@@ -13,10 +93,21 @@ index dfd2099..b7c90de 100644
 +                    return std::nullopt;
 +                }));
 +
-+    // xai-chess obstruct operator: square index (0..63) carrying the magic blocker,
-+    // or 64 (=SQ_NONE, the default) to disable. See position.h.
++    // xai-chess obstruct operator: square index (0..63) carrying the magic blocker, or 64
++    // (=SQ_NONE, the default) to disable. See bitboard.h.
 +    options.add("LineBlocker", Option(int(SQ_NONE), 0, int(SQ_NONE), [](const Option& o) {
-+                    lineBlockerBB = int(o) == int(SQ_NONE) ? Bitboard(0) : square_bb(Square(int(o)));
++                    lineBlockerSq = Square(int(o));
++                    refresh_line_blocker();
++                    return std::nullopt;
++                }));
++
++    // Which ray class the blocker obstructs: 0 = rank/file (rooks and queens), 1 = diagonal
++    // (bishops and queens). The engine cannot infer this -- one square lies on both a file and
++    // a diagonal, and only the caller knows which line it marked. Either option may be set
++    // first; both callbacks recompute the pair.
++    options.add("LineBlockerAxis", Option(0, 0, 1, [](const Option& o) {
++                    lineBlockerAxis = int(o);
++                    refresh_line_blocker();
 +                    return std::nullopt;
 +                }));
 +
@@ -24,10 +115,10 @@ index dfd2099..b7c90de 100644
  
      options.add("UCI_LimitStrength", Option(false));
 diff --git a/src/movegen.cpp b/src/movegen.cpp
-index e63707a..a4fd661 100644
+index e63707a1..c942da4a 100644
 --- a/src/movegen.cpp
 +++ b/src/movegen.cpp
-@@ -241,6 +241,21 @@ Move* generate_all(const Position& pos, Move* moveList) {
+@@ -241,6 +241,15 @@ Move* generate_all(const Position& pos, Move* moveList) {
                 : Type == CAPTURES     ? pos.pieces(~Us)
                                        : ~pos.pieces();  // QUIETS
  
@@ -40,98 +131,32 @@ index e63707a..a4fd661 100644
 +        // board that crashes NNUE (make_index on SQ_NONE).
 +        target &= ~pos.pieces(~Us, KING);
 +
-+        // xai-chess obstruct: the line blocker occupies its square. QUIETS (~pieces())
-+        // and CAPTURES (pieces(~Us)) already exclude it, NON_EVASIONS (~pieces(Us)) does
-+        // not; EVASIONS cannot reach it (a blocker between king and checker would have
-+        // stopped the check), but the mask costs nothing and states the invariant.
-+        target &= ~lineBlockerBB;
-+
          moveList = generate_pawn_moves<Us, Type>(pos, moveList, target);
          moveList = generate_moves<Us, KNIGHT>(pos, moveList, target);
          moveList = generate_moves<Us, BISHOP>(pos, moveList, target);
-@@ -248,7 +263,10 @@ Move* generate_all(const Position& pos, Move* moveList) {
+@@ -248,7 +257,10 @@ Move* generate_all(const Position& pos, Move* moveList) {
          moveList = generate_moves<Us, QUEEN>(pos, moveList, target);
      }
  
 -    Bitboard b = attacks_bb<KING>(ksq) & (Type == EVASIONS ? ~pos.pieces(Us) : target);
-+    // xai-chess: the EVASIONS king target is ~pieces(Us), which excludes neither the
-+    // blocker nor the enemy king; target (all other types) already has both masked out.
++    // xai-chess: the EVASIONS king target is ~pieces(Us), which does not exclude the enemy
++    // king; target (all other types) already has it masked out above.
 +    Bitboard b = attacks_bb<KING>(ksq)
-+               & (Type == EVASIONS ? ~pos.pieces(Us) & ~lineBlockerBB : target);
++               & (Type == EVASIONS ? ~pos.pieces(Us) & ~pos.pieces(~Us, KING) : target);
  
      moveList = splat_moves(moveList, ksq, b);
  
-diff --git a/src/nnue/features/full_threats.cpp b/src/nnue/features/full_threats.cpp
-index 47a5f8f..90b7906 100644
---- a/src/nnue/features/full_threats.cpp
-+++ b/src/nnue/features/full_threats.cpp
-@@ -207,7 +207,10 @@ inline sf_always_inline IndexType FullThreats::make_index(
- 
- void FullThreats::append_active_indices(Color perspective, const Position& pos, IndexList& active) {
-     Square   ksq      = pos.square<KING>(perspective);
--    Bitboard occupied = pos.pieces();
-+    // xai-chess: the network sees the blocked ray (rays stop at the blocker) but is only
-+    // ever asked for piece_on() of a real piece -- NO_PIECE would index the table wrong.
-+    Bitboard occupied = pos.real_pieces();
-+    Bitboard rayOcc   = pos.pieces();
- 
-     for (Color color : {WHITE, BLACK})
-     {
-@@ -253,7 +256,7 @@ void FullThreats::append_active_indices(Color perspective, const Position& pos,
-                 while (bb)
-                 {
-                     Square   from    = pop_lsb(bb);
--                    Bitboard attacks = (attacks_bb(pt, from, occupied)) & occupied;
-+                    Bitboard attacks = (attacks_bb(pt, from, rayOcc)) & occupied;
- 
-                     while (attacks)
-                     {
-diff --git a/src/nnue/features/half_ka_v2_hm.cpp b/src/nnue/features/half_ka_v2_hm.cpp
-index a82e89d..47b7d74 100644
---- a/src/nnue/features/half_ka_v2_hm.cpp
-+++ b/src/nnue/features/half_ka_v2_hm.cpp
-@@ -39,7 +39,7 @@ IndexType HalfKAv2_hm::make_index(Color perspective, Square s, Piece pc, Square
- 
- void HalfKAv2_hm::append_active_indices(Color perspective, const Position& pos, IndexList& active) {
-     Square   ksq = pos.square<KING>(perspective);
--    Bitboard bb  = pos.pieces();
-+    Bitboard bb  = pos.real_pieces();  // xai-chess: piece_on() per set bit
-     while (bb)
-     {
-         Square s = pop_lsb(bb);
-diff --git a/src/nnue/nnue_accumulator.cpp b/src/nnue/nnue_accumulator.cpp
-index 16af8d5..c5e4e69 100644
---- a/src/nnue/nnue_accumulator.cpp
-+++ b/src/nnue/nnue_accumulator.cpp
-@@ -682,7 +682,7 @@ void update_accumulator_refresh_cache(Color                                 pers
- 
-     const Bitboard changedBB = get_changed_pieces(entry.pieces, pos.piece_array());
-     Bitboard       removedBB = changedBB & entry.pieceBB;
--    Bitboard       addedBB   = changedBB & pos.pieces();
-+    Bitboard       addedBB   = changedBB & pos.real_pieces();  // xai-chess
- 
-     while (removedBB)
-     {
-@@ -695,7 +695,7 @@ void update_accumulator_refresh_cache(Color                                 pers
-         added.push_back(PSQFeatureSet::make_index(perspective, sq, pos.piece_on(sq), ksq));
-     }
- 
--    entry.pieceBB = pos.pieces();
-+    entry.pieceBB = pos.real_pieces();  // xai-chess
-     entry.pieces  = pos.piece_array();
- 
-     auto& accumulator                 = accumulatorState.acc<Dimensions>();
 diff --git a/src/position.cpp b/src/position.cpp
-index 907dfde..e4b1329 100644
+index 907dfde4..7d504efe 100644
 --- a/src/position.cpp
 +++ b/src/position.cpp
-@@ -43,6 +43,93 @@ using std::string;
+@@ -43,6 +43,97 @@ using std::string;
  
  namespace Stockfish {
  
 +// xai-chess rule-level intervention (see position.h). Single-threaded use only.
-+Square   maskPinnerSq = SQ_NONE;
-+Bitboard lineBlockerBB = 0;
++// The obstruct operator's state lives in bitboard.cpp, where the rays are computed.
++Square maskPinnerSq = SQ_NONE;
 +
 +namespace {
 +inline bool is_slider(Piece pc) {
@@ -167,7 +192,8 @@ index 907dfde..e4b1329 100644
 +    Bitboard betw = between_bb(ksq, s) & ~square_bb(s);  // strictly between king and s
 +    Bitboard occ  = betw & pos.pieces();
 +    // Exactly one real blocker, of the pinned side, and s must attack the king
-+    // once that blocker is lifted (this also rejects a wrong-ray slider).
++    // once that blocker is lifted (this also rejects a wrong-ray slider, and an
++    // armed obstruct blocker on the ray, since attacks_bb honours it).
 +    return occ && !more_than_one(occ) && (occ & pos.pieces(them))
 +        && (attacks_bb(type_of(pc), s, pos.pieces() ^ occ) & ksq);
 +}
@@ -189,8 +215,11 @@ index 907dfde..e4b1329 100644
 +    {
 +        Square pinned = pop_lsb(cand);
 +        // step one square at a time from `pinned` along the s->pinned ray, to the next occupied square
-+        int step = (file_of(pinned) > file_of(s)) - (file_of(pinned) < file_of(s))
-+                 + 8 * ((rank_of(pinned) > rank_of(s)) - (rank_of(pinned) < rank_of(s)));
++        int df = (file_of(pinned) > file_of(s)) - (file_of(pinned) < file_of(s));
++        int dr = (rank_of(pinned) > rank_of(s)) - (rank_of(pinned) < rank_of(s));
++        int step = df + 8 * dr;
++        // xai-chess obstruct: only the blocker matching THIS ray's class ends the walk.
++        Bitboard rayBlocker = (df && dr) ? lineBlockerDiag : lineBlockerOrth;
 +        Square back = SQ_NONE;
 +        for (Square t = pinned;;)
 +        {
@@ -198,7 +227,7 @@ index 907dfde..e4b1329 100644
 +            if (!is_ok(n) || distance(t, n) != 1)  // off board or wrapped past a file edge
 +                break;
 +            t = n;
-+            if (lineBlockerBB & square_bb(t))  // xai-chess: an armed blocker ends the ray
++            if (rayBlocker & square_bb(t))  // xai-chess: an armed blocker ends the ray
 +                break;
 +            if (pos.piece_on(t) != NO_PIECE)
 +            {
@@ -219,7 +248,7 @@ index 907dfde..e4b1329 100644
  namespace Zobrist {
  
  Key psq[PIECE_NB][SQUARE_NB];
-@@ -345,11 +432,27 @@ void Position::set_state() const {
+@@ -345,7 +436,21 @@ void Position::set_state() const {
      st->nonPawnKey[WHITE] = st->nonPawnKey[BLACK] = 0;
      st->pawnKey                                   = Zobrist::noPawns;
      st->nonPawnMaterial[WHITE] = st->nonPawnMaterial[BLACK] = VALUE_ZERO;
@@ -241,14 +270,62 @@ index 907dfde..e4b1329 100644
  
      set_check_info();
  
--    for (Bitboard b = pieces(); b;)
-+    // xai-chess: real_pieces(), not pieces() -- the line blocker holds NO_PIECE and
-+    // would poison the Zobrist key and the material counts.
-+    for (Bitboard b = real_pieces(); b;)
+@@ -471,22 +576,41 @@ void Position::update_slider_blockers(Color c) const {
+     st->blockersForKing[c] = 0;
+     st->pinners[~c]        = 0;
+ 
+-    // Snipers are sliders that attack 's' when a piece and other snipers are removed
+-    Bitboard snipers = ((attacks_bb<ROOK>(ksq) & pieces(QUEEN, ROOK))
+-                        | (attacks_bb<BISHOP>(ksq) & pieces(QUEEN, BISHOP)))
+-                     & pieces(~c);
+-    Bitboard occupancy = pieces() ^ snipers;
+-
+-    while (snipers)
++    // Snipers are sliders that attack 's' when a piece and other snipers are removed.
++    // xai-chess obstruct: this is the only pin / check-blocker computation in the engine
++    // that reads raw between_bb geometry instead of going through a magic lookup, so the
++    // blocker has to be folded in by hand -- otherwise a cut pin still reads as a pin and
++    // the pinned piece loses legal moves. Split by ray class, since a blocker on a file
++    // cuts a rook's pin and not a bishop's. When the only occupant on the ray is the
++    // phantom, nothing is pinned: the ray is cut. That holds even if a real piece shares
++    // the square, because the phantom would still cut the ray once it moved away.
++    Bitboard snipersR  = attacks_bb<ROOK>(ksq) & pieces(QUEEN, ROOK) & pieces(~c);
++    Bitboard snipersB  = attacks_bb<BISHOP>(ksq) & pieces(QUEEN, BISHOP) & pieces(~c);
++    Bitboard occupancy = pieces() ^ (snipersR | snipersB);
++
++    for (int diagonal = 0; diagonal < 2; ++diagonal)
      {
-         Square s  = pop_lsb(b);
-         Piece  pc = piece_on(s);
-@@ -526,6 +629,28 @@ bool Position::legal(Move m) const {
+-        Square   sniperSq = pop_lsb(snipers);
+-        Bitboard b        = between_bb(ksq, sniperSq) & occupancy;
++        Bitboard blocker = diagonal ? lineBlockerDiag : lineBlockerOrth;
++        Bitboard snipers = diagonal ? snipersB : snipersR;
+ 
+-        if (b && !more_than_one(b))
++        while (snipers)
+         {
+-            st->blockersForKing[c] |= b;
+-            if (b & pieces(c))
+-                st->pinners[~c] |= sniperSq;
++            Square sniperSq = pop_lsb(snipers);
++            // between_bb() INCLUDES the far endpoint. Stock code gets away with that because
++            // the sniper is already removed from `occupancy`; OR-ing the blocker back in does
++            // not, so a blocker parked on the sniper's own square would reappear here as a
++            // phantom second occupant and cancel a real pin -- generating a move that leaves
++            // the king in check. A ray is cut by a blocker BETWEEN its ends, never by one
++            // sitting on an end.
++            Bitboard ray = between_bb(ksq, sniperSq) & ~square_bb(sniperSq);
++            Bitboard b   = ray & (occupancy | blocker);
++
++            if (b && !more_than_one(b) && !(b & blocker))
++            {
++                st->blockersForKing[c] |= b;
++                if (b & pieces(c))
++                    st->pinners[~c] |= sniperSq;
++            }
+         }
+     }
+ }
+@@ -526,6 +650,21 @@ bool Position::legal(Move m) const {
      assert(color_of(moved_piece(m)) == us);
      assert(piece_on(square<KING>(us)) == make_piece(us, KING));
  
@@ -258,13 +335,6 @@ index 907dfde..e4b1329 100644
 +    // mask may already have latched off by the time that move is validated. An
 +    // ungated guard is the only one that holds across the whole search branch.
 +    if (piece_on(to) == make_piece(~us, KING))
-+        return false;
-+
-+    // xai-chess obstruct: nothing may land on the line blocker's square. Required, not
-+    // belt-and-braces: pseudo_legal() tests the destination with empty(to) / piece_on(to),
-+    // which read the real board and know nothing about the blocker, so a TT or killer move
-+    // onto that square passes pseudo_legal and would otherwise reach do_move.
-+    if (lineBlockerBB & to)
 +        return false;
 +
 +    // xai-chess (relative-pin extension): a suspended relative pin forbids the pinner from
@@ -277,7 +347,7 @@ index 907dfde..e4b1329 100644
      // En passant captures are a tricky special case. Because they are rather
      // uncommon, we do it simply by testing whether the king is attacked after
      // the move is made.
-@@ -565,11 +690,44 @@ bool Position::legal(Move m) const {
+@@ -565,11 +704,44 @@ bool Position::legal(Move m) const {
      // If the moving piece is a king, check whether the destination square is
      // attacked by the opponent.
      if (type_of(piece_on(from)) == KING)
@@ -324,7 +394,7 @@ index 907dfde..e4b1329 100644
  }
  
  
-@@ -899,8 +1057,56 @@ void Position::do_move(Move                      m,
+@@ -899,8 +1071,56 @@ void Position::do_move(Move                      m,
      // Set capture piece
      st->capturedPiece = captured;
  
@@ -381,46 +451,8 @@ index 907dfde..e4b1329 100644
  
      sideToMove = ~sideToMove;
  
-@@ -1113,7 +1319,8 @@ void Position::update_piece_threats(Piece                     pc,
-                                     Square                    s,
-                                     DirtyThreats* const       dts,
-                                     [[maybe_unused]] Bitboard noRaysContaining) const {
--    const Bitboard occupied     = pieces();
-+    const Bitboard occupied     = pieces();       // xai-chess: rays stop at the line blocker
-+    const Bitboard realOcc      = real_pieces();  // xai-chess: ...but only real pieces are threatened
-     const Bitboard rookQueens   = pieces(ROOK, QUEEN);
-     const Bitboard bishopQueens = pieces(BISHOP, QUEEN);
-     const Bitboard knights      = pieces(KNIGHT);
-@@ -1124,7 +1331,7 @@ void Position::update_piece_threats(Piece                     pc,
-     const Bitboard rAttacks = attacks_bb<ROOK>(s, occupied);
-     const Bitboard bAttacks = attacks_bb<BISHOP>(s, occupied);
- 
--    Bitboard threatened = attacks_bb(pc, s, occupied) & occupied;
-+    Bitboard threatened = attacks_bb(pc, s, occupied) & realOcc;
-     Bitboard sliders    = (rookQueens & rAttacks) | (bishopQueens & bAttacks);
-     Bitboard incoming_threats =
-       (PseudoAttacks[KNIGHT][s] & knights) | (attacks_bb<PAWN>(s, WHITE) & blackPawns)
-@@ -1178,7 +1385,7 @@ void Position::update_piece_threats(Piece                     pc,
-             Piece  slider   = piece_on(sliderSq);
- 
-             const Bitboard ray        = RayPassBB[sliderSq][s] & ~BetweenBB[sliderSq][s];
--            const Bitboard discovered = ray & (rAttacks | bAttacks) & occupied;
-+            const Bitboard discovered = ray & (rAttacks | bAttacks) & realOcc;
- 
-             assert(!more_than_one(discovered));
-             if (discovered && (RayPassBB[sliderSq][s] & noRaysContaining) != noRaysContaining)
-@@ -1538,3 +1745,8 @@ bool Position::pos_is_ok() const {
- 
--    if ((pieces(WHITE) & pieces(BLACK)) || (pieces(WHITE) | pieces(BLACK)) != pieces()
-+    // xai-chess: real_pieces(), not pieces() -- an armed line blocker sets a bit that belongs to
-+    // no colour, so the blocker-inclusive occupancy can never equal the union of the two colours.
-+    // This is not a dead assert in every tree: nmrugg/stockfish.js (the WASM build) compiles out
-+    // the `Fast` early return AND calls pos_is_ok() for real from uci.cpp before every search, so
-+    // leaving pieces() here makes the WASM refuse to search whenever the blocker is armed.
-+    if ((pieces(WHITE) & pieces(BLACK)) || (pieces(WHITE) | pieces(BLACK)) != real_pieces()
-         || popcount(pieces(WHITE)) > 16 || popcount(pieces(BLACK)) > 16)
 diff --git a/src/position.h b/src/position.h
-index a136c07..330076a 100644
+index a136c072..a3e535aa 100644
 --- a/src/position.h
 +++ b/src/position.h
 @@ -51,6 +51,18 @@ struct StateInfo {
@@ -442,32 +474,10 @@ index a136c07..330076a 100644
  
      // Not copied when making a move (will be recomputed anyhow)
      Key        key;
-@@ -70,6 +82,34 @@ struct StateInfo {
+@@ -70,6 +82,12 @@ struct StateInfo {
  // elements are not invalidated upon list resizing.
  using StateListPtr = std::unique_ptr<std::deque<StateInfo>>;
  
-+// xai-chess obstruct operator: the "magic blocker". A phantom occupant on the set
-+// square -- it blocks every ray through it and nothing may move onto it, but it is
-+// not a piece: no colour, no material, no Zobrist key, invisible to NNUE. Dual of
-+// maskPinnerSq, which removes a line constraint where this one adds it. Empty (0),
-+// the default, makes the engine byte-for-byte identical to stock Stockfish.
-+//
-+// Armed by OR into Position::pieces(), so a square already holding a real piece is
-+// a no-op -- the blocker can never contradict the board. Nothing can land on the
-+// square while it is armed, so it needs no per-node state and never disarms.
-+//
-+// One known divergence, deliberate:
-+//   * NNUE sees the blocked RAY (full_threats uses blocker-inclusive occupancy) but
-+//     never the blocker itself -- it is not a piece, so it has no feature. The
-+//     network therefore still values the line it can no longer be used on, which
-+//     biases the measured effect DOWNWARD. This is why OPERATORS.md rates obstruct
-+//     "near-clean" rather than confound-free: read it as a floor, not an estimate.
-+//
-+// Set the option BEFORE `position fen`. Search reads the global live, so a late
-+// setoption still obstructs rays, but the en-passant square, checkers and
-+// blockers-for-king of the ROOT were already computed by set() without it.
-+extern Bitboard lineBlockerBB;
-+
 +// xai-chess rule-level intervention: when set to a real square, the slider on
 +// that square is treated as a "suspended pinner" -- pieces it pins may leave the
 +// ray, and it can neither check nor capture the king along that ray. SQ_NONE
@@ -477,34 +487,15 @@ index a136c07..330076a 100644
  // Position class stores information regarding the board representation as
  // pieces, side to move, hash keys, castling info, etc. Important methods are
  // do_move() and undo_move(), used by the search to update node info when
-@@ -115,6 +155,8 @@ class Position {
+@@ -115,6 +133,7 @@ class Position {
      Bitboard blockers_for_king(Color c) const;
      Bitboard check_squares(PieceType pt) const;
      Bitboard pinners(Color c) const;
-+    Square   mask_pinner() const;  // xai-chess: currently-armed suspended pinner
-+    Bitboard real_pieces() const;  // xai-chess: occupancy WITHOUT the line blocker
++    Square mask_pinner() const;  // xai-chess: currently-armed suspended pinner
  
      // Attacks to/from a given square
      Bitboard attackers_to(Square s) const;
-@@ -235,7 +277,16 @@ inline bool Position::empty(Square s) const { return piece_on(s) == NO_PIECE; }
- 
- inline Piece Position::moved_piece(Move m) const { return piece_on(m.from_sq()); }
- 
--inline Bitboard Position::pieces() const { return byTypeBB[ALL_PIECES]; }
-+// xai-chess: occupancy INCLUDING the line blocker -- every ray, target mask and
-+// empty-square test in the engine funnels through here, so one OR obstructs them
-+// all. Sites that mean "the set of pieces" (they pair a square with piece_on, or
-+// count material) must use real_pieces() instead; they are enumerated in the patch.
-+inline Bitboard Position::pieces() const { return byTypeBB[ALL_PIECES] | lineBlockerBB; }
-+
-+// xai-chess: the real board, blocker excluded. Zobrist/material, NNUE features and
-+// tablebase cardinality use this -- feeding them a square holding NO_PIECE would
-+// corrupt the key or index a feature table out of range.
-+inline Bitboard Position::real_pieces() const { return byTypeBB[ALL_PIECES]; }
- 
- template<typename... PieceTypes>
- inline Bitboard Position::pieces(PieceTypes... pts) const {
-@@ -303,6 +354,8 @@ inline Bitboard Position::blockers_for_king(Color c) const { return st->blockers
+@@ -303,6 +322,8 @@ inline Bitboard Position::blockers_for_king(Color c) const { return st->blockers
  
  inline Bitboard Position::pinners(Color c) const { return st->pinners[c]; }
  
@@ -513,25 +504,3 @@ index a136c07..330076a 100644
  inline Bitboard Position::check_squares(PieceType pt) const { return st->checkSquares[pt]; }
  
  inline Key Position::key() const { return adjust_key50(st->key); }
-diff --git a/src/syzygy/tbprobe.cpp b/src/syzygy/tbprobe.cpp
-index 9fe6df9..f9ee222 100644
---- a/src/syzygy/tbprobe.cpp
-+++ b/src/syzygy/tbprobe.cpp
-@@ -781,7 +781,7 @@ Ret do_probe_table(const Position& pos, T* entry, WDLScore wdl, ProbeState* resu
- 
-     // Now we are ready to get all the position pieces (but the lead pawns) and
-     // directly map them to the correct color and square.
--    b = pos.pieces() ^ leadPawns;
-+    b = pos.real_pieces() ^ leadPawns;  // xai-chess: piece set, not occupancy
-     do
-     {
-         Square s       = pop_lsb(b);
-@@ -1739,7 +1739,7 @@ Config Tablebases::rank_root_moves(const OptionsMap&            options,
-         config.probeDepth  = 0;
-     }
- 
--    if (config.cardinality >= popcount(pos.pieces()) && !pos.can_castle(ANY_CASTLING))
-+    if (config.cardinality >= popcount(pos.real_pieces()) && !pos.can_castle(ANY_CASTLING))
-     {
-         // Rank moves using DTZ tables, bail out if time_abort flags zeitnot
-         config.rootInTB =

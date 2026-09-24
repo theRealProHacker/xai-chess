@@ -5,12 +5,15 @@
 #   nmrugg/stockfish.js (pinned) + rulelevel.patch, compiled to WASM with the pinned Emscripten
 #   the JS project requires. rulelevel.patch carries two intervention operators, each a UCI
 #   option that is inert at its default, so the engine is stock Stockfish until one is set:
-#     MaskPinner=<sq>   suspend the pin created by the slider on <sq>  (absolute and relative)
-#     LineBlocker=<sq>  drop a magic blocker on <sq>: it obstructs every ray through the square
-#                       and nothing may move onto it, but it is not a piece (no colour, no
-#                       material, no Zobrist key, no NNUE feature). The dual of MaskPinner.
-#   Squares are a1=0 .. h8=63; 64 (=SQ_NONE) is off. Clear Hash when changing either option --
-#   neither is in the Zobrist key, so stale TT entries would answer for the wrong engine.
+#     MaskPinner=<sq>       suspend the pin created by the slider on <sq> (absolute and relative)
+#     LineBlocker=<sq>      drop a magic blocker on <sq>: a phantom that cuts slider rays through
+#                           the square without being a piece (no colour, no material, no Zobrist
+#                           key, no NNUE feature). The dual of MaskPinner.
+#     LineBlockerAxis=<0|1> which rays it cuts: 0 = rank/file (rooks and queens), 1 = diagonal
+#                           (bishops and queens). The square itself stays open -- pawns, knights,
+#                           kings and castling are untouched, and a slider may stop on it.
+#   Squares are a1=0 .. h8=63; 64 (=SQ_NONE) is off. Clear Hash when changing any of these --
+#   none is in the Zobrist key, so stale TT entries would answer for the wrong engine.
 #
 # The vendored .js/.wasm in docs/ were built by this script from this patch. Rebuilding is only
 # needed when the patch changes; the browser demo (docs/pin.html) loads the vendored files.
