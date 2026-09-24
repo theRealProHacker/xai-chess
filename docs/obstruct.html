@@ -197,7 +197,7 @@ const GALLERY = [
    cap:'<b>“White mates because the queen and rook own the b-file.”</b> Mate in one, with the heavy pieces doubled.'},
   {name:'Pawn’s file', group:'fail',
    fen:'6k1/8/8/8/8/8/P7/6K1 w - - 0 1', arrow:['a2','a8'],
-   cap:'<b>“White wins because the a-file is clear in front of the pawn.”</b> Nothing on the board uses a file: the only piece that ever will is the queen this pawn promotes to. The test still credits one square, and that is the search disagreeing with itself, not the file.'},
+   cap:'<b>“White wins because the a-file is clear in front of the pawn.”</b> A pawn is not a slider, so the blocker cannot stand in its way. It still finds something, because the pawn becomes a queen and the blocker cuts that queen’s file. What the claim is actually about — a clear path for the pawn — is not a line this operator can test.'},
   {name:'Two rooks', group:'fail',
    fen:'6k1/5ppp/8/8/8/8/5PPP/RR4K1 w - - 0 1', arrow:['a1','a8'],
    cap:'<b>“White mates because the a-file is open.”</b> The same claim as <b>Open file</b>, with a second rook on b1.'},
