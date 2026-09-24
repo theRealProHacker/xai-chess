@@ -174,9 +174,9 @@ import { Chessground } from './vendor/chessground/chessground.min.js';
 
 // Five claims of the form "this line is why the position is what it is", each measured.
 const GALLERY = [
-  {name:'Open file',
-   fen:'3r2k1/pp3ppp/4pn2/3p4/3P4/4PN2/PP3PPP/2R3K1 w - - 0 22', arrow:['c1','c7'],
-   cap:'<b>“White is better because he owns the open c-file.”</b> Nothing hangs and there is no mate. The rook reaches c7 first, and Black never gets to contest the file.'},
+  {name:'Alekhine',
+   fen:'1r3k2/p1rqn1p1/Ppn1p2p/1B1pPp2/1P1P1P2/2R1QN2/2R3PP/6K1 w - - 12 26', arrow:['c1','c7'],
+   cap:'<b>“White is winning because he owns the c-file.”</b> Alekhine–Nimzowitsch, San Remo 1930, the game that named Alekhine’s gun. Nothing is hanging and there is no mate: Black is squeezed until he runs out of moves.'},
   {name:'Long diagonal',
    fen:'r4rk1/pp3ppp/8/8/3Q4/8/PB4PP/6K1 w - - 0 1', arrow:['b2','g7'],
    cap:'<b>“The queen mates on g7 because the bishop backs her up.”</b> Queen and bishop share one diagonal.'},
@@ -185,7 +185,7 @@ const GALLERY = [
    cap:'<b>“White mates because the bishop rakes a2–g8.”</b> The diagonal is wide open and the bishop really does eye g8. The mate is Nf7#.'},
   {name:'Dead rook ending',
    fen:'r5k1/pp3ppp/8/8/8/8/PP3PPP/2R3K1 w - - 0 1', arrow:['c1','c8'],
-   cap:'<b>“White is better because he owns the open c-file.”</b> Same claim as <b>Open file</b>, four pawns each, nothing to invade.'},
+   cap:'<b>“White is better because he owns the open c-file.”</b> The same claim with four pawns each and nothing to invade.'},
   {name:'Morphy',
    fen:'4kb1r/p2n1ppp/4q3/4p1B1/4P3/1Q6/PPP2PPP/2KR4 w k - 0 16', arrow:['d1','d8'],
    cap:'<b>“White mates down the d-file.”</b> Morphy–Duke of Brunswick and Count Isouard, Paris 1858. The knight on d7 is in the way; 16.Qb8+ pulls it off, and 17.Rd8# runs down the file.'},
@@ -331,6 +331,10 @@ function plan(){
     }
   }
   cand.sort((x,y) => (x[1]-y[1]) || (x[0] < y[0] ? -1 : 1));
+  // Without an off-line square there is no noise floor, and every drop would count as an
+  // effect. A short arrow on a crowded board hits this: every neighbour of the line is
+  // collinear with one of its ends, so nothing is left to compare against.
+  if(!cand.length) return {error:'No free square beside this line is off it, so there is nothing to measure against.'};
   return {orig:a.orig, dest:a.dest, axis: axisOf(a.orig, a.dest), lineAll, line, controls: spread(cand)};
 }
 
