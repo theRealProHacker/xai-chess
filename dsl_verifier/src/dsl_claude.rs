@@ -7,6 +7,28 @@ pub(crate) type Move_ = &'static str;
 /// Square such as "e4". A piece is named by its square where the reason is evaluated.
 pub(crate) type Sq = &'static str;
 
+/// Squares named the way players name them. `opponent` is relative to the reason's owner.
+#[derive(Debug)]
+pub(crate) enum Region {
+    Squares(Vec<Sq>),
+    /// The f-, g- and h-files. The d- and e-files are the centre, as in "central majority".
+    Kingside,
+    /// The a-, b- and c-files.
+    Queenside,
+    /// d4, e4, d5, e5.
+    Centre,
+    /// c3 to f6.
+    GreaterCentre,
+    /// Ranks 1-4 of the owner, or of the opponent.
+    Half { opponent: bool },
+    /// The wing that king stands on: "Black's castled side". Neither wing while it is on the d- or e-file.
+    KingWing { opponent: bool },
+    /// The king's square and its neighbours.
+    KingZone { opponent: bool },
+    /// A file, rank or diagonal from one square to the other, both included.
+    Line(Sq, Sq),
+}
+
 /// A reason belongs to a side: the mover at the top, the opponent inside `Allows` and `Prevents`.
 /// It is evaluated after the move (or after the line that wraps it).
 /// A line starts with the side to move; `Threatens` and `Enables` let the owner move first.
@@ -23,6 +45,10 @@ pub(crate) enum Reason {
     Prevents(Box<Reason>),
     /// An own reason that held before the move no longer does.
     Loses(Box<Reason>),
+    /// An own reason that did not hold before the move now does (discovered attack, clearance).
+    Gains(Box<Reason>),
+    /// An opponent reason that did not hold before the move now does ("weakens d3").
+    Concedes(Box<Reason>),
     /// No other move achieves the reason.
     Only(Box<Reason>),
     /// No move at all achieves the reason ("I search for the move that prevents both, but there is none").
@@ -57,6 +83,9 @@ pub(crate) enum Reason {
     Attack { by: Sq, targets: Vec<Sq> },
     /// `front` is the only piece between `by` and `behind`: pin, skewer, x-ray.
     Pin { by: Sq, front: Sq, behind: Sq },
+    /// `by` reaches `target` through `through`, the only piece between them, which is the opponent's.
+    /// Own piece on `target`: x-ray defence; otherwise x-ray attack.
+    XRay { by: Sq, through: Sq, target: Sq },
     Defend { by: Sq, target: Sq },
     /// The piece is tied to defending every duty.
     Overload { piece: Sq, duties: Vec<Sq> },
@@ -66,13 +95,13 @@ pub(crate) enum Reason {
     Block { line: (Sq, Sq), by: Sq },
     /// The line holds no pawn of the owner.
     Open((Sq, Sq)),
-    Control(Vec<Sq>),
+    Control(Region),
     /// Pieces aimed at these squares, short of a threat.
-    Pressure(Vec<Sq>),
+    Pressure(Region),
     /// More owner pieces bear on these squares than opponent pieces defend them.
-    Outnumber(Vec<Sq>),
+    Outnumber(Region),
     /// Opponent squares, pawns or pieces that are weak: holes, isolated, doubled or backward pawns, undefended pieces.
-    Weak(Vec<Sq>),
+    Weak(Region),
     Develop(Sq),
     /// The piece is active: scope, a good square. `Prevents(Active)` restricts or traps, `Not(Active)` is a bad piece.
     Active(Sq),
@@ -93,8 +122,8 @@ pub(crate) enum Reason {
     Closed,
     BishopPair,
     Passer(Sq),
-    /// Owner pawns outnumbering the opponent's on their wing.
-    Majority(Vec<Sq>),
+    /// Owner pawns outnumbering the opponent's on the region's files.
+    Majority(Region),
     Promote(Sq),
     /// The owner can play the line next.
     Enables(Vec<Move_>),
@@ -118,6 +147,7 @@ pub(crate) struct Reasoning {
 }
 
 use Reason::*;
+use Region::*;
 use Role::*;
 
 fn threatens(line: Vec<Move_>, r: Reason) -> Reason { Threatens(line, Box::new(r)) }
@@ -125,6 +155,8 @@ fn after(line: Vec<Move_>, r: Reason) -> Reason { After(line, Box::new(r)) }
 fn allows(line: Vec<Move_>, r: Reason) -> Reason { Allows(line, Box::new(r)) }
 fn prevents(r: Reason) -> Reason { Prevents(Box::new(r)) }
 fn loses(r: Reason) -> Reason { Loses(Box::new(r)) }
+fn gains(r: Reason) -> Reason { Gains(Box::new(r)) }
+fn concedes(r: Reason) -> Reason { Concedes(Box::new(r)) }
 fn only(r: Reason) -> Reason { Only(Box::new(r)) }
 fn no_move(r: Reason) -> Reason { NoMove(Box::new(r)) }
 fn instead(m: Move_, r: Reason) -> Reason { Instead(m, Box::new(r)) }
@@ -146,8 +178,8 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             comment: r#"Black blunders by accepting the pawn and mate is forced - 12.Qh5+ g6 13.Qxg6+Kf8 14.Qf7#. (11.Bxe4 12.Nxe4 also looks weak for Black even if not immediatelylosing the game). Stronger would have been either 11...Bd7 or 11...Nbd7 todevelop the Queen’s pieces while still keeping control of h5. AlthoughBlack would have been up a Knight for two Pawns, White still would haveretained a strong initiative with mobility, space, and control with a complexand interesting game ahead."#,
             reason: And(vec![
                 allows(vec!["Qh5+", "g6", "Qxg6+", "Kf8", "Qf7#"], Mate),
-                instead("Bd7", Control(vec!["h5"])),
-                instead("Nbd7", And(vec![Develop("d7"), Control(vec!["h5"]), allows(vec![], Tempo(1))])),
+                instead("Bd7", Control(Squares(vec!["h5"]))),
+                instead("Nbd7", And(vec![Develop("d7"), Control(Squares(vec!["h5"])), allows(vec![], Tempo(1))])),
             ]),
         },
         // train-1179: Loses, Sacrifice, Block
@@ -159,7 +191,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
                 instead("Bc5", loses(Tempo(1))),
                 sacrifice(vec![Pawn], after(vec!["exd3"], And(vec![
                     Block { line: ("d1", "d5"), by: "d3" },
-                    prevents(Pressure(vec!["d5"])),
+                    prevents(Pressure(Squares(vec!["d5"]))),
                 ]))),
             ]),
         },
@@ -170,7 +202,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             comment: r#"essentially forced, since after cxd5 the isolated queen pawn becomes a hugetarget and of course Nxd5 loses to the mate on g7."#,
             reason: And(vec![
                 only(WinMaterial(vec![Pawn])),
-                instead("cxd5", allows(vec![], Weak(vec!["d5"]))),
+                instead("cxd5", allows(vec![], Weak(Squares(vec!["d5"])))),
                 instead("Nxd5", allows(vec!["Qxg7#"], Mate)),
             ]),
         },
@@ -180,7 +212,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             mov: "Rc8",
             comment: r#"Bogo attempts totie up White's Queenside forces by attacking the weakened c3-pawn. Since thepawn is now attacked twice (by Black's d5-Knight and Rook), White's Queen andd2-Bishop are tied to its defense."#,
             reason: And(vec![
-                Weak(vec!["c3"]),
+                Weak(Squares(vec!["c3"])),
                 Attack { by: "c8", targets: vec!["c3"] },
                 Attack { by: "d5", targets: vec!["c3"] },
                 Overload { piece: "b3", duties: vec!["c3"] },
@@ -196,8 +228,8 @@ pub(crate) fn examples() -> Vec<Reasoning> {
                 Defend { by: "d6", target: "e5" },
                 Defend { by: "d7", target: "e5" },
                 Block { line: ("b2", "h8"), by: "e5" },
-                Control(vec!["d4"]),
-                Weak(vec!["e4"]),
+                Control(Squares(vec!["d4"])),
+                Weak(Squares(vec!["e4"])),
             ]),
         },
         // train-0701: Attack (fork), Prevents(Active)
@@ -227,8 +259,8 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             mov: "Rcd8",
             comment: r#"Interestingly, it was only whenconsidering this move, where the rook takes the queen's place on d8, that I spotthe Nxe5 threat. The move increases pressure on the backward pawn d4 andre-establishes the pin."#,
             reason: And(vec![
-                Pressure(vec!["d4"]),
-                Weak(vec!["d4"]),
+                Pressure(Squares(vec!["d4"])),
+                Weak(Squares(vec!["d4"])),
                 Pin { by: "d8", front: "d4", behind: "d3" },
                 threatens(vec!["Nxe5"], WinMaterial(vec![Pawn])),
             ]),
@@ -240,8 +272,10 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             comment: r#"Preparing White's two main ideas : the creation of a passed pawn with e4-e5 and d5-d6, and the control of the c-file with Rb1-c1-c6. Black cannot prevent both."#,
             reason: And(vec![
                 threatens(vec!["e5", "--", "d6", "exd6", "exd6"], Passer("d6")),
-                threatens(vec!["Rbc1", "--", "Rc6"], Control(vec!["c2", "c3", "c4", "c5", "c6", "c7", "c8"])),
+                threatens(vec!["Rbc1", "--", "Rc6"], Control(Line("c2", "c8"))),
             ]),
+            // Before Region:
+            // threatens(vec!["Rbc1", "--", "Rc6"], Control(Squares(vec!["c2", "c3", "c4", "c5", "c6", "c7", "c8"]))),
         },
         // train-0528: Promote
         Reasoning {
@@ -259,7 +293,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             mov: "Kg6",
             comment: r#"1-0 Black resigns. Black now has no way to defend f6. Even if MVL tries to hold on for example with 74... Ke6, White can simply make a waiting move with 75. Rf2. Black is then forced to play 75... Ne7+, since Black's king loses the opposition and this is the only knight move that doesn't immediately lose the f6 pawn, but then after 76. Kg7 Nd5 White plays 77. Rf5! and Black is in zugzwang: no matter what move he makes, the f6 pawn will be lost. Which is why MVL resigned in this position."#,
             reason: And(vec![
-                Pressure(vec!["f6"]),
+                Pressure(Squares(vec!["f6"])),
                 after(vec!["Ke6", "Rf2", "Ne7+", "Kg7", "Nd5", "Rf5"], Zugzwang),
             ]),
         },
@@ -268,14 +302,14 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             fen: "8/6pk/7p/8/8/1R2KP2/7r/8 w - - 0 41",
             mov: "Rb7",
             comment: r#"despite Black's passed h-pawn, this should be adraw, since White's rook is ideally placed to harass Black's king and pressurethe pawns from the side."#,
-            reason: And(vec![Draw, Active("b7"), Pressure(vec!["g7", "h7"])]),
+            reason: And(vec![Draw, Active("b7"), Pressure(Squares(vec!["g7", "h7"]))]),
         },
         // train-0021: Win
         Reasoning {
             fen: "4B2k/7p/p2bP1p1/1p1P4/1P2K1P1/P6P/8/8 w - - 1 40",
             mov: "Bc6",
             comment: r#"1-0 White wins. Now white can easily win the light squared pawns. This is the idea that allows white to win, there are many similar endgame setups with opposite colored bishops where it is simply a draw."#,
-            reason: And(vec![Win, Pressure(vec!["b5"])]),
+            reason: And(vec![Win, Pressure(Squares(vec!["b5"]))]),
         },
         // train-1104: Practical
         Reasoning {
@@ -285,7 +319,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             reason: And(vec![
                 threatens(vec!["Rf7+"], Attack { by: "f7", targets: vec!["g7", "d7"] }),
                 allows(vec!["Be8"], Defend { by: "e8", target: "f7" }),
-                Pressure(vec!["f7"]),
+                Pressure(Squares(vec!["f7"])),
                 Practical,
             ]),
         },
@@ -297,8 +331,8 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             reason: And(vec![
                 loses(BishopPair),
                 Trade { give: vec!["b4"], get: vec!["c3"] },
-                prevents(Control(vec!["d5"])),
-                after(vec!["bxc3"], Weak(vec!["c3", "c4"])),
+                prevents(Control(Squares(vec!["d5"]))),
+                after(vec!["bxc3"], Weak(Squares(vec!["c3", "c4"]))),
             ]),
         },
         // train-1100: Decoy, Enables
@@ -313,7 +347,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
                     Enables(vec!["d4"]),
                     Tempo(1),
                 ])),
-                allows(vec![], Weak(vec!["e3", "g3"])),
+                allows(vec![], Weak(Squares(vec!["e3", "g3"]))),
             ]),
         },
         // train-1024: Develop, Tempo
@@ -334,7 +368,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             mov: "Qc4",
             comment: r#"Although black is not winning that pawn but they are still putting a lot of pressure and preventing white from castling meaning that king E1 is stuck in the center. Black is also threatening takes for bishop C3 and knight D4"#,
             reason: And(vec![
-                Pressure(vec!["d4"]),
+                Pressure(Squares(vec!["d4"])),
                 prevents(Castle),
                 threatens(vec!["Bxc3+", "bxc3", "Nxd4"], WinMaterial(vec![Pawn])),
             ]),
@@ -344,7 +378,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             fen: "1rbr2k1/2Rn1ppp/1P1q4/p2p4/P2B4/4P3/4B1PP/3Q1RK1 w - - 1 28",
             mov: "Bd3",
             comment: r#"I was pleased to find this move, which isquiet but effective. The bishop is centralized and now threatens action on thekingside against Black's weakly defended king. Black's pieces are too tied up onthe queenside to be able to defend against White's sudden threats."#,
-            reason: And(vec![Active("d3"), Pressure(vec!["h7"])]),
+            reason: And(vec![Active("d3"), Pressure(Squares(vec!["h7"]))]),
         },
         // train-1313: Control
         Reasoning {
@@ -352,7 +386,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             mov: "e4",
             comment: r#"White has good control of the center, so you must respond to this. White threatens to play e5, so how do you control the e5 square with one of your pawns?"#,
             reason: And(vec![
-                Control(vec!["d5", "e5", "f5"]),
+                Control(Squares(vec!["d5", "e5", "f5"])),
                 threatens(vec!["e5"], Attack { by: "e5", targets: vec!["f6"] }),
             ]),
         },
@@ -372,11 +406,11 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             mov: "Bg5",
             comment: r#"In this position, white prepares to trade knight for bishop inflicting doubled pawns upon Black in the process. Black has tons of ways to counter this. 2... Ne4 is the most common reply. Black does break one of the opening rules (do not move a piece twice) but it attacks white's bishop. 2... e6 also avoids doubled pawns since the queen can recapture if White plays Bxf6. d5 and c5 can also be played to attack the center."#,
             reason: And(vec![
-                threatens(vec!["Bxf6", "exf6"], And(vec![Trade { give: vec!["c1"], get: vec!["f6"] }, Weak(vec!["f6", "f7"])])),
+                threatens(vec!["Bxf6", "exf6"], And(vec![Trade { give: vec!["c1"], get: vec!["f6"] }, Weak(Squares(vec!["f6", "f7"]))])),
                 allows(vec!["Ne4"], And(vec![Attack { by: "e4", targets: vec!["g5"] }, loses(Tempo(1))])),
                 allows(vec!["e6"], Defend { by: "d8", target: "f6" }),
                 allows(vec!["c5"], Attack { by: "c5", targets: vec!["d4"] }),
-                allows(vec!["d5"], Control(vec!["c4", "e4"])),
+                allows(vec!["d5"], Control(Squares(vec!["c4", "e4"]))),
             ]),
         },
         // train-1601: Not
@@ -386,8 +420,8 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             comment: r#"Black has now the open file and his left side Pawn position is very solid, while White has a weak d-Pawn. The apparently weak Black a Pawn is not actually weak because White has no way to attack it."#,
             reason: And(vec![
                 Open(("c8", "c1")),
-                Weak(vec!["d4"]),
-                not(allows(vec![], Weak(vec!["a7"]))),
+                Weak(Squares(vec!["d4"])),
+                not(allows(vec![], Weak(Squares(vec!["a7"])))),
             ]),
         },
         // train-1234: Majority, Better
@@ -396,8 +430,8 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             mov: "f4",
             comment: r#"Black's pawn sacrifice has brought him a whole string of positional advantages 1) His 3-2 majority on the Kingside is now extremely active 2) He controls the vital e5 square, and cna plant a Knight there as a blockader 3) The hapless White Bishop is no match at all for the Black Knight"#,
             reason: And(vec![
-                Majority(vec!["f4", "g6", "h7"]),
-                Control(vec!["e5"]),
+                Majority(Squares(vec!["f4", "g6", "h7"])),
+                Control(Squares(vec!["e5"])),
                 threatens(vec!["Ne5"], prevents(Enables(vec!["e5"]))),
                 Better { pieces: vec!["d7"], than: vec!["c2"] },
             ]),
@@ -410,7 +444,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             reason: And(vec![
                 Trade { give: vec!["c7"], get: vec!["d7"] },
                 Simplify,
-                prevents(Pressure(vec!["b5", "b7"])),
+                prevents(Pressure(Squares(vec!["b5", "b7"]))),
             ]),
         },
         // train-0574: Faster
@@ -431,7 +465,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             comment: r#"White makes room for his king, and Black does the same. This was the kind of chance that White was waiting for, because he now has chances of a king's side attack. Fron his point fo view the disparity of four pieces against two is at an optimum: had he not excanged some pieces the ratio would have been favourable, whilst if he were now to exchange rooks he would hardly have a sufficient attacking force."#,
             reason: And(vec![
                 Enables(vec!["Kh7"]),
-                allows(vec![], And(vec![Outnumber(vec!["g6", "g7", "h5"]), not(Simplify)])),
+                allows(vec![], And(vec![Outnumber(Squares(vec!["g6", "g7", "h5"])), not(Simplify)])),
             ]),
         },
         // dev-0051: Options
@@ -473,7 +507,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             mov: "Ke7",
             comment: r#"This quite paradoxical king move to the center of the board was found by me back in 1988, while I was preparing for the aforementioned game against Kasparov. I was afraid of the queen shift to the kingside. The exchange of queens seemed to me to be a dull idea. It took me a long time before I found the correct decision. And so this important novelty remained a secret for five years! The idea of the king move is that black unexpectedly harmonizes the placement of his pieces, which were a bit out of sync only a move ago. But now the threat is g7-g5-g4, winning a piece. If white wants to maintain the opening advantage, he must act decisively."#,
             reason: And(vec![
-                prevents(Pressure(vec!["g7"])),
+                prevents(Pressure(Squares(vec!["g7"]))),
                 Coordinate(vec!["e7", "d8", "h8"]),
                 threatens(vec!["g5", "--", "g4"], WinMaterial(vec![Knight])),
             ]),
@@ -484,7 +518,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             mov: "Qxd4",
             comment: r#"White now has a clear advantage in space because the pawn on e4 controls more space than the pawn on d6 and because of the powerfully placed queen."#,
             reason: because(Space, And(vec![
-                outweighs(Control(vec!["d5", "f5"]), Control(vec!["c5", "e5"])),
+                outweighs(Control(Squares(vec!["d5", "f5"])), Control(Squares(vec!["c5", "e5"]))),
                 Active("d4"),
             ])),
         },
@@ -494,8 +528,8 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             mov: "Ne5",
             comment: r#"White has advanced pawns and the structure is a bit weak. Therefore the initiative must be maintained. Notice that the advance of the h-pawn has weakened g6."#,
             reason: And(vec![
-                because(Initiative, allows(vec![], Weak(vec!["g4", "h3"]))),
-                Weak(vec!["g6"]),
+                because(Initiative, allows(vec![], Weak(Squares(vec!["g4", "h3"])))),
+                Weak(Squares(vec!["g6"])),
             ]),
         },
         // train-0946: Permanent, Imbalance
@@ -505,8 +539,8 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             comment: r#"An aggressive opening for Black that leads to sharp, unbalanced positions. Black is playing to win not unlike the Sicilian but instead of c5 you are committing the riskier f5 pawn which weakens f7.Black gets to control e4 but has permanently weakened the King's position via f7."#,
             reason: And(vec![
                 Imbalance,
-                Control(vec!["e4"]),
-                allows(vec![], permanent(Weak(vec!["f7"]))),
+                Control(Squares(vec!["e4"])),
+                allows(vec![], permanent(Weak(Squares(vec!["f7"])))),
             ]),
         },
         // train-1178: Outweighs
@@ -515,9 +549,9 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             mov: "Bc1",
             comment: r#"Black was wrong to allow himself to be saddled with the isolated c-pawn which will prove weaker than the White d-pawn. White, with his greater freedom of movement, will now have chances of a Kingside attack. He already threatens Rd3 and Black finds it essential to bring reinforcements across to the King'swing"#,
             reason: And(vec![
-                outweighs(Weak(vec!["c6"]), Weak(vec!["d4"])),
+                outweighs(Weak(Squares(vec!["c6"])), Weak(Squares(vec!["d4"]))),
                 Space,
-                threatens(vec!["Rd3"], Pressure(vec!["h7"])),
+                threatens(vec!["Rd3"], Pressure(Squares(vec!["h7"]))),
             ]),
         },
         // train-0725: Trade and Better between groups
@@ -558,7 +592,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             comment: r#"In this position, as in the Advance Variation, White finds it most profitable to provoke a weakening in Black's position by threatening Bg6. It also allows White, if she chooses, to virtually force a bishop trade by Ng1-f3 and Bf1-d3. Black's bishop is very good and Black's light-square pawns make White's bishop mediocre, so a trade is considered best."#,
             reason: And(vec![
                 threatens(vec!["h5"], Attack { by: "h5", targets: vec!["g6"] }),
-                after(vec!["h6"], Weak(vec!["g6"])),
+                after(vec!["h6"], Weak(Squares(vec!["g6"]))),
                 Enables(vec!["Nf3", "--", "Bd3"]),
                 because(Trade { give: vec!["f1"], get: vec!["g6"] }, And(vec![
                     Active("g6"),
@@ -589,10 +623,78 @@ pub(crate) fn examples() -> Vec<Reasoning> {
                 allows(vec![], because(Practical, Closed)),
                 because(Active("d4"), And(vec![
                     Passer("d4"),
-                    Control(vec!["c3", "e3"]),
+                    Control(Squares(vec!["c3", "e3"])),
                 ])),
                 because(not(Promote("d4")), Closed),
             ]),
+        },
+        // train-0452: Gains
+        Reasoning {
+            fen: "3r2k1/4b1pp/p7/1p2q3/2nrP3/5P1N/PPR1Q1P1/2R2NK1 b - - 2 27",
+            mov: "Bc5",
+            comment: r#"Black threatens to win the White Queen by way of a discoveredcheck: 28...Rd2+ (the Rook move uncovers the Bishop check, forcing the WhiteKing to move) 29.Kh1 Rxe2 30.Rxe2 (winning the Queen for a Rook)."#,
+            reason: threatens(vec!["Rd2+"], And(vec![
+                gains(Attack { by: "c5", targets: vec!["g1"] }),
+                after(vec!["Kh1", "Rxe2", "Rxe2"], WinMaterial(vec![Queen])),
+            ])),
+            // Before Gains: the check, but not that the rook move uncovers it.
+            // reason: threatens(vec!["Rd2+"], And(vec![
+            //     Attack { by: "c5", targets: vec!["g1"] },
+            //     after(vec!["Kh1", "Rxe2", "Rxe2"], WinMaterial(vec![Queen])),
+            // ])),
+        },
+        // train-0121: Concedes
+        Reasoning {
+            fen: "r4r1k/pppqn1b1/3pn2p/1P1Nppp1/P1P5/BQ1P1NPb/4PP1P/1R2R1KB w - - 0 17",
+            mov: "e3",
+            comment: r#"this weakens d3, which is important in a number of variations, but alsostrengthens f4, prevents the Black knight from entering d4, and offers thechance of opening the e-file for White if the e-pawn is exchanged."#,
+            reason: And(vec![
+                concedes(Weak(Squares(vec!["d3"]))),
+                Control(Squares(vec!["f4"])),
+                prevents(Enables(vec!["Nd4"])),
+            ]),
+            // Before Concedes: d3 is weak now, not that e3 made it so.
+            // reason: And(vec![
+            //     allows(vec![], Weak(Squares(vec!["d3"]))),
+            //     Control(Squares(vec!["f4"])),
+            //     prevents(Enables(vec!["Nd4"])),
+            // ]),
+        },
+        // train-1210: XRay
+        Reasoning {
+            fen: "r1bqkb1r/pppp1ppp/2n2n2/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+            mov: "O-O",
+            comment: r#"Rio Gambit. White's strongest, most common response. This defends white's king, bringing the rook to a more central file and preparing to bring it to the e-file to defend the e4 pawn and line up on black's king. This temporarily gambits the e4 pawn, allowing black to capture with Nxe4, but white can capture the e5 pawn in response with Re1, forcing the e4 knight to move while x-ray attacking the e5 pawn. This allows Nxe5, even if black threatens to win the white-squared bishop with Nd6, as after Nxe5, white threatens Nxc6, winning black's queen if black captures the bishop with Nxb5."#,
+            reason: sacrifice(vec![Pawn], after(vec!["Nxe4", "Re1"], And(vec![
+                Attack { by: "e1", targets: vec!["e4"] },
+                XRay { by: "e1", through: "e4", target: "e5" },
+            ]))),
+            // Before XRay: right geometry, but claims the knight cannot move, while the point is that it must.
+            // reason: sacrifice(vec![Pawn], after(vec!["Nxe4", "Re1"], Pin { by: "e1", front: "e4", behind: "e5" })),
+        },
+        // train-0535: Region (Queenside, Kingside)
+        Reasoning {
+            fen: "6k1/pp5p/6p1/2Pp1p2/8/1P2b2P/P4PP1/6K1 w - - 0 28",
+            mov: "fxe3",
+            comment: r#"Timeto evaluate this endgame. It's quite complex, actually. Both sides haveisolated pawns. The kings are preparing to advance to the center. Blackhas a pawn majority on the kingside, while white has one on the queenside. The queenside majority gives white dangerous chances, though. The majorityhas a lust to quickly expand with b4 and a4, with moves like b5 and thenc6 coming in, probably creating a strong passed pawn. This may not happen,but it is a threat. It at least keeps the black king somewhat tied downto this area to prevent a passed pawn from becoming a deadly threat."#,
+            reason: And(vec![
+                outweighs(Majority(Queenside), Majority(Kingside)),
+                threatens(vec!["b4", "--", "b5", "--", "c6", "bxc6", "bxc6"], Passer("c6")),
+            ]),
+            // Before Region: the wing is guessed from the files of the listed pawns.
+            // reason: And(vec![
+            //     outweighs(Majority(Squares(vec!["a2", "b3", "c5"])), Majority(Squares(vec!["f5", "g6", "h7"]))),
+            //     threatens(vec!["b4", "--", "b5", "--", "c6", "bxc6", "bxc6"], Passer("c6")),
+            // ]),
+        },
+        // train-0924: Region (Centre)
+        Reasoning {
+            fen: "3r2k1/2r2pq1/p2pb1p1/1p4Np/2nPPQ2/1B5P/PP3RP1/3R2K1 w - - 3 34",
+            mov: "Kh1",
+            comment: r#"White's initiative has now brough him a decisive positional advantage. He controls the centre and the half-open f-file, as well as enjoying the greater freedom of movement. What follows now is not so much a matter of initiative as direct attack, for which Kh1 was a fine preparation (preventing Qd4+)"#,
+            reason: And(vec![Control(Centre), Open(("f1", "f8"))]),
+            // Before Region:
+            // reason: And(vec![Control(Squares(vec!["d4", "e4", "d5", "e5"])), Open(("f1", "f8"))]),
         },
     ]
 }
@@ -625,7 +727,8 @@ fn examples_are_legal() {
             Threatens(l, r) => check(r, &play(p.clone(), Some(owner), l), owner, root),
             After(l, r) => check(r, &play(p.clone(), None, l), owner, root),
             Allows(l, r) => check(r, &play(p.clone(), None, l), !owner, root),
-            Only(r) | Sacrifice(_, r) | Permanent(r) => check(r, p, owner, root),
+            Only(r) | Sacrifice(_, r) | Permanent(r) | Gains(r) => check(r, p, owner, root),
+            Concedes(r) => check(r, p, !owner, root),
             Because(a, b) => { check(a, p, owner, root); check(b, p, owner, root) }
             Outweighs(a, b) => { check(a, p, owner, root); check(b, p, !owner, root) }
             Instead(m, r) => check(r, &play(root.clone(), None, &[m]), owner, root),
@@ -638,9 +741,14 @@ fn examples_are_legal() {
                 let between = attacks::between(sq(by), sq(behind)) & p.board().occupied();
                 assert!(attacks::aligned(sq(by), sq(front), sq(behind)) && between.count() == 1 && between.contains(sq(front)));
             }
+            XRay { by, through, target } => {
+                let between = attacks::between(sq(by), sq(target)) & p.board().occupied();
+                assert!(attacks::aligned(sq(by), sq(through), sq(target)) && between.count() == 1 && between.contains(sq(through)));
+                assert_eq!(p.board().color_at(sq(through)), Some(!owner), "{through} is not the opponent's");
+            }
             Block { line: (a, b), by } => { occ(by); assert!(attacks::between(sq(a), sq(b)).contains(sq(by))) }
             Develop(s) | Active(s) => occ(s),
-            Majority(ps) => ps.iter().for_each(|s| assert_eq!(p.board().role_at(sq(s)), Some(Pawn))),
+            Majority(Squares(ps)) => ps.iter().for_each(|s| assert_eq!(p.board().role_at(sq(s)), Some(Pawn))),
             Options(ms) => ms.iter().for_each(|m| { play(p.clone(), Some(owner), &[m]); }),
             Trade { give, get } => give.iter().chain(get).for_each(|s| assert!(root.board().piece_at(sq(s)).is_some(), "empty {s}")),
             Better { pieces, than } => pieces.iter().chain(than).for_each(|s| occ(s)),

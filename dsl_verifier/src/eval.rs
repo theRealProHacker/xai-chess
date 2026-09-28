@@ -7,7 +7,7 @@
 //! - `Because(a, b)` holds when `a` and `b` both hold. That `b` causes `a` is not checked.
 //! - `Outweighs(a, b)` holds when both hold. The weighing is not checked.
 //! - `WinMaterial` and `Sacrifice` use static exchange evaluation, not a search.
-//! - `Prevents` and `Loses` compare with the position before the enclosing move or line.
+//! - `Prevents`, `Loses`, `Gains` and `Concedes` compare with the position before the enclosing move or line.
 
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
@@ -20,7 +20,7 @@ use shakmaty::{
     Bitboard, CastlingMode, Chess, Color, EnPassantMode, Move, Piece, Position, Rank, Role, Square, attacks,
 };
 
-use crate::dsl_claude::{Move_, Reason, Reason::*, Sq, examples};
+use crate::dsl_claude::{Move_, Reason, Reason::*, Region, Sq, examples};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum V {
@@ -164,6 +164,37 @@ fn backward(p: &Chess, s: Square, c: Color) -> bool {
 
 /// No pawn of `c` can ever guard `s`.
 fn hole(p: &Chess, s: Square, c: Color) -> bool { (pawns(p, c) & adjacent_files(s) & behind(s, c)).is_empty() }
+
+/// The squares of `r` for `owner`. Fails for `KingWing` while that king is on the d- or e-file.
+fn region(r: &Region, p: &Chess, owner: Color) -> Result<Vec<Square>, String> {
+    let files = |fs: std::ops::RangeInclusive<u32>| Bitboard::FULL.into_iter().filter(|s| fs.contains(&(s.file() as u32))).collect::<Vec<_>>();
+    let box_ = |lo: u32, hi: u32| Bitboard::FULL.into_iter().filter(|s| (lo..=hi).contains(&(s.file() as u32)) && (lo..=hi).contains(&(s.rank() as u32))).collect();
+    let side = |opponent: bool| if opponent { !owner } else { owner };
+    Ok(match r {
+        Region::Squares(ss) => ss.iter().map(|s| sq(s)).collect(),
+        Region::Kingside => files(5..=7),
+        Region::Queenside => files(0..=2),
+        Region::Centre => box_(3, 4),
+        Region::GreaterCentre => box_(2, 5),
+        Region::Half { opponent } => {
+            let c = side(*opponent);
+            Bitboard::FULL.into_iter().filter(|s| rank(*s, c) <= 3).collect()
+        }
+        Region::KingWing { opponent } => {
+            let k = p.board().king_of(side(*opponent)).ok_or("no king")?;
+            match k.file() as u32 {
+                5..=7 => files(5..=7),
+                0..=2 => files(0..=2),
+                _ => return Err(format!("king on {k} is on neither wing")),
+            }
+        }
+        Region::KingZone { opponent } => {
+            let k = p.board().king_of(side(*opponent)).ok_or("no king")?;
+            (attacks::king_attacks(k) | Bitboard::from(k)).into_iter().collect()
+        }
+        Region::Line(a, z) => (attacks::between(sq(a), sq(z)) | Bitboard::from(sq(a)) | Bitboard::from(sq(z))).into_iter().collect(),
+    })
+}
 
 fn slider_line(role: Role, a: Square, b: Square) -> bool {
     let diag = attacks::bishop_attacks(a, Bitboard::EMPTY).contains(b);
@@ -316,8 +347,10 @@ impl Ev {
                 Err(e) => fail(e),
                 Ok(q) => self.eval(r, &cx.at(q, !owner)),
             },
-            Prevents(r) => self.quietly(|ev| ev.before_after(r, cx, !owner)),
-            Loses(r) => self.quietly(|ev| ev.before_after(r, cx, owner)),
+            Prevents(r) => self.quietly(|ev| ev.before_after(r, cx, !owner, false)),
+            Loses(r) => self.quietly(|ev| ev.before_after(r, cx, owner, false)),
+            Gains(r) => self.quietly(|ev| ev.before_after(r, cx, owner, true)),
+            Concedes(r) => self.quietly(|ev| ev.before_after(r, cx, !owner, true)),
             Only(r) => {
                 let v = self.eval(r, cx);
                 if v.v != V::Holds { return v; }
@@ -368,7 +401,7 @@ impl Ev {
             }
             Permanent(r) => {
                 let v = self.eval(r, cx);
-                let structural = matches!(&**r, Weak(ss) if ss.iter().all(|s| {
+                let structural = matches!(&**r, Weak(Region::Squares(ss)) if ss.iter().all(|s| {
                     let s = sq(s);
                     match b.piece_at(s) {
                         None => hole(p, s, !owner),
@@ -441,6 +474,12 @@ impl Ev {
                 check(mine(a) && theirs(f) && theirs(k) && role.is_some_and(|r| slider_line(r, a, k))
                     && between == Bitboard::from(f), format!("no pin {by}-{front}-{behind}"))
             }
+            XRay { by, through, target } => {
+                let (a, t, z) = (sq(by), sq(through), sq(target));
+                let between = attacks::between(a, z) & b.occupied();
+                check(mine(a) && theirs(t) && b.role_at(a).is_some_and(|r| slider_line(r, a, z))
+                    && between == Bitboard::from(t), format!("no x-ray {by}-{through}-{target}"))
+            }
             Block { line: (a, z), by } => {
                 check(b.piece_at(sq(by)).is_some() && attacks::between(sq(a), sq(z)).contains(sq(by)), format!("{by} does not block"))
             }
@@ -448,13 +487,14 @@ impl Ev {
                 let ray = attacks::between(sq(a), sq(z)) | Bitboard::from(sq(a)) | Bitboard::from(sq(z));
                 check((ray & pawns(p, owner)).is_empty(), format!("own pawn on {a}-{z}"))
             }
-            Control(ss) => all(ss.iter().map(|s| {
-                let (own, opp) = (attackers(p, sq(s), owner), attackers(p, sq(s), !owner));
+            Control(r) => all(match region(r, p, owner) { Err(e) => return fail(e), Ok(ss) => ss }.into_iter().map(|s| {
+                let (own, opp) = (attackers(p, s, owner), attackers(p, s, !owner));
                 check(own.any() && ((own & b.pawns()).any() || own.count() >= opp.count()), format!("{s}: {} vs {}", own.count(), opp.count()))
             }).collect::<Vec<_>>()),
-            Pressure(ss) => all(ss.iter().map(|s| check(attackers(p, sq(s), owner).any(), format!("nothing on {s}"))).collect::<Vec<_>>()),
-            Outnumber(ss) => all(ss.iter().map(|s| {
-                let (own, opp) = (attackers(p, sq(s), owner).count(), attackers(p, sq(s), !owner).count());
+            Pressure(r) => all(match region(r, p, owner) { Err(e) => return fail(e), Ok(ss) => ss }.into_iter()
+                .map(|s| check(attackers(p, s, owner).any(), format!("nothing on {s}"))).collect::<Vec<_>>()),
+            Outnumber(r) => all(match region(r, p, owner) { Err(e) => return fail(e), Ok(ss) => ss }.into_iter().map(|s| {
+                let (own, opp) = (attackers(p, s, owner).count(), attackers(p, s, !owner).count());
                 check(own > opp, format!("{s}: {own} vs {opp}"))
             }).collect::<Vec<_>>()),
             Overload { piece, duties } => {
@@ -486,12 +526,16 @@ impl Ev {
                 let s = sq(s);
                 check(mine(s) && b.role_at(s) == Some(Role::Pawn) && passed(p, s, owner), format!("{s} not passed"))
             }
-            Majority(ss) => {
-                let files: Vec<u32> = ss.iter().map(|s| sq(s).file() as u32).collect();
+            Majority(r) => {
+                let ss = match region(r, p, owner) { Err(e) => return fail(e), Ok(ss) => ss };
+                // Listed squares name owner pawns; the wing spans their files.
+                if matches!(r, Region::Squares(_)) && !ss.iter().all(|s| mine(*s) && b.role_at(*s) == Some(Role::Pawn)) {
+                    return fail("not all owner pawns");
+                }
+                let files: Vec<u32> = ss.iter().map(|s| s.file() as u32).collect();
                 let (lo, hi) = (*files.iter().min().unwrap(), *files.iter().max().unwrap());
                 let wing = |c: Color| pawns(p, c).into_iter().filter(|s| (lo..=hi).contains(&(s.file() as u32))).count();
-                check(ss.iter().all(|s| mine(sq(s)) && b.role_at(sq(s)) == Some(Role::Pawn)) && wing(owner) > wing(!owner),
-                    format!("{} vs {}", wing(owner), wing(!owner)))
+                check(wing(owner) > wing(!owner), format!("{} vs {}", wing(owner), wing(!owner)))
             }
             Promote(s) => {
                 let s = sq(s);
@@ -526,8 +570,8 @@ impl Ev {
             Tempo(_) => unknown("tempo count not modelled"),
 
             // ---------------------------------------------------------------- tier 3: heuristics
-            Weak(ss) => all(ss.iter().map(|s| {
-                let s2 = sq(s);
+            Weak(r) => all(match region(r, p, owner) { Err(e) => return fail(e), Ok(ss) => ss }.into_iter().map(|s| {
+                let s2 = s;
                 match b.piece_at(s2) {
                     None => check(hole(p, s2, !owner), format!("{s} can still be guarded by a pawn")),
                     Some(pc) if pc.color == owner => fail(format!("{s} is the owner's")),
@@ -584,14 +628,15 @@ impl Ev {
         }
     }
 
-    /// The reason held for `who` before and does not hold now.
-    fn before_after(&mut self, r: &Reason, cx: &Cx, who: Color) -> Verdict {
+    /// For `who`, the reason held before and does not hold now, or with `gained` the other way round.
+    fn before_after(&mut self, r: &Reason, cx: &Cx, who: Color, gained: bool) -> Verdict {
         let before = self.eval(r, &Cx { p: cx.prev.clone(), prev: cx.prev.clone(), owner: who });
         let now = self.eval(r, &Cx { owner: who, ..cx.clone() });
+        let (from, to) = if gained { (V::Fails, V::Holds) } else { (V::Holds, V::Fails) };
         match (before.v, now.v) {
-            (V::Holds, V::Fails) => ok(),
-            (V::Fails, _) => fail(format!("did not hold before: {}", before.why)),
-            (_, V::Holds) => fail("still holds"),
+            (b, n) if b == from && n == to => ok(),
+            (b, _) if b == to => fail(if gained { format!("already held before") } else { format!("did not hold before: {}", before.why) }),
+            (_, n) if n == from => fail(if gained { format!("does not hold: {}", now.why) } else { "still holds".into() }),
             _ => unknown(format!("{} / {}", before.why, now.why)),
         }
     }
