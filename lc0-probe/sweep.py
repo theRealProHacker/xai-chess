@@ -46,9 +46,12 @@ def probe(X):
     return float(np.mean(au)), float(np.std(au)), float(np.mean(ac)), float(np.mean(it))
 
 store = json.loads(CACHE.read_text()) if CACHE.exists() else {}
+done = {}
+for f in (HERE / "data").glob("sweep*.json"):          # any worker's rows count
+    done.update(json.loads(f.read_text()))
 for tap, view in jobs:
     key = f"{tap} {view}"
-    if key in store:
+    if key in done:
         print(f"{key:16} cached", flush=True); continue
     X = np.ascontiguousarray(acts[:, TAPS.index(tap), VIEWS[view], :]).reshape(N, -1).astype(np.float32)
     t = time.time()
