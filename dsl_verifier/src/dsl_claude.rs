@@ -3,14 +3,15 @@
 use shakmaty::Role;
 
 /// SAN move. In a line, "--" is a pass.
-type Move_ = &'static str;
+pub(crate) type Move_ = &'static str;
 /// Square such as "e4". A piece is named by its square where the reason is evaluated.
-type Sq = &'static str;
+pub(crate) type Sq = &'static str;
 
 /// A reason belongs to a side: the mover at the top, the opponent inside `Allows` and `Prevents`.
 /// It is evaluated after the move (or after the line that wraps it).
 /// A line starts with the side to move; `Threatens` and `Enables` let the owner move first.
-enum Reason {
+#[derive(Debug)]
+pub(crate) enum Reason {
     And(Vec<Reason>),
     /// The owner plays `line` unopposed, then the reason holds. Also multi-move plans.
     Threatens(Vec<Move_>, Box<Reason>),
@@ -109,11 +110,11 @@ enum Reason {
 }
 
 /// A reason given for `mov` in the position `fen`.
-struct Reasoning {
-    fen: &'static str,
-    mov: Move_,
-    comment: &'static str,
-    reason: Reason,
+pub(crate) struct Reasoning {
+    pub(crate) fen: &'static str,
+    pub(crate) mov: Move_,
+    pub(crate) comment: &'static str,
+    pub(crate) reason: Reason,
 }
 
 use Reason::*;
@@ -136,7 +137,7 @@ fn permanent(r: Reason) -> Reason { Permanent(Box::new(r)) }
 fn suppose(edits: Vec<(Sq, Option<char>)>, r: Reason) -> Reason { Suppose(edits, Box::new(r)) }
 
 /// One example per reason, taken from commentary_gen/data (train + dev).
-fn examples() -> Vec<Reasoning> {
+pub(crate) fn examples() -> Vec<Reasoning> {
     vec![
         // dev-0167: Allows, Instead
         Reasoning {

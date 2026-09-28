@@ -952,11 +952,14 @@ My thoughts split by core and language
 
 - Core
     1. Often the dsl representation can be reached from the natural language comment, but the natural language comment would be difficult to reproduce from the reasoning (one-way/reduction)
-    2. Just a reasoning without a judgement doesn't make sense often, i.e. we need first the judgement (e.g. this is a solid move), then reason why that judgement. Most judgement calls like brilliant/excellent/good/solid/average/weak/mistake/blunder can be easily verified (e.g. see chess.com/lichess analysis, or simple engine eval delta), others would be more difficult maybe
-    3. 
+    2. Just a reasoning without a judgement doesn't make sense often, i.e. we need first the judgement (e.g. this is a solid move), then reason why that judgement. Most judgement calls like brilliant/excellent/good/solid/average/weak/mistake/blunder can be easily verified (e.g. see chess.com/lichess analysis, or simple engine eval delta), others would be more difficult maybe.
+    3. A lot of the complexity hides in little `enum` cases (e.g. `Because`)
+    4. No clean map between some of our previously determined tactical patterns and the current `Reason`s
 - Language
-    1. Real commentary has a lot of fluff around it, like player names, hopes, wishes and (often wrong) thoughts, mentions of historical events, 
-    2. 
+    1. Real commentary has a lot of fluff around it, like player names, hopes, wishes and (often wrong) thoughts, mentions of historical events, etc.
+    2. Real commentary has lots of variety for expressing the exact same thing in our DSL (also due to the reduction)
+    3. 
+
 
 
 #### Example 1:

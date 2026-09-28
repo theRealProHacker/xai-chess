@@ -1,6 +1,7 @@
 mod dsl;
 mod dsl_claude;
+mod eval;
 
 fn main() {
-    println!("Hello, world!");
+    eval::report();
 }
