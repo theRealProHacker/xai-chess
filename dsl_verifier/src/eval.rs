@@ -6,6 +6,7 @@
 //! Caveats:
 //! - `Because(a, b)` holds when `a` and `b` both hold. That `b` causes `a` is not checked.
 //! - `Outweighs(a, b)` holds when both hold. The weighing is not checked.
+//! - `Only(r)` ignores alternatives that also achieve `r` but score `ONLY_MARGIN` or more below the move.
 //! - `WinMaterial` and `Sacrifice` use static exchange evaluation, not a search.
 //! - `Prevents`, `Loses`, `Gains` and `Concedes` compare with the position before the enclosing move or line.
 
@@ -20,7 +21,10 @@ use shakmaty::{
     Bitboard, CastlingMode, Chess, Color, EnPassantMode, Move, Piece, Position, Rank, Role, Square, attacks,
 };
 
-use crate::dsl_claude::{Move_, Reason, Reason::*, Region, Sq, examples};
+use crate::dsl_claude::{Move_, Pieces, Reason, Reason::*, Region, Sq, examples};
+
+/// Centipawns an alternative may trail the played move and still count against `Only`.
+const ONLY_MARGIN: i32 = 50;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum V {
@@ -44,6 +48,11 @@ fn check(b: bool, why: impl Into<String>) -> Verdict { if b { ok() } else { fail
 fn all(vs: impl IntoIterator<Item = Verdict>) -> Verdict {
     let vs: Vec<_> = vs.into_iter().collect();
     vs.iter().find(|x| x.v == V::Fails).or(vs.iter().find(|x| x.v == V::Unknown)).cloned().unwrap_or_else(ok)
+}
+
+/// Holds beats Unknown beats Fails.
+fn any(vs: Vec<Verdict>, why: &str) -> Verdict {
+    vs.iter().find(|x| x.v == V::Holds).or(vs.iter().find(|x| x.v == V::Unknown)).cloned().unwrap_or_else(|| fail(why))
 }
 
 fn not(v: Verdict) -> Verdict {
@@ -194,6 +203,18 @@ fn region(r: &Region, p: &Chess, owner: Color) -> Result<Vec<Square>, String> {
         }
         Region::Line(a, z) => (attacks::between(sq(a), sq(z)) | Bitboard::from(sq(a)) | Bitboard::from(sq(z))).into_iter().collect(),
     })
+}
+
+/// Starting squares of `r` for `c`.
+fn start(r: Role, c: Color) -> Bitboard {
+    let w = match r {
+        Role::Knight => Bitboard::from(Square::B1) | Bitboard::from(Square::G1),
+        Role::Bishop => Bitboard::from(Square::C1) | Bitboard::from(Square::F1),
+        Role::Rook => Bitboard::from(Square::A1) | Bitboard::from(Square::H1),
+        Role::Queen => Bitboard::from(Square::D1),
+        _ => Bitboard::EMPTY,
+    };
+    if c == Color::White { w } else { w.flip_vertical() }
 }
 
 fn slider_line(role: Role, a: Square, b: Square) -> bool {
@@ -354,16 +375,27 @@ impl Ev {
             Only(r) => {
                 let v = self.eval(r, cx);
                 if v.v != V::Holds { return v; }
+                // "Only" means the only move that achieves `r` without losing ground: an alternative
+                // that also achieves it counts only if the engine rates it within ONLY_MARGIN.
                 self.quietly(|ev| {
-                    let mut vs = vec![];
+                    let played = ev.owner_score(&cx.p, owner);
+                    let mut undecided = false;
                     for m in cx.prev.legal_moves() {
                         let q = cx.prev.clone().play(m.clone()).unwrap();
                         if q.board() == cx.p.board() { continue; }
-                        let alt = ev.eval(r, &Cx { p: q, prev: cx.prev.clone(), owner });
-                        if alt.v == V::Holds { return fail(format!("{} also does it", San::from_move(&cx.prev, m))); }
-                        vs.push(alt);
+                        let alt = ev.eval(r, &Cx { p: q.clone(), prev: cx.prev.clone(), owner });
+                        match alt.v {
+                            V::Holds => match (played, ev.owner_score(&q, owner)) {
+                                (Some(a), Some(z)) if a - z < ONLY_MARGIN =>
+                                    return fail(format!("{} also does it ({:+} vs {a:+})", San::from_move(&cx.prev, m), z)),
+                                (Some(_), Some(_)) => {}
+                                _ => undecided = true,
+                            },
+                            V::Unknown => undecided = true,
+                            V::Fails => {}
+                        }
                     }
-                    if vs.iter().any(|x| x.v == V::Unknown) { unknown("some alternatives undecided") } else { ok() }
+                    if undecided { unknown("some alternatives undecided") } else { ok() }
                 })
             }
             NoMove(r) => self.quietly(|ev| {
@@ -393,6 +425,10 @@ impl Ev {
             Because(a, b) => {
                 let v = all([self.eval(a, cx), self.eval(b, cx)]);
                 if v.v == V::Holds { Verdict { v: V::Holds, why: "both hold; cause unchecked".into() } } else { v }
+            }
+            But(a, b) => {
+                let v = all([self.eval(a, cx), self.eval(b, cx)]);
+                if v.v == V::Holds { Verdict { v: V::Holds, why: "both hold; contrast unchecked".into() } } else { v }
             }
             Outweighs(a, b2) => {
                 let vb = self.eval(b2, &Cx { owner: !owner, ..cx.clone() });
@@ -491,13 +527,24 @@ impl Ev {
                 let (own, opp) = (attackers(p, s, owner), attackers(p, s, !owner));
                 check(own.any() && ((own & b.pawns()).any() || own.count() >= opp.count()), format!("{s}: {} vs {}", own.count(), opp.count()))
             }).collect::<Vec<_>>()),
-            Pressure(r) => all(match region(r, p, owner) { Err(e) => return fail(e), Ok(ss) => ss }.into_iter()
-                .map(|s| check(attackers(p, s, owner).any(), format!("nothing on {s}"))).collect::<Vec<_>>()),
-            Outnumber(r) => all(match region(r, p, owner) { Err(e) => return fail(e), Ok(ss) => ss }.into_iter().map(|s| {
-                let (own, opp) = (attackers(p, s, owner).count(), attackers(p, s, !owner).count());
-                check(own > opp, format!("{s}: {own} vs {opp}"))
-            }).collect::<Vec<_>>()),
-            Overload { piece, duties } => {
+            Pressure(r) => {
+                let ss = match region(r, p, owner) { Err(e) => return fail(e), Ok(ss) => ss };
+                if !matches!(r, Region::Squares(_)) {
+                    let aimed = |c: Color| ss.iter().filter(|s| attackers(p, **s, c).any()).count();
+                    return check(aimed(owner) > aimed(!owner), format!("aims at {} squares, opponent at {}", aimed(owner), aimed(!owner)));
+                }
+                all(ss.into_iter().map(|s| check(attackers(p, s, owner).any(), format!("nothing on {s}"))).collect::<Vec<_>>())
+            }
+            Outnumber(r) => {
+                let ss = match region(r, p, owner) { Err(e) => return fail(e), Ok(ss) => ss };
+                let n = |c: Color, s: Square| attackers(p, s, c).count();
+                if !matches!(r, Region::Squares(_)) {
+                    let (own, opp) = (ss.iter().filter(|s| n(owner, **s) > n(!owner, **s)).count(), ss.iter().filter(|s| n(!owner, **s) > n(owner, **s)).count());
+                    return check(own > opp, format!("outnumbers on {own} squares, outnumbered on {opp}"));
+                }
+                all(ss.into_iter().map(|s| check(n(owner, s) > n(!owner, s), format!("{s}: {} vs {}", n(owner, s), n(!owner, s)))).collect::<Vec<_>>())
+            }
+            Bound { piece, duties } => {
                 if !theirs(sq(piece)) { return fail(format!("{piece} is not the opponent's")); }
                 all(duties.iter().map(|d| {
                     let (own, opp) = (attackers(p, sq(d), owner).count(), attackers(p, sq(d), !owner).count());
@@ -508,9 +555,23 @@ impl Ev {
                 let lured = as_mover(p, !owner).is_some_and(|q| q.legal_moves().iter().any(|m| m.from() == Some(sq(from)) && m.to() == sq(to)));
                 check(theirs(sq(from)) && mine(sq(to)) && lured, format!("{from} cannot be lured to {to}"))
             }
-            Develop(s) => {
-                let s = sq(s);
-                check(mine(s) && !matches!(b.role_at(s), Some(Role::Pawn | Role::King)) && rank(s, owner) != 0, "not developed")
+            Develop(ps) => {
+                let undeveloped = |roles: &[Role]| roles.iter().any(|r| (b.by_color(owner) & b.by_role(*r) & start(*r, owner)).any());
+                match ps {
+                    Pieces::All => check(!undeveloped(&[Role::Knight, Role::Bishop]), "minor piece at home"),
+                    Pieces::At(s) => {
+                        let s = sq(s);
+                        let r = b.role_at(s);
+                        check(mine(s) && r.is_some_and(|r| !matches!(r, Role::Pawn | Role::King) && !start(r, owner).contains(s)), "not developed")
+                    }
+                    Pieces::Every(r) => check(!undeveloped(&[*r]), format!("{r:?} at home")),
+                    Pieces::On(reg) => {
+                        let ss: Bitboard = match region(reg, p, owner) { Err(e) => return fail(e), Ok(ss) => ss.into_iter().collect() };
+                        let home = [Role::Knight, Role::Bishop, Role::Rook, Role::Queen].into_iter()
+                            .any(|r| (b.by_color(owner) & b.by_role(r) & start(r, owner) & ss).any());
+                        check(!home, "a piece there is at home")
+                    }
+                }
             }
             Castle => {
                 let k = b.king_of(owner).unwrap();
@@ -570,7 +631,15 @@ impl Ev {
             Tempo(_) => unknown("tempo count not modelled"),
 
             // ---------------------------------------------------------------- tier 3: heuristics
-            Weak(r) => all(match region(r, p, owner) { Err(e) => return fail(e), Ok(ss) => ss }.into_iter().map(|s| {
+            Weak(r) => {
+                let ss = match region(r, p, owner) { Err(e) => return fail(e), Ok(ss) => ss };
+                let named = !matches!(r, Region::Squares(_));
+                // A named region is weak when it holds a weak opponent pawn, or a hole on the opponent's 3rd or 4th rank.
+                let ss = ss.into_iter().filter(|s| !named || match b.piece_at(*s) {
+                    None => matches!(rank(*s, !owner), 2 | 3),
+                    Some(pc) => pc.color != owner && pc.role == Role::Pawn,
+                });
+                let vs: Vec<_> = ss.map(|s| {
                 let s2 = s;
                 match b.piece_at(s2) {
                     None => check(hole(p, s2, !owner), format!("{s} can still be guarded by a pawn")),
@@ -579,7 +648,9 @@ impl Ev {
                         || backward(p, s2, !owner) || would_hang(p, s2), format!("{s} is a sound pawn")),
                     Some(_) => check(attackers(p, s2, !owner).is_empty() || would_hang(p, s2), format!("{s} is defended")),
                 }
-            }).collect::<Vec<_>>()),
+                }).collect();
+                if named { any(vs, "no weakness in the region") } else { all(vs) }
+            }
             Active(s) => {
                 let s2 = sq(s);
                 match b.role_at(s2) {
@@ -625,6 +696,7 @@ impl Ev {
                 check(pieces(owner) != pieces(!owner) || mirror != pawns(p, Color::Black), "symmetric")
             }
             Practical => unknown("practical chances not modelled"),
+            Rated(_) => unknown("judgement not checked"),
         }
     }
 
