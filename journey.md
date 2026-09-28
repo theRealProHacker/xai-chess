@@ -671,7 +671,7 @@ The Sonnet judgements out of 5
 
 #### Understanding
 
-Essentially, the main point is that be improving the prompt and increasing its length, we can mostly improve human-like behaviour and relevance slightly. However, we cannot improve faithfulness by any measure. For this, we would need a source of truth. Overall 3/5 is a very bad score of course. 
+Essentially, the main point is that be improving the prompt and increasing its length, we can mostly improve human-like behaviour and relevance slightly. However, we cannot improve faithfulness by any relevant measure. For this, we would need a source of truth. Overall 3/5 is a very bad score of course. 
 
 ### Experiment 2: Gemini 3.5 Flash Lite with thinking + advanced prompt, judged by Claude Sonnet
 
@@ -1092,7 +1092,7 @@ Not viable for chess (only 3v3 checkers), plus bad interpretability and focuses 
 
 1. LLM that is prompted to analyse a position and conclude an eval -> RL on the eval (expensive, but interesting)
 2. [LatentQA](https://arxiv.org/abs/2412.08686)/[activation oracles](https://arxiv.org/abs/2512.15674) -> build a dataset mapping lc0 activations to natural language descriptions starting by eval and them going to more and more complex concepts up to then doing full explanations -> to read what to consider: https://arxiv.org/abs/2607.23379
-3. Actually build the verifiable language on a minimal example
+3. Verify the DSL
 
 #### How to get more data?
 
@@ -1189,5 +1189,27 @@ How do we determine moves that seem reasonable but aren't and moves that are ver
 #### Questions
 
 1. Tracing the Thought of a Grandmaster-level Chess-Playing Transformer
-2. 
+2. Feature attribution/oracle
 3. Compute
+
+#### Feedback
+1. Read cited papers again
+    - Transcoder (SAE but multi-layer)
+    - Lorsa
+2. AO: only valuable for complex, non determinable functions
+    1. Just start with simple, then test whether the complex works
+        - CLIP
+        - Board description
+        - Eval
+    2. Features: 
+        - Hand-written SF features
+        - Anything, almost everything, I find interesting
+3. FU compute cluster
+4. Videos unreliable maybe?
+5. AO on 2000 examples for natural language rendering of DSL  
+    -> How to get the activations into an LLM?
+6. Trying to get chess knowledge into an LLM will be very expensive/not feasible
+7. Start with Qwen 3.5 probably
+
+## Fourth meeting 28.09.
+
