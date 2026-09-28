@@ -1,0 +1,4 @@
+data/
+__pycache__/
+# built viewer embeds ~39k unlicensed comments; see LICENSING.md
+commentary.html

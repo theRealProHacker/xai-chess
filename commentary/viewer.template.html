@@ -1,0 +1,393 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Annotated chess commentary — ChessGPT corpus</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f4f2ee; --panel: #fffefb; --line: #e3ded4; --ink: #241f19; --dim: #6d6558;
+  --accent: #8a4b18; --mark: #f6dfae; --tint: #efece5;
+  --light-sq: #efe3ca; --dark-sq: #bc8f63; --hl: #e0c74f;
+  --white-piece: #fffdf7; --black-piece: #221d17; --piece-edge: #00000055;
+  --shadow-s: inset 0 1px 2px #ffffff30, 0 1px 2px #00000030, 0 2px 4px #00000015;
+  --shadow-m: inset 0 1px 2px #ffffff50, 0 2px 4px #00000030, 0 4px 8px #00000015;
+  --shadow-l: inset 0 1px 2px #ffffff70, 0 4px 6px #00000030, 0 6px 10px #00000015;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15130f; --panel: #1e1b16; --line: #332e26; --ink: #ece5d9; --dim: #9c9182;
+    --accent: #e0a765; --mark: #5b451f; --tint: #191712;
+    --light-sq: #a08a6d; --dark-sq: #6d5540; --hl: #9a8130;
+    --white-piece: #f7f2e7; --black-piece: #17130e; --piece-edge: #00000077;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  height: 100vh; overflow: hidden; display: flex; flex-direction: column;
+}
+h1 { font-size: 17px; margin: 0; letter-spacing: -0.01em; }
+a { color: var(--accent); }
+
+/* ---------- header ---------- */
+header {
+  flex: none; background: var(--panel); border-bottom: 1px solid var(--line);
+  padding: 10px 16px; display: flex; gap: 18px; align-items: center; flex-wrap: wrap;
+}
+.sub { color: var(--dim); font-size: 12.5px; }
+.controls { display: flex; gap: 8px; align-items: center; margin-left: auto; flex-wrap: wrap; }
+input[type=search], select {
+  font: inherit; font-size: 13.5px; color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 7px; padding: 6px 9px; box-shadow: var(--shadow-s);
+}
+input[type=search] { width: 260px; }
+input[type=search]:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+button {
+  font: inherit; font-size: 13.5px; cursor: pointer; color: var(--ink);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 7px;
+  padding: 6px 11px; box-shadow: var(--shadow-s);
+}
+button:hover { background: var(--mark); box-shadow: var(--shadow-m); }
+button[aria-pressed=true] { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+
+/* ---------- corpus counts ---------- */
+details.counts { flex: none; border-bottom: 1px solid var(--line); background: var(--panel); }
+details.counts > summary { cursor: pointer; padding: 7px 16px; font-size: 12.5px; color: var(--dim); }
+details.counts > summary:hover { color: var(--ink); }
+table.counts { border-collapse: collapse; font-size: 12.5px; margin: 0 16px 12px; }
+table.counts th, table.counts td { padding: 3px 14px 3px 0; text-align: right; }
+table.counts th:first-child, table.counts td:first-child { text-align: left; }
+table.counts thead th { color: var(--dim); font-weight: 500; border-bottom: 1px solid var(--line); }
+table.counts tbody td { font-variant-numeric: tabular-nums; }
+
+/* ---------- layout ---------- */
+main { flex: 1; min-height: 0;
+  display: grid; grid-template-columns: 290px minmax(340px, 420px) minmax(360px, 1fr); }
+@media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+.col { height: 100%; overflow-y: auto; }
+#list { border-right: 1px solid var(--line); background: var(--panel); }
+#boardcol { border-right: 1px solid var(--line); padding: 16px; }
+#gamecol { padding: 16px 20px 60px; }
+
+/* ---------- game list ---------- */
+.listhead {
+  position: sticky; top: 0; background: var(--panel); border-bottom: 1px solid var(--line);
+  padding: 8px 14px; font-size: 12px; color: var(--dim); z-index: 1;
+}
+.hit { padding: 9px 14px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.hit:hover { background: var(--mark); }
+.hit[aria-current=true] { background: var(--mark); box-shadow: inset 3px 0 0 var(--accent); }
+.hit .players, .hit .meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hit .players { font-size: 13.5px; }
+.hit .meta { font-size: 11.5px; color: var(--dim); }
+.empty { padding: 16px 14px; color: var(--dim); font-size: 13px; }
+
+/* ---------- board ---------- */
+.boardwrap {
+  display: grid; grid-template-columns: 14px 1fr; grid-template-rows: 1fr 16px;
+  gap: 3px; max-width: 420px;
+}
+.board {
+  grid-column: 2; display: grid; grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr); width: 100%; aspect-ratio: 1;
+  border: 1px solid var(--dark-sq); border-radius: 4px; overflow: hidden;
+  box-shadow: var(--shadow-l); user-select: none;
+}
+.ranks, .files { font-size: 10px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.ranks { grid-area: 1 / 1; display: grid; grid-template-rows: repeat(8, 1fr);
+  align-items: center; justify-items: end; }
+.files { grid-area: 2 / 2; display: grid; grid-template-columns: repeat(8, 1fr);
+  justify-items: center; }
+.sq { display: grid; place-items: center; position: relative; }
+.sq.l { background: var(--light-sq); } .sq.d { background: var(--dark-sq); }
+.sq.hl::before { content: ""; position: absolute; inset: 0; background: var(--hl); }
+.sq.from::before { background: none; box-shadow: inset 0 0 0 4px var(--hl); }  /* came from */
+.pc {
+  position: relative; font-size: min(6.4vw, 36px); line-height: 1;
+  font-family: "Noto Sans Symbols 2", "DejaVu Sans", "Segoe UI Symbol", serif;
+}
+.pc.w { color: var(--white-piece); text-shadow: 0 1px 0 var(--piece-edge), 1px 0 0 var(--piece-edge), -1px 0 0 var(--piece-edge), 0 -1px 0 var(--piece-edge), 1px 1px 0 var(--piece-edge), -1px 1px 0 var(--piece-edge), 1px -1px 0 var(--piece-edge), -1px -1px 0 var(--piece-edge); }
+.pc.b { color: var(--black-piece); text-shadow: 0 1px 0 #ffffff33; }
+#gamehead, #boardmeta, .boardbar, #prov { max-width: 420px; }
+#gamehead { margin: 0 0 12px; }
+#gamehead .names { font-size: 14.5px; }
+#gamehead .ev { font-size: 12.5px; color: var(--dim); }
+.boardbar { display: flex; gap: 8px; margin-top: 14px; align-items: center; }
+.boardbar .lab { font-size: 12.5px; color: var(--dim); }
+.seg { display: flex; }
+.seg button { border-radius: 0; margin-left: -1px; }
+.seg button:first-of-type { border-radius: 7px 0 0 7px; margin-left: 0; }
+.seg button:last-of-type { border-radius: 0 7px 7px 0; }
+#boardmeta { margin-top: 12px; font-size: 12.5px; color: var(--dim); }
+#boardmeta .move { color: var(--ink); font-weight: 600; }
+#boardmeta .side { color: var(--accent); font-weight: 600; }
+#prov { margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--line);
+  font-size: 12px; color: var(--dim); }
+
+/* ---------- movetext ---------- */
+.movetext { font-size: 14.5px; max-width: 64ch; }
+.var {
+  margin: 6px 0 6px 16px; padding: 4px 14px 4px 10px; border-left: 2px solid var(--accent);
+  background: var(--tint); border-radius: 0 6px 6px 0; font-size: 13.5px;
+}
+.var .mv { color: var(--dim); }
+.mv { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.num { color: var(--dim); }
+.note {
+  display: block; margin: 7px 0; padding: 8px 11px; border: 1px solid transparent;
+  border-radius: 8px; background: var(--panel); box-shadow: var(--shadow-s);
+  cursor: pointer; color: var(--ink); text-align: left; font-size: 14px; width: 100%;
+}
+.var .note { font-size: 13.5px; width: 100%;
+  background: none; box-shadow: none; padding: 5px 8px; }
+.var .note:hover { background: var(--mark); }
+.note:hover { background: var(--mark); box-shadow: var(--shadow-m); }
+.note[aria-current=true], .var .note[aria-current=true] {
+  background: var(--mark); border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent), var(--shadow-m);
+}
+.note .at { color: var(--accent); font-weight: 600;
+  border-right: 1px solid var(--line); padding-right: 8px; margin-right: 8px; }
+.note mark { background: var(--mark); color: inherit; padding: 0 1px; border-radius: 2px; }
+.intro .at { display: none; }
+</style>
+
+<header>
+  <div>
+    <h1>Annotated chess commentary</h1>
+    <div class="sub">ChessGPT corpus (Feng et al., 2023) — <span id="sampleline"></span></div>
+  </div>
+  <div class="controls">
+    <select id="source"></select>
+    <input type="search" id="q" placeholder="search comments…" autocomplete="off">
+    <button id="random">Random game</button>
+  </div>
+</header>
+
+<details class="counts">
+  <summary>Corpus counts (whole dataset, not the sample)</summary>
+  <table class="counts">
+    <thead><tr><th>Source</th><th>Games</th><th>Parse errors</th><th>Comments</th>
+      <th>Engine-only dropped</th><th>Words mean</th><th>Words median</th><th>Sampled</th></tr></thead>
+    <tbody id="countrows"></tbody>
+  </table>
+</details>
+
+<main>
+  <div class="col" id="list"></div>
+  <div class="col" id="boardcol">
+    <div id="gamehead"></div>
+    <div class="boardwrap">
+      <div class="ranks" id="ranks"></div>
+      <div class="board" id="board"></div>
+      <div class="files" id="files"></div>
+    </div>
+    <div class="boardbar">
+      <span class="lab">Position</span>
+      <span class="seg">
+        <button id="before" aria-pressed="false">before move</button>
+        <button id="after" aria-pressed="true">after move</button>
+      </span>
+      <button id="flip" style="margin-left:auto">Flip board</button>
+    </div>
+    <div id="boardmeta"></div>
+    <div id="prov"></div>
+  </div>
+  <div class="col" id="gamecol"></div>
+</main>
+
+<script type="module">
+const RAW = "__DATA__";  // plain JSON text, or gzip+base64 of it
+async function inflate(b64) {
+  if (!window.DecompressionStream) throw new Error(
+    "this browser has no DecompressionStream — rebuild with build_viewer.py --no-compress");
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return JSON.parse(await new Response(stream).text());
+}
+const DATA = RAW[0] === "{" ? JSON.parse(RAW) : await inflate(RAW);
+const GAMES = DATA.games;
+const GLYPH = {k:"♚",q:"♛",r:"♜",b:"♝",n:"♞",p:"♟"};
+const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+const SRC_LABEL = {gameknot:"GameKnot", lichess_studies:"lichess studies",
+                   pgnlib:"PGN Lib", pathtochessmastery:"Path to Chess Mastery"};
+const $ = s => document.querySelector(s);
+const fmt = n => n.toLocaleString("en-US");
+const esc = s => s.replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+/* ---------- header + corpus counts ---------- */
+for (const g of GAMES) {
+  const notes = g.n.filter(n => n.c);
+  g.k = notes.length;
+  g._hay = notes.map(n => n.c).join(" ").toLowerCase();
+}
+
+$("#countrows").innerHTML = Object.entries(DATA.stats).map(([s, v]) =>
+  "<tr><td>" + SRC_LABEL[s] + "</td><td>" + fmt(v.games) + "</td><td>" + fmt(v.games_skipped) +
+  "</td><td>" + fmt(v.comments) + "</td><td>" + fmt(v.engine_only_dropped) + "</td><td>" +
+  v.words_mean + "</td><td>" + v.words_median + "</td><td>" + fmt(v.sampled_games) + "</td></tr>").join("");
+$("#sampleline").textContent = fmt(GAMES.length) + " games, " +
+  fmt(GAMES.reduce((a, g) => a + g.k, 0)) + " comments · " + DATA.per_source +
+  " games per source, seed " + DATA.seed;
+$("#source").innerHTML = "<option value=''>All sources</option>" +
+  Object.keys(DATA.stats).map(s => "<option value='" + s + "'>" + SRC_LABEL[s] + "</option>").join("");
+
+/* ---------- board ---------- */
+let flipped = false, showBefore = false, current = null, cursor = null;
+
+function squares(fen) {
+  return fen.split(" ")[0].split("/").map(row => {
+    const line = [];
+    for (const ch of row) {
+      if (ch >= "1" && ch <= "8") line.push(...Array(+ch).fill(null));
+      else line.push(ch);
+    }
+    return line;
+  });
+}
+
+function drawBoard(fen, uci) {
+  const grid = squares(fen), cells = [];
+  const hl = uci ? [uci.slice(0, 2), uci.slice(2, 4)] : [];
+  const order = [...Array(8).keys()], ranks = flipped ? [...order].reverse() : order;
+  const files = flipped ? [...order].reverse() : order;
+  for (const r of ranks) for (const f of files) {
+    const name = "abcdefgh"[f] + (8 - r), p = grid[r][f];
+    const cls = "sq " + ((r + f) % 2 ? "d" : "l") +
+      (hl[0] === name ? " hl from" : hl[1] === name ? " hl" : "");
+    const piece = p ? "<span class='pc " + (p === p.toUpperCase() ? "w" : "b") + "'>" +
+      GLYPH[p.toLowerCase()] + "</span>" : "";
+    cells.push("<div class='" + cls + "'>" + piece + "</div>");
+  }
+  $("#board").innerHTML = cells.join("");
+  $("#ranks").innerHTML = ranks.map(r => "<span>" + (8 - r) + "</span>").join("");
+  $("#files").innerHTML = files.map(f => "<span>" + "abcdefgh"[f] + "</span>").join("");
+}
+
+function showNode(node, el) {
+  cursor = node;
+  drawBoard(showBefore ? node.f : node.g, node.u);
+  document.querySelectorAll(".note[aria-current=true]").forEach(n => n.removeAttribute("aria-current"));
+  if (el) el.setAttribute("aria-current", "true");
+  const turn = (showBefore ? node.f : node.g).split(" ")[1] === "w" ? "White" : "Black";
+  $("#boardmeta").innerHTML = node.s
+    ? "<span class='move'>" + esc(node.m + " " + node.s) + "</span>" +
+      (node.d ? " <span class='side'>· sideline, not played</span>" : "") +
+      "<br>" + turn + " to play"
+    : "the starting position";
+}
+
+function refresh() { if (cursor) showNode(cursor, $(".note[aria-current=true]")); }
+function phase(before) {
+  showBefore = before;
+  $("#before").setAttribute("aria-pressed", String(before));
+  $("#after").setAttribute("aria-pressed", String(!before));
+  refresh();
+}
+$("#before").onclick = () => phase(true);
+$("#after").onclick = () => phase(false);
+$("#flip").onclick = () => { flipped = !flipped; refresh(); };
+
+/* ---------- one game: movetext with every comment inline ---------- */
+function highlight(text, needle) {
+  const safe = esc(text);
+  if (!needle) return safe;
+  const re = new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "ig");
+  return safe.replace(re, m => "<mark>" + m + "</mark>");
+}
+
+function renderGame(game, needle) {
+  const names = (game.w || "?") + (game.we ? " (" + game.we + ")" : "") + " — " +
+                (game.b || "?") + (game.be ? " (" + game.be + ")" : "");
+  const both = game.w && game.b;
+  $("#gamehead").innerHTML = "<div class='names'>" +
+    esc(both ? names : game.ev || game.w || game.b || "Untitled") + "</div><div class='ev'>" +
+    esc([both ? game.ev : "", game.dt, game.r].filter(Boolean).join(" · ")) + "</div>";
+  $("#prov").innerHTML = SRC_LABEL[game.src] + " · " + esc(game.id) +
+    (game.url ? " · <a href='" + game.url + "' target='_blank' rel='noopener'>open the source page</a>" : "");
+
+  const col = $("#gamecol");
+  col.textContent = "";
+  const root = document.createElement("div");
+  root.className = "movetext";
+  col.append(root);
+
+  let stack = [root], depth = 0, fresh = true, first = null;
+  for (const node of game.n) {
+    while (node.d < depth) { stack.pop(); depth--; fresh = true; }
+    if (node.v) {                       // a sibling variation: close the previous one, open a new one
+      if (node.d === depth) { stack.pop(); depth--; }
+      const v = document.createElement("div");
+      v.className = "var";
+      stack[stack.length - 1].append(v);
+      stack.push(v); depth++; fresh = true;
+    }
+    const box = stack[stack.length - 1];
+    if (node.s && !node.c) {            // a commented move is labelled inside its own note
+      const black = node.m.endsWith("...");
+      const mv = document.createElement("span");
+      mv.className = "mv";
+      mv.innerHTML = (!black || fresh ? "<span class='num'>" + node.m + "</span> " : "") +
+                     esc(node.s) + " ";
+      box.append(mv);
+      fresh = false;
+    }
+    if (node.c) {
+      const note = document.createElement("button");
+      note.className = "note" + (node.s ? "" : " intro");
+      note.innerHTML = "<span class='at'>" + esc(node.m + " " + node.s) + "</span>" +
+                       highlight(node.c, needle);
+      note.onclick = () => showNode(node, note);
+      box.append(note);
+      fresh = true;
+      if (!first) first = [node, note];
+    }
+  }
+  if (first) showNode(first[0], first[1]);
+  else { drawBoard(game.root || START, null); $("#boardmeta").textContent = ""; }
+  col.scrollTop = 0;
+}
+
+/* ---------- list, filter, search ---------- */
+let shown = GAMES;
+
+function row(g, i, showSource) {
+  const both = g.w && g.b;
+  const title = both ? g.w + " — " + g.b : g.ev || g.w || g.b || "Untitled";
+  const meta = [g.k + (g.k === 1 ? " comment" : " comments"), showSource ? SRC_LABEL[g.src] : "",
+                both ? g.ev : "", g.r].filter(Boolean).join(" · ");
+  return "<div class='hit' data-i='" + i + "'><div class='players'>" + esc(title) +
+         "</div><div class='meta'>" + esc(meta) + "</div></div>";
+}
+
+function renderList() {
+  const src = $("#source").value, needle = $("#q").value.trim().toLowerCase();
+  shown = GAMES.filter(g => (!src || g.src === src) && (!needle || g._hay.includes(needle)));
+  const list = $("#list");
+  const head = "<div class='listhead'>" + fmt(shown.length) +
+               (needle || src ? " of " + fmt(GAMES.length) : "") + " sampled games" +
+               (needle ? " mentioning “" + esc(needle) + "”" : "") + "</div>";
+  if (!shown.length) {
+    list.innerHTML = head + "<p class='empty'>Nothing matches.</p>";
+    $("#gamecol").textContent = ""; $("#gamehead").textContent = ""; $("#prov").textContent = "";
+    return;
+  }
+  list.innerHTML = head + shown.map((g, i) => row(g, i, !src)).join("");
+  select(0);
+}
+
+function select(i) {
+  current = shown[i];
+  document.querySelectorAll(".hit[aria-current=true]").forEach(e => e.removeAttribute("aria-current"));
+  const hit = $(".hit[data-i='" + i + "']");
+  if (hit) { hit.setAttribute("aria-current", "true"); hit.scrollIntoView({block: "nearest"}); }
+  renderGame(current, $("#q").value.trim());
+}
+
+$("#list").onclick = e => { const hit = e.target.closest(".hit"); if (hit) select(+hit.dataset.i); };
+$("#source").onchange = renderList;
+let timer; $("#q").oninput = () => { clearTimeout(timer); timer = setTimeout(renderList, 180); };
+$("#random").onclick = () => { if (shown.length) select(Math.floor(Math.random() * shown.length)); };
+renderList();
+</script>

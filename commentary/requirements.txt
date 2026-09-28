@@ -1,0 +1,2 @@
+chess==1.11.2
+huggingface_hub==1.2.0
