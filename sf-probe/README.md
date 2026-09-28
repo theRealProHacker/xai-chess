@@ -1,13 +1,24 @@
 # sf-probe
 
 A nonlinear (MLP) probe on **every layer** of the Stockfish 18 NNUE forward pass,
-asking: *does this pin carry the Lichess `pin` theme tag?* — pin **relevance**, not
-pin presence.
+asking: *does this pin carry the Lichess `pin` theme tag?*
+
+That tag is one program's output — `cook.py`'s `pin_prevents_attack or pin_prevents_escape`,
+reproduced exactly by `../cook_pin.py`. It is a property of positions *one ply past* the one
+the probe sees, and it never mentions the solver's move, so read it as a static configuration
+property rather than as pin **relevance**. `auto_labels.ipynb` puts it next to five other
+definitions, three of them move-bound.
 
 Layers only. No null projections, no handcrafted-geometry baseline.
 
 ```
-probe_mlp.ipynb       layer sweep — which layer carries pin relevance
+probe_mlp.ipynb       layer sweep — which layer carries the Lichess `pin` tag
+auto_labels.ipynb     the same sweep over six labels at once: cook.py's tag and its two
+                      branches, against this repo's three move-bound rules
+auto_labels.py        ... -> data/labels.npz: the six labels, aligned to meta.tsv
+probe_lib.py          the probe, the folds and the row cache, shared by the two below
+sweep_labels.py       one worker: build a layer once, train every label on it
+check_cook.py         the exported `pin` tag vs cook.py itself on these puzzles (99.76%)
 distance_mlp.ipynb    how far ahead that relevance is readable (l1 only), on a
                       50:50 set whose negatives are matched on puzzle length
 three_class.ipynb     one classifier over {negative, d=0, d=1}, max-samples and
@@ -81,7 +92,7 @@ zstdcat lichess_db_puzzle.csv.zst | python pin_relevance.py > data/relevance.tsv
 |---|---|
 | Positions | 151,614 Lichess puzzles, exactly one absolute pin sustained through every move |
 | Sample | P0 — the position after `Moves[0]`, the one the solver sees |
-| Label | the published Lichess `pin` theme, verbatim (28.48% positive) |
+| Label | the published Lichess `pin` theme, verbatim (28.48% positive) — i.e. `cook.py`'s two pin predicates, OR-ed over the boards after each solver move |
 | Probe | `MLPClassifier(512, 128)`, adam, early stopping — the same config on every layer |
 | CV | 5-fold stratified, identical splits across layers, scaler fit on train folds only |
 | Metric | ROC AUC (chance 0.500), mean ± sd over folds |
