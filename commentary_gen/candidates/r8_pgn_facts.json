@@ -1,0 +1,19 @@
+{
+ "parent": "r7_chessgpt",
+ "format": "pgn",
+ "stop": "}",
+ "max_tokens": 120,
+ "demos": [],
+ "name": "r8_pgn_facts",
+ "facts": [
+  "status",
+  "inventory",
+  "exchange",
+  "hanging",
+  "replies",
+  "threats",
+  "change"
+ ],
+ "rationale": "r8_pgn plus r7's lookups as a leading game comment, the one place annotated PGNs carry free text before the moves.",
+ "repetition_penalty": 1.0
+}

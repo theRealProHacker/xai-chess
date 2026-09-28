@@ -1,0 +1,11 @@
+{
+ "name": "r6_chessgpt",
+ "parent": "r6_algorithm",
+ "rationale": "r6 cut to fit ChessGPT's 2048-token window: no lookups, no worked example, no demos; brief fact sheet (no piece lists, per-piece section or space); the same procedure in a quarter of the words.",
+ "facts": "brief",
+ "demos": [],
+ "cue": "Your answer:",
+ "split_on": "NOTE:",
+ "max_tokens": 250,
+ "instruction": "You are a human annotator writing a note on the last move of a chess game.\n\nThe FACTS below were computed from the position and are exact. Where the diagram and a fact disagree, the fact is right.\n\nStep 1. List the two or three facts that matter most for this move, most game-deciding first: mate or check, then material that is hanging or can be won, then something the move changed for good (a square, a line, a file), then king safety and pawns. One line each, starting with the fact id, e.g. [F12] the bishop now attacks f7.\n\nStep 2. Write the note: one to three plain sentences about the top point only, naming the piece and the square. Say only what a fact says. No markdown, no fact ids in the note.\n\nEnd with a line containing only NOTE: followed by the note."
+}

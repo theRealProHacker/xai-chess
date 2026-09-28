@@ -1,0 +1,10 @@
+{
+ "parent": "r7_chessgpt",
+ "format": "pgn",
+ "stop": "}",
+ "max_tokens": 120,
+ "demos": [],
+ "name": "r8_pgn",
+ "rationale": "ChessGPT's training format for commentary: annotated PGN (headers, moves, open brace), stop at the closing brace. No instruction, no facts.",
+ "repetition_penalty": 1.0
+}

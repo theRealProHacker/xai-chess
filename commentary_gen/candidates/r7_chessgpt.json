@@ -1,0 +1,21 @@
+{
+ "name": "r7_chessgpt",
+ "parent": "r6_chessgpt",
+ "rationale": "ChessGPT, 1k-token budget: the note is forced by prefilling the move itself in the model's turn (a NOTE: prefill puts the chat model in AI-disclaimer mode) and stops at a blank line; no procedure. Lookups kept are the ones the r4 error census and r6 citations single out (inventory, exchange, hanging, forcing both ways, what the move changed); the piece lists replace the diagram. Cut: pieces, pawns, king, alternatives, space.",
+ "facts": [
+  "status",
+  "inventory",
+  "exchange",
+  "hanging",
+  "replies",
+  "threats",
+  "change"
+ ],
+ "demos": [],
+ "cue": "",
+ "prefill": "{move}",
+ "max_tokens": 120,
+ "instruction": "You are a human annotator writing a note on the last move of a chess game. The FACTS were computed from the position and are exact. Write one to three plain sentences about the most important thing the last move did: mate or check first, then material won or lost, then what it attacks, defends or gives up. Name the piece and the square. Say only what the facts support.",
+ "last_moves": 12,
+ "board": false
+}

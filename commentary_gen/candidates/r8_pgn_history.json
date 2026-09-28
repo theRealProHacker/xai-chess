@@ -1,0 +1,11 @@
+{
+ "parent": "r7_chessgpt",
+ "format": "pgn",
+ "stop": "}",
+ "max_tokens": 120,
+ "demos": [],
+ "name": "r8_pgn_history",
+ "rationale": "r8_pgn with the annotator's earlier mainline comments on this game restored in place (newest first, up to 2500 characters): the in-context signal every annotated PGN in ChessGPT's training carries.",
+ "history": 2500,
+ "repetition_penalty": 1.0
+}

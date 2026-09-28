@@ -2,6 +2,8 @@
 
   LLM_MODEL=gpt-5-nano          (default; cheapest/fastest OpenAI text model)
   LLM_MODEL=gemini-3.8-flash    (any name starting with "gemini" routes to Google)
+  LLM_MODEL=chessgpt-chat-v1    (Waterhorse/ChessGPT, local CPU via transformers; also chessgpt-base-v1.
+                                 2048-token context, no tools; run with ../chessgpt/.venv/bin/python)
 
 Rate-limit 429s sleep for the server's retry hint and retry forever. Billing 429s
 ("no credits", "credits are depleted") poll every 10 minutes until the account works again.
@@ -49,14 +51,58 @@ def _post(url, body, headers, log):
             backoff = min(backoff * 2, 120)
 
 
+_LOCAL = {}
+_LOCAL_LOCK = __import__("threading").Lock()
+
+
+def _chessgpt(prompt, model, system, temperature, max_tokens, tools, prefill, stop, repetition_penalty):
+    """ChessGPT (arXiv 2306.09200): GPT-NeoX 2.8B, one model in memory, one generation at a time.
+    prefill starts the model's own turn (e.g. "NOTE:"); generation stops at the first `stop` string."""
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    if tools is not None:
+        raise ValueError("ChessGPT has no function calling")
+    with _LOCAL_LOCK:
+        if model not in _LOCAL:
+            repo = "Waterhorse/" + model
+            _LOCAL[model] = (AutoTokenizer.from_pretrained(repo), AutoModelForCausalLM.from_pretrained(
+                repo, torch_dtype=torch.bfloat16, low_cpu_mem_usage=True).eval())
+        tok, lm = _LOCAL[model]
+        text = f"{system}\n\n{prompt}" if system else prompt
+        if "chat" in model:  # the model card's chat format
+            text = f"A friendly, helpful chat between some humans.<|endoftext|>Human 0: {text}<|endoftext|>Human 1:"
+        if prefill:
+            text += " " + prefill
+        ids = tok(text, return_tensors="pt").input_ids
+        if ids.shape[1] + max_tokens > lm.config.max_position_embeddings:
+            raise ValueError(f"prompt {ids.shape[1]} + max_tokens {max_tokens} tokens exceeds the "
+                             f"{lm.config.max_position_embeddings}-token context")
+        with torch.inference_mode():
+            sample = dict(do_sample=True, temperature=temperature, top_p=0.7, top_k=50) if temperature > 0 else {}
+            out = lm.generate(ids, attention_mask=torch.ones_like(ids), max_new_tokens=max_tokens,
+                              repetition_penalty=repetition_penalty, stop_strings=[stop], tokenizer=tok,
+                              pad_token_id=tok.eos_token_id, **sample)
+        new = out[0, ids.shape[1]:]
+    stopped = new[-1].item() == tok.eos_token_id
+    text = tok.decode(new, skip_special_tokens=True)
+    stopped = stopped or stop in text
+    return {"text": text.split("\n---")[0].split(stop)[0].strip(), "thoughts": "",
+            "usage": {"prompt_tokens": ids.shape[1], "completion_tokens": len(new)},
+            "finish": "stop" if stopped else "length", "calls": []}
+
+
 def generate(prompt, *, model=MODEL, system=None, temperature=1.0, max_tokens=600, log=sys.stderr,
-             thinking=None, tools=None, max_rounds=10):
+             thinking=None, tools=None, max_rounds=10, prefill=None, stop="\n\n", repetition_penalty=1.15):
     """Returns {"text", "thoughts", "usage", "finish", "calls"}.
 
     thinking: None = model default; an int = thinkingBudget; "low"/"medium"/"high" = thinkingLevel.
     Gemini returns thought *summaries* in `thoughts` (raw thinking is not exposed by the API).
     tools: an object with .declarations() and .call(name, args) -> str (Gemini only). The model may
     call functions for up to max_rounds turns; every call is logged in `calls`."""
+    if model.startswith("chessgpt"):
+        return _chessgpt(prompt, model, system, temperature, max_tokens, tools, prefill, stop, repetition_penalty)
+    if prefill:
+        raise ValueError("prefill is only implemented for local models")
     if model.startswith("gemini"):
         body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
                 "generationConfig": {"temperature": temperature, "maxOutputTokens": max_tokens}}
@@ -76,7 +122,9 @@ def generate(prompt, *, model=MODEL, system=None, temperature=1.0, max_tokens=60
         url = (f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
                f"?key={os.environ['GEMINI_API_KEY']}")
         calls, thoughts, usage, nudged = [], [], {}, False
-        for _ in range(max_rounds):
+        rounds, extra, last_failed = 0, 0, False
+        while rounds < max_rounds + extra:
+            rounds += 1
             try:
                 out = _post(url, body, {}, log)
             except RuntimeError as e:  # models without a thinking mode reject thinkingConfig
@@ -104,17 +152,25 @@ def generate(prompt, *, model=MODEL, system=None, temperature=1.0, max_tokens=60
                         "finish": cands[0].get("finishReason") if cands else out.get("promptFeedback"),
                         "calls": calls}
             body["contents"].append(content)  # verbatim, keeps thought signatures
-            responses = []
+            responses, last_failed = [], False
             for fc in fcs:
                 res = tools.call(fc["name"], fc.get("args") or {})
-                rec = {"name": fc["name"], "args": fc.get("args") or {}, "result": res}
+                # a call that did not happen must not look like a call that returned a fact
+                failed = res.startswith("Error:")
+                last_failed |= failed
+                rec = {"name": fc["name"], "args": fc.get("args") or {}, "result": res, "failed": failed}
                 if getattr(tools, "last_functions", None):
                     rec["functions"] = tools.last_functions
                 calls.append(rec)
-                responses.append({"functionResponse": {"name": fc["name"], "response": {"result": res}}})
+                responses.append({"functionResponse": {"name": fc["name"],
+                                                      "response": {"error": res} if failed else {"result": res}}})
             body["contents"].append({"role": "user", "parts": responses})
+            if last_failed and extra < 2:
+                extra += 1  # do not spend the budget on a call that never happened
         body.pop("tools", None)  # rounds exhausted: one last turn, no tools, must answer
-        body["contents"].append({"role": "user", "parts": [{"text": "Stop checking. Write the commentary now."}]})
+        body["contents"].append({"role": "user", "parts": [{"text":
+            "The last lookup failed, so ignore it and use the facts you already have. Write the commentary now."
+            if last_failed else "Stop checking. Write the commentary now."}]})
         out = _post(url, body, {}, log)
         parts = (out.get("candidates") or [{}])[0].get("content", {}).get("parts", [])
         return {"text": "".join(p.get("text", "") for p in parts if not p.get("thought")).strip(),
