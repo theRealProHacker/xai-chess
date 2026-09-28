@@ -322,6 +322,8 @@ The generator is `ornicar/lichess-puzzler`, `tagger/cook.py`, AGPL-3.0. Frequenc
 
 23 themes are rule-derived `staticThemes`; the rest are vote-refined and carry crowd noise. `cook.py` still emits an `overloading` tag that appears **zero** times in the live export.
 
+How much crowd noise a non-static theme actually carries is measurable, and for `pin` the answer is none we can find. Running `cook.py`'s own two pin predicates over the 151,614 puzzles of the probe set reproduces the exported tag on **99.76%** of them, and the 370 disagreements sit 362-to-8 in the direction of `cook.py` firing where the export does not — the signature of the tagger moving on since the export was cut, not of votes overriding it. The `pin` tag is a program's output, and the program is `pin_prevents_attack or pin_prevents_escape` (`cook.py:115`).
+
 **Label provenance is worse than it looks.** Jhamtani's category labels are SVM output on 297K of 298K rows — only 1K comments were hand-annotated, by two annotators.
 
 The "Comparative" category falls back to a hand-written rule, the presence of the word "better." Roughly 30% of comments are "General" with no chess content, and 23% are five words or fewer.
