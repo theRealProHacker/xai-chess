@@ -4,3 +4,5 @@
 __pycache__
 vendor
 .env
+*.log
+.ipynb_checkpoints
