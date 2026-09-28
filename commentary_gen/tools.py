@@ -1,8 +1,13 @@
 """Callable board tools for function calling. Bound to one position; the model never passes a FEN.
 
-    tb = ToolBox(fen_after_move)
+    tb = ToolBox(fen_after_move)           # all eight
+    tb = ToolBox(fen, ("after", "legal", "attack_map"))   # only these
     tb.declarations()          -> Gemini functionDeclarations
     tb.call(name, args)        -> str (never raises)
+
+Since round 6 everything that needs no argument from the model is injected by facts.py instead, and
+only the three argument-taking lookups are left callable. A move for the side that is not to move is
+answered on the flipped position rather than refused: that was 71 of the failed calls in round 5.
 """
 import chess
 import board_tools as bt
@@ -27,8 +32,10 @@ DECL = [
              "wrong side, piece does not reach).",
      "parameters": {"type": "OBJECT", "properties": {"move": {"type": "STRING", "description": "SAN, e.g. Nxe5 or O-O"}},
                     "required": ["move"]}},
-    {"name": "after", "description": "Play a sequence of moves from the current position and report the resulting "
-             "position: material, hanging pieces, checks and captures. Use to check a line.",
+    {"name": "after", "description": "Play a line from the current position and report what it reaches: material, "
+             "hanging pieces, checks and captures. Use it before claiming that a line works, a move is possible, "
+             "a piece is trapped or a plan gets somewhere. A line for the side that is not to move is played anyway, "
+             "with a note saying so.",
      "parameters": {"type": "OBJECT", "properties": {"moves": {"type": "STRING", "description": "SAN moves separated by spaces, e.g. 'Nxe5 Nxe5 Qxe5'"}},
                     "required": ["moves"]}},
     {"name": "pawn_structure", "description": "Isolated, doubled, passed and backward pawns for both sides, "
@@ -38,17 +45,22 @@ DECL = [
 
 
 class ToolBox:
-    def __init__(self, fen):
+    def __init__(self, fen, names=None):
         self.board = chess.Board(fen)
+        self.names = names
 
     def declarations(self):
-        return DECL
+        return [d for d in DECL if not self.names or d["name"] in self.names]
 
     def call(self, name, args):
         b = self.board
         try:
             if name == "attack_map":
-                return bt.attack_map(b, str(args.get("square", "")).strip().lower())
+                sq = str(args.get("square", "")).strip().lower()
+                if not chess.SQUARE_NAMES.count(sq):
+                    return (f"Error: {sq!r} is not a square. Give one square as a file and a rank, "
+                            f"like e4 or d5 — no piece letter. The call did not happen; call again.")
+                return bt.attack_map(b, sq)
             if name == "inventory":
                 return bt.inventory(b)
             if name == "hanging":
@@ -60,20 +72,39 @@ class ToolBox:
             if name == "legal":
                 return bt.legal(b, str(args.get("move", "")))
             if name == "after":
-                b2 = b.copy(stack=False)
-                played = []
-                for san in str(args.get("moves", "")).split():
-                    try:
-                        b2.push_san(san.strip(",;"))
-                        played.append(san)
-                    except ValueError:
-                        return (f"After {' '.join(played) or 'nothing'}: {bt.legal(b2, san)}")
-                return f"After {' '.join(played)}:\n{bt.report(b2)}"
+                return self._after(str(args.get("moves", "")))
             if name == "pawn_structure":
                 return bt.pawn_structure(b)
-            return f"Error: unknown tool {name}"
+            return (f"Error: there is no tool called {name}. The tools are: "
+                    f"{', '.join(d['name'] for d in self.declarations())}. Call one of those.")
         except Exception as e:  # tools must never break the generation loop
-            return f"Error: {e}"
+            return f"Error: {e}. The call did not happen; fix the argument and call again."
+
+    def _after(self, moves):
+        """Play a line. If the first move belongs to the other side, play it for them and say so."""
+        b, note = self.board.copy(stack=False), ""
+        sans = [s.strip(",;") for s in moves.split() if not s[0].isdigit()]
+        if not sans:
+            return "No moves given."
+        try:
+            b.parse_san(sans[0])
+        except ValueError:
+            other = bt._as_mover(b, not b.turn)
+            try:
+                other.parse_san(sans[0])
+                note = (f"It is {bt._side(b.turn)}'s move; playing this line for "
+                        f"{bt._side(not b.turn)} as if they had a free move.\n")
+                b = other
+            except ValueError:
+                pass
+        played = []
+        for san in sans:
+            try:
+                b.push_san(san)
+                played.append(san)
+            except ValueError:
+                return note + f"After {' '.join(played) or 'nothing'}: {bt.legal(b, san)}"
+        return note + f"After {' '.join(played)}:\n{bt.report(b)}"
 
 
 class CodeToolBox:

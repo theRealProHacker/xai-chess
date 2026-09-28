@@ -207,7 +207,20 @@ def hanging_data(board):
                     "legal_recapture_from": [chess.square_name(m.from_square) for m in recap]})
     return out
 
-def hanging(board):
+def recapture_note(completes):
+    """Words for a capture that only takes back what the last move took."""
+    return (f"this takes back on {completes['square']}, it does not win anything new: counted over the whole "
+            f"exchange, {completes['move']} was {trade_words(completes['net'])} for the side that played it")
+
+
+def trade_words(net):
+    return "an even trade" if net == 0 else ("a gain of " if net > 0 else "a loss of ") + \
+        PIECE_WORDS.get(abs(net), f"{abs(net)} points of material") + f" ({net:+d})"
+
+
+def hanging(board, completes=None):
+    """`completes`: {"square", "move", "net"} of the capture just played, so taking that piece back
+    is described as finishing the exchange rather than winning material."""
     rows = hanging_data(board)
     if not rows:
         return "No piece is hanging."
@@ -217,10 +230,18 @@ def hanging(board):
         dfn = ("nothing" if not r["defenders"] else
                " ".join(r["defenders"]) if r["legal_recapture_from"] else
                f"{' '.join(r['defenders'])} but no legal recapture")
-        own = r["piece"].startswith(_side(board.turn))
-        lines.append(f"{r['square']} {r['piece']}: {r['reason']}, {r['capture']} wins {r['wins']}"
-                     f"{'' if not own else ' if it were ' + _side(not board.turn) + chr(39) + 's move'} "
-                     f"(attacked from {' '.join(r['attackers'])}; defended from {dfn})")
+        me, them = _side(board.turn), _side(not board.turn)
+        att = " ".join(r["attackers"])
+        if r["piece"].startswith(me):  # its owner is to move and can simply save it
+            lines.append(f"{r['square']} {r['piece']}: attacked from {att}, defended from {dfn}. "
+                         f"{them} would play {r['capture']} and {material_words(r['wins'])} — but it is "
+                         f"{me}'s move, so {me} can still move it away or defend it again. Do not call it lost.")
+        else:
+            line = (f"{r['square']} {r['piece']}: {r['reason']}; {me} to move plays {r['capture']} and "
+                    f"{material_words(r['wins'])} (attacked from {att}; defended from {dfn})")
+            if completes and r["square"] == completes["square"]:
+                line += " — but " + recapture_note(completes) + "."
+            lines.append(line)
     return "\n".join(lines)
 
 def forcing_data(board):
@@ -250,24 +271,41 @@ def forcing_data(board):
     out.sort(key=lambda r: (not r["mate"], -r["net"], not r["check"], r["move"]))
     return out
 
-def forcing(board):
+PIECE_WORDS = {1: "a pawn", 2: "the exchange", 3: "a piece", 5: "a rook", 9: "a queen"}
+
+def material_words(net):
+    """A verdict in words; the number stays so the claim is still exact."""
+    if net == 0:
+        return "an even trade, no material change"
+    w = PIECE_WORDS.get(abs(net), f"{abs(net)} points of material")
+    return f"{'wins' if net > 0 else 'loses'} {w} ({net:+d})"
+
+def forcing(board, limit=10, completes=None):
     board = _board(board)
     rows = forcing_data(board)
     if not rows:
-        return f"{_side(board.turn)} has no checks or captures."
-    lines = [f"{_side(board.turn)} to move; checks and captures (net = material after the exchange on that square):"]
-    for r in rows:
+        return f"{_side(board.turn)} has no check and no capture."
+    keep = [r for r in rows if r["mate"] or r["net"] > 0][:limit]
+    keep += [r for r in rows if r not in keep][:max(0, limit - len(keep))]
+    lines = [f"Every check and capture for {_side(board.turn)}, best first "
+             f"(the verdict counts the whole exchange on that square):"]
+    for r in keep:
         tags = []
         if r["mate"]:
-            tags.append("MATE")
+            tags.append("CHECKMATE")
         elif r["check"]:
             tags.append("check")
         if r["capture"]:
-            tags.append(f"takes {r['takes']}")
+            tags.append(f"takes the {r['takes'].split()[-1]}")
         if r.get("fork"):
             tags.append("then hits " + " ".join(r["fork"]))
-        tags.append(f"net {r['net']:+d}")
+        tags.append("mate ends it" if r["mate"] else material_words(r["net"]))
+        if completes and r["capture"] and not r["mate"] and \
+                chess.square_name(board.parse_san(r["move"]).to_square) == completes["square"]:
+            tags.append(recapture_note(completes))
         lines.append(f"  {r['move']}: " + ", ".join(tags))
+    if len(rows) > len(keep):
+        lines.append(f"  ({len(rows) - len(keep)} further checks or captures, none of them winning material)")
     return "\n".join(lines)
 
 def _legal_reason(board, m):
@@ -340,9 +378,9 @@ def legal(board, san):
     if not cands or all(not board.is_pseudo_legal(chess.Move(s, to, promotion=chess.QUEEN if pt == chess.PAWN and chess.square_rank(to) in (0, 7) else None)) for s in cands):
         other = _as_mover(board, not board.turn)
         try:
-            other.parse_san(clean)
-            return (f"{san} is not legal now: it is {me}'s move and {san} is a {_side(not board.turn)} move. "
-                    f"To test what {_side(not board.turn)} threatens, play it on mover().")
+            other.parse_san(clean)  # a move for the other side: answer it rather than refuse
+            return (f"It is {me}'s move, so {san} cannot be played now. If it were "
+                    f"{_side(not board.turn)}'s move: {legal(other, san)}")
         except Exception:
             pass
     target = board.piece_at(to)
@@ -428,9 +466,17 @@ def pawn_structure_data(board):
                            "backward": [chess.square_name(s) for s in backward]}
     status = {}
     for f in range(8):
-        w, b = f in files[chess.WHITE], f in files[chess.BLACK]
-        status["abcdefgh"[f]] = "open" if not (w or b) else "closed" if (w and b) else\
-            f"half-open for {'Black' if w else 'White'}"
+        on = {c: sorted(chess.square_name(s) for s in board.pieces(chess.PAWN, c)
+                        if chess.square_file(s) == f) for c in (chess.WHITE, chess.BLACK)}
+        w, b = on[chess.WHITE], on[chess.BLACK]
+        if not w and not b:
+            status["abcdefgh"[f]] = "open (no pawn of either side)"
+        elif w and b:
+            status["abcdefgh"[f]] = f"closed (pawns on {' '.join(w + b)})"
+        else:
+            side = "Black" if w else "White"
+            status["abcdefgh"[f]] = (f"half-open for {side} "
+                                     f"({'White' if w else 'Black'} pawn on {' '.join(w or b)})")
     d["files"] = status
 
     holes = {}
@@ -457,7 +503,10 @@ def pawn_structure(board):
     for side in ("White", "Black"):
         parts = [f"{k} {' '.join(v)}" for k, v in d[side].items() if v]
         lines.append(f"{side} pawns: " + ("; ".join(parts) if parts else "no isolated, doubled, passed or backward pawns"))
-    lines.append("Files: " + ", ".join(f"{f} {s}" for f, s in d["files"].items()))
+    closed = [f for f, s in d["files"].items() if s.startswith("closed")]
+    lines += [f"{f}-file: {s}" for f, s in d["files"].items() if not s.startswith("closed")]
+    if closed:
+        lines.append("Closed files (both sides have a pawn there): " + " ".join(closed))
     for side in ("White", "Black"):
         if d["holes"][side]:
             lines.append(f"Central squares in {side}'s camp no {side} pawn can ever guard: {' '.join(d['holes'][side])}")

@@ -20,13 +20,73 @@ def by_id(*splits):
     return {e["id"]: e for s in splits for e in load(s)}
 
 
-def fmt_input(e):
-    return (f"Moves so far (the last move is the one to comment on):\n{e['moves']}\n\n"
-            f"Board after {e['move']} ({e['side']} just moved; uppercase = White, lowercase = Black, "
-            f"rank 8 at the top):\n{e['board']}")
+def fmt_input(e, with_facts=False, last_moves=None, board=True):
+    moves = e["moves"]
+    if last_moves:  # keep the last N move numbers; long games cost a 2048-token model its whole budget
+        toks = moves.split()
+        nums = [i for i, t in enumerate(toks) if t[0].isdigit()]
+        moves = " ".join(toks[nums[-last_moves]:]) if len(nums) > last_moves else moves
+        moves = ("... " if moves != e["moves"] else "") + moves
+    s = f"Moves so far (the last move is the one to comment on):\n{moves}"
+    if board:
+        s += (f"\n\nBoard after {e['move']} ({e['side']} just moved; uppercase = White, lowercase = Black, "
+              f"rank 8 at the top):\n{e['board']}")
+    if with_facts:
+        import facts
+        s += "\n\n=== FACTS (computed from this position; exact) ===\n" + facts.for_example(e, with_facts if isinstance(with_facts, list) else None)[0]
+    return s
+
+
+def render_pgn(cand, e):
+    """ChessGPT's own commentary format (annotated PGN, arXiv 2306.09200 §3.3): headers, the moves, an
+    open brace after the last one. Facts, if any, go in a leading game comment."""
+    s = f'[White "{e["white"]}"]\n[Black "{e["black"]}"]\n\n'
+    if cand.get("facts"):
+        import facts
+        s += "{ " + facts.for_example(e, cand["facts"])[0].replace("\n", " ").replace("}", ")") + " } "
+    moves = _annotated_moves(e, cand["history"]) if cand.get("history") else e["moves"]
+    return s + moves + " {"
+
+
+@__import__("functools").lru_cache(maxsize=None)
+def _game(source, file, index):
+    import sys
+    sys.path.insert(0, str(HERE.parent / "cleaned_commentary"))
+    import filter_games as fg
+    path = next(p for p in fg.pgn_files(source) if p.name == file)
+    with fg.open_pgn(path) as fh:
+        for i, g in enumerate(fg.read_games(fh)):
+            if i == index:
+                return g, fg
+
+
+def _annotated_moves(e, budget):
+    """The movetext with the annotator's own earlier mainline comments put back (never the target's),
+    newest first until `budget` characters of comment are spent."""
+    game, fg = _game(e["source"], e["file"], e["game"])
+    board, node, plies = game.board(), game, []
+    while node.variations and len(plies) < e["ply"]:
+        node = node.variations[0]
+        plies.append([board.san(node.move), fg.prose(node.comment or "")])
+        board.push(node.move)
+    plies[-1][1] = ""
+    for i in range(len(plies) - 1, -1, -1):  # keep the newest comments that fit
+        budget -= len(plies[i][1])
+        if budget < 0:
+            plies[i][1] = ""
+    out, after_comment = [], False
+    for i, (san, text) in enumerate(plies):
+        n = i // 2 + 1
+        out.append(f"{n}. {san}" if i % 2 == 0 else (f"{n}... {san}" if after_comment else san))
+        if text:
+            out.append("{ " + text.replace("}", ")") + " }")
+        after_comment = bool(text)
+    return " ".join(out)
 
 
 def render(cand, e, pool):
+    if cand.get("format") == "pgn":
+        return render_pgn(cand, e)
     parts = []
     if cand.get("context_file"):  # background reading, inserted verbatim before the instruction
         parts += [cand.get("context_intro", "The following chess lessons are background reading. Use their ideas "
@@ -34,11 +94,22 @@ def render(cand, e, pool):
                   "", "=== BEGIN LESSONS ===", (HERE.parent / cand["context_file"]).read_text(encoding="utf-8").strip(),
                   "=== END LESSONS ===", ""]
     parts += [cand["instruction"].strip(), ""]
+    if cand.get("worked_file"):  # one example of the whole procedure, run through
+        parts += [(HERE.parent / cand["worked_file"]).read_text(encoding="utf-8").strip(), ""]
     for did in cand.get("demos", []):
         d = pool[did]
-        parts += ["--- Example ---", fmt_input(d), "", f"Commentary:\n{d['comment']}", ""]
-    parts += ["--- Your turn ---", fmt_input(e), "", "Commentary:"]
+        parts += ["--- Example ---", fmt_input(d, cand.get("demo_facts")), "", f"Commentary:\n{d['comment']}", ""]
+    parts += ["--- Your turn ---", fmt_input(e, cand.get("facts"), cand.get("last_moves"), cand.get("board", True)), "",
+              cand.get("cue", "Commentary:")]
     return "\n".join(parts)
+
+
+def split_note(text, marker):
+    """Candidates that write an evaluation first: keep the part after the marker as the comment."""
+    if not marker or marker not in text:
+        return text.strip(), ""
+    head, _, tail = text.rpartition(marker)
+    return tail.strip(), head.strip()
 
 
 def run(cand, examples, pool, out_path, workers=4, temperature=0.7):
@@ -56,11 +127,17 @@ def run(cand, examples, pool, out_path, workers=4, temperature=0.7):
         tb = None
         if cand.get("functions") or cand.get("code"):
             import tools
-            tb = tools.CodeToolBox(e["fen"]) if cand.get("code") else tools.ToolBox(e["fen"])
+            fns = cand.get("functions")
+            tb = tools.CodeToolBox(e["fen"]) if cand.get("code") else \
+                tools.ToolBox(e["fen"], fns if isinstance(fns, list) else None)
+        pre = cand.get("prefill", "").format(move=e["move"], side=e["side"])  # starts the model's own turn
         r = llm.generate(render(cand, e, pool), temperature=temperature, thinking=cand.get("thinking"),
-                         max_tokens=cand.get("max_tokens", 600), tools=tb, max_rounds=cand.get("max_rounds", 10))
-        row = {"id": e["id"], "gen": r["text"], "thoughts": r.get("thoughts", ""), "finish": r["finish"],
-               "usage": r["usage"], "calls": r.get("calls", [])}
+                         max_tokens=cand.get("max_tokens", 600), tools=tb, max_rounds=cand.get("max_rounds", 10),
+                         **({"prefill": pre} if pre else {}), **({"stop": cand["stop"]} if cand.get("stop") else {}),
+                         **({"repetition_penalty": cand["repetition_penalty"]} if "repetition_penalty" in cand else {}))
+        gen, evaluation = split_note(f"{pre} {r['text']}" if pre else r["text"], cand.get("split_on"))
+        row = {"id": e["id"], "gen": gen, "eval": evaluation, "thoughts": r.get("thoughts", ""),
+               "finish": r["finish"], "usage": r["usage"], "calls": r.get("calls", [])}
         with lock, open(out_path, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
         return row

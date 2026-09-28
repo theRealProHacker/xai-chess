@@ -48,18 +48,22 @@ def judge_pack(name, split="dev", batch=25, ids=None):
     if (out / "scores.jsonl").exists():
         scored = {json.loads(l)["id"] for l in open(out / "scores.jsonl")}
     rows = [r for r in rows if r["id"] not in scored]
+    cand = json.load(open(RUNS / name / "candidate.json"))
     paths = []
     for b in range(0, len(rows), batch):
         p = out / f"batch_{b // batch:03d}.md"
         with open(p, "w", encoding="utf-8") as fh:
             for r in rows[b:b + batch]:
                 e = pool[r["id"]]
-                fh.write(f"### {r['id']}\n{fmt_input(e)}\n\nREFERENCE (human):\n{e['comment']}\n\n")
+                fh.write(f"### {r['id']}\n{fmt_input(e, cand.get('facts'))}\n\n")
                 if r.get("calls"):
                     fh.write("TOOL CALLS (made by the model; results are exact):\n")
                     for k, c in enumerate(r["calls"], 1):
                         args = ", ".join(f"{a}={v!r}" for a, v in c["args"].items())
                         fh.write(f"[{k}] {c['name']}({args})\n{c['result']}\n\n")
+                if r.get("eval"):
+                    fh.write(f"EVALUATION (written by the model before its note, not shown to users):\n{r['eval']}\n\n")
+                fh.write(f"REFERENCE (human):\n{e['comment']}\n\n")
                 if r.get("thoughts"):
                     fh.write(f"MODEL THINKING (summary returned by the API, not shown to users):\n{r['thoughts']}\n\n")
                 fh.write(f"GENERATED:\n{r['gen']}\n\n")
@@ -79,9 +83,9 @@ def judge_unpack(name, split="dev"):
     keys = ("faithful", "relevant", "human", "overall")
     summ = {k: round(statistics.mean(r[k] for r in seen.values()), 3) for k in keys} if seen else {}
     summ["n"] = len(seen)
-    if any("thinking_faithful" in r for r in seen.values()):
-        summ["thinking_faithful"] = round(statistics.mean(r["thinking_faithful"] for r in seen.values()
-                                                          if "thinking_faithful" in r), 3)
+    for k in ("tool_use", "thinking_faithful"):
+        if any(k in r for r in seen.values()):
+            summ[k] = round(statistics.mean(r[k] for r in seen.values() if k in r), 3)
     return summ
 
 
