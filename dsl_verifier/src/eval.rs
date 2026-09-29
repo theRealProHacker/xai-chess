@@ -6,10 +6,13 @@
 //! Caveats:
 //! - `Because(a, b)` holds when `a` and `b` both hold. That `b` causes `a` is not checked.
 //! - `Outweighs(a, b)` holds when both hold. The weighing is not checked.
+//! - `Quality` is the eval drop from removing the piece, minus the median drop for its kind (`baseline.tsv`); `Better` compares that drop.
+//! - `Eventually(r)` holds when `r` fails now and holds after the engine's line, `EVENTUALLY_PLIES` ahead.
 //! - `Only(r)` ignores alternatives that also achieve `r` but score `ONLY_MARGIN` or more below the move.
-//! - `WinMaterial` and `Sacrifice` use static exchange evaluation, not a search.
+//! - `WinMaterial` follows the engine's line (`SETTLE_NODES`) until the exchanges settle. `Sacrifice` uses static exchange evaluation.
 //! - `Prevents`, `Loses`, `Gains` and `Concedes` compare with the position before the enclosing move or line.
 
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -21,10 +24,16 @@ use shakmaty::{
     Bitboard, CastlingMode, Chess, Color, EnPassantMode, Move, Piece, Position, Rank, Role, Square, attacks,
 };
 
-use crate::dsl_claude::{Move_, Pieces, Reason, Reason::*, Region, Sq, examples};
+use crate::dsl_claude::{Grade, Level, Move_, Pieces, Reason, Reason::*, Region, Sq, examples};
 
 /// Centipawns an alternative may trail the played move and still count against `Only`.
 const ONLY_MARGIN: i32 = 50;
+
+/// Search size for settling exchanges in `WinMaterial`.
+const SETTLE_NODES: u64 = 1_000_000;
+
+/// How far ahead `Eventually` looks along the engine's line.
+const EVENTUALLY_PLIES: usize = 16;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum V {
@@ -65,7 +74,43 @@ fn not(v: Verdict) -> Verdict {
 
 // --------------------------------------------------------------------------- board helpers
 
-fn sq(s: Sq) -> Square { s.parse().unwrap() }
+thread_local! {
+    /// Inside `Eventually`: where each piece, named by its square at the start of the line, stands now.
+    /// None: captured along the line.
+    static TRACK: RefCell<Option<[Option<Square>; 64]>> = const { RefCell::new(None) };
+    /// Set when a reason names a piece that was captured along the line.
+    static GONE: Cell<bool> = const { Cell::new(false) };
+}
+
+fn sq(s: Sq) -> Square {
+    let s0: Square = s.parse().unwrap();
+    TRACK.with(|t| match &*t.borrow() {
+        None => s0,
+        Some(m) => m[s0 as usize].unwrap_or_else(|| { GONE.set(true); s0 }),
+    })
+}
+
+/// Move every tracked piece that `m` moves; drop the one it captures.
+fn track(map: &mut [Option<Square>; 64], m: &Move) {
+    if let Move::Castle { king, rook } = *m {
+        let short = rook.file() > king.file();
+        let (k, r) = if short { (shakmaty::File::G, shakmaty::File::F) } else { (shakmaty::File::C, shakmaty::File::D) };
+        for e in map.iter_mut() {
+            if *e == Some(king) { *e = Some(Square::from_coords(k, king.rank())) }
+            else if *e == Some(rook) { *e = Some(Square::from_coords(r, rook.rank())) }
+        }
+        return;
+    }
+    let taken = match *m {
+        Move::EnPassant { from, to } => Some(Square::from_coords(to.file(), from.rank())),
+        _ if m.is_capture() => Some(m.to()),
+        _ => None,
+    };
+    for e in map.iter_mut() {
+        if e.is_some() && *e == taken { *e = None }
+        else if *e == m.from() { *e = Some(m.to()) }
+    }
+}
 
 fn val(r: Role) -> i32 {
     match r {
@@ -171,6 +216,12 @@ fn backward(p: &Chess, s: Square, c: Color) -> bool {
         && stop.is_some_and(|t| (attackers(p, t, !c) & p.board().pawns()).any())
 }
 
+/// On one of the files beside `s`, no pawn of `c` can ever guard it.
+fn weakened(p: &Chess, s: Square, c: Color) -> bool {
+    adjacent_files(s).into_iter().map(|t| t.file()).collect::<std::collections::BTreeSet<_>>().into_iter()
+        .any(|f| (pawns(p, c) & Bitboard::from_file(f) & behind(s, c)).is_empty())
+}
+
 /// No pawn of `c` can ever guard `s`.
 fn hole(p: &Chess, s: Square, c: Color) -> bool { (pawns(p, c) & adjacent_files(s) & behind(s, c)).is_empty() }
 
@@ -264,13 +315,16 @@ impl Engine {
     }
 
     /// Score in centipawns for the side to move (mate = ±10000) and the principal variation in UCI.
-    pub fn analyse(&mut self, p: &Chess) -> (i32, Vec<String>) {
+    pub fn analyse(&mut self, p: &Chess) -> (i32, Vec<String>) { self.analyse_nodes(p, self.nodes) }
+
+    pub fn analyse_nodes(&mut self, p: &Chess, nodes: u64) -> (i32, Vec<String>) {
         if p.is_checkmate() { return (-10000, vec![]); }
         if p.is_stalemate() || p.is_insufficient_material() { return (0, vec![]); }
         let f = fen(p);
-        if let Some(r) = self.cache.get(&f) { return r.clone(); }
+        let key = format!("{f} {nodes}");
+        if let Some(r) = self.cache.get(&key) { return r.clone(); }
         self.send(&format!("position fen {f}"));
-        self.send(&format!("go nodes {}", self.nodes));
+        self.send(&format!("go nodes {nodes}"));
         let (mut score, mut pv) = (0, vec![]);
         for l in self.until("bestmove") {
             let t: Vec<&str> = l.split_whitespace().collect();
@@ -280,7 +334,7 @@ impl Engine {
             score = if t[i + 1] == "mate" { if n > 0 { 10000 } else { -10000 } } else { n };
             if let Some(j) = t.iter().position(|x| *x == "pv") { pv = t[j + 1..].iter().map(|s| s.to_string()).collect(); }
         }
-        self.cache.insert(f, (score, pv.clone()));
+        self.cache.insert(key, (score, pv.clone()));
         (score, pv)
     }
 }
@@ -310,12 +364,26 @@ pub struct Ev {
     /// Nodes that the comment claims hold, with their verdicts. Nodes under `Not`, `Prevents` and the like are not claims.
     pub claims: Vec<(String, Verdict)>,
     quiet: usize,
+    /// Median `worth` per role over corpus positions (see `baseline`), indexed by `Role as usize`.
+    typical: [i32; 7],
 }
 
 fn name(r: &Reason) -> String { format!("{r:?}").split(['(', ' ', '{']).next().unwrap().to_string() }
 
 impl Ev {
-    pub fn new(eng: Option<Engine>) -> Ev { Ev { eng, root: Chess::default(), claims: vec![], quiet: 0 } }
+    pub fn new(eng: Option<Engine>) -> Ev {
+        let mut typical = [0; 7];
+        for r in Role::ALL { typical[r as usize] = cp(r); }
+        if let Ok(t) = std::fs::read_to_string(BASELINE) {
+            for l in t.lines() {
+                let f: Vec<&str> = l.split('\t').collect();
+                if let (Some(r), Some(Ok(m))) = (f.first().and_then(|c| c.chars().next()).and_then(Role::from_char), f.get(1).map(|m| m.parse())) {
+                    typical[r as usize] = m;
+                }
+            }
+        }
+        Ev { eng, root: Chess::default(), claims: vec![], quiet: 0, typical }
+    }
 
     /// Evaluate `reason` for the side that plays `mov` in `root`.
     pub fn run(&mut self, root: &Chess, mov: &Move, reason: &Reason) -> Verdict {
@@ -353,6 +421,8 @@ impl Ev {
         match r {
             // ---------------------------------------------------------------- combinators
             And(rs) => all(rs.iter().map(|r| self.eval(r, cx)).collect::<Vec<_>>()),
+            // Each alternative alone is not claimed, so they are not recorded as claims.
+            Either(rs) => self.quietly(|ev| any(rs.iter().map(|r| ev.eval(r, cx)).collect(), "none holds")),
             Threatens(line, r) => match play(p, Some(owner), line) {
                 Err(e) => fail(e),
                 Ok(q) => {
@@ -437,14 +507,44 @@ impl Ev {
             }
             Permanent(r) => {
                 let v = self.eval(r, cx);
-                let structural = matches!(&**r, Weak(Region::Squares(ss)) if ss.iter().all(|s| {
-                    let s = sq(s);
-                    match b.piece_at(s) {
-                        None => hole(p, s, !owner),
-                        Some(pc) => pc.role == Role::Pawn && (isolated(p, s, !owner) || doubled(p, s, !owner) || backward(p, s, !owner)),
-                    }
-                }));
+                // Pawn structure cannot be undone: pawns do not move backward.
+                let structural = matches!(&**r, Isolated(_) | Doubled(_) | Backward(_) | Hole(_) | Weakened(_));
                 if v.v == V::Holds && !structural { unknown("permanence unchecked") } else { v }
+            }
+            Balances(a, b2) => {
+                let vb = self.eval(b2, &Cx { owner: !owner, ..cx.clone() });
+                let v = all([self.eval(a, cx), vb]);
+                if v.v == V::Holds { Verdict { v: V::Holds, why: "both hold; balance unchecked".into() } } else { v }
+            }
+            More(_) => unknown("comparison not modelled"),
+            Degree(l, r) if matches!(&**r, Quality(..)) => {
+                let Quality(s, g) = &**r else { unreachable!() };
+                let bar = match l { Level::Slight => 50, Level::Clear => 150, Level::Decisive => 300 };
+                self.quality(p, sq(s), g, bar)
+            }
+            Degree(_, r) => {
+                let v = self.eval(r, cx);
+                if v.v == V::Holds { Verdict { v: V::Holds, why: "holds; degree unchecked".into() } } else { v }
+            }
+            Eventually(r) => {
+                if self.quietly(|ev| ev.eval(r, cx)).v == V::Holds { return fail("already holds"); }
+                let Some(eng) = self.eng.as_mut() else { return unknown("no engine") };
+                let (_, pv) = eng.analyse(p);
+                let outer = TRACK.with(|t| *t.borrow());
+                let mut map = outer.unwrap_or(std::array::from_fn(|i| Some(Square::new(i as u32))));
+                let mut q = p.clone();
+                for u in pv.iter().take(EVENTUALLY_PLIES) {
+                    let Ok(m) = u.parse::<UciMove>().map_err(|_| ()).and_then(|u| u.to_move(&q).map_err(|_| ())) else { break };
+                    track(&mut map, &m);
+                    q = q.play(m).unwrap();
+                }
+                if q.board() == p.board() { return unknown("no engine line"); }
+                TRACK.with(|t| *t.borrow_mut() = Some(map));
+                GONE.set(false);
+                let v = self.eval(r, &cx.at(q, owner));
+                let gone = GONE.replace(false);
+                TRACK.with(|t| *t.borrow_mut() = outer);
+                if gone { fail("the piece is captured along the line") } else { v }
             }
             Faster(..) => unknown("race not modelled"),
             Suppose(edits, r) => {
@@ -463,6 +563,7 @@ impl Ev {
 
             // ---------------------------------------------------------------- tier 1: board facts
             Mate => check(p.is_checkmate(), "no mate"),
+            Check => check(p.is_check(), "no check"),
             Material(n) => {
                 let d = material(p, owner) - material(p, !owner);
                 check(d == *n as i32, format!("material {d:+}"))
@@ -471,11 +572,9 @@ impl Ev {
                 let before = cx.prev.clone();
                 let taken = roles.iter().all(|r| count(p, !owner, *r) < count(&before, !owner, *r));
                 let diff = |q: &Chess| material(q, owner) - material(q, !owner);
-                // Recapture on the squares where the opponent lost material, not captures elsewhere.
-                let hit = before.board().by_color(!owner) & !b.by_color(!owner) & b.by_color(owner);
-                let back = if p.turn() != owner { hit.into_iter().map(|s| see_square(p, s)).max().unwrap_or(0) } else { 0 };
-                let net = diff(p) - diff(&before) - back;
-                check(taken && net > 0, format!("taken {taken}, net {net:+}"))
+                let Some(settled) = self.settle(p) else { return unknown("no engine") };
+                let net = diff(&settled) - diff(&before);
+                check(taken && net > 0, format!("taken {taken}, net {net:+} once the exchanges settle"))
             }
             Trade { give, get } => {
                 let root = self.root.clone();
@@ -631,46 +730,37 @@ impl Ev {
             Tempo(_) => unknown("tempo count not modelled"),
 
             // ---------------------------------------------------------------- tier 3: heuristics
-            Weak(r) => {
-                let ss = match region(r, p, owner) { Err(e) => return fail(e), Ok(ss) => ss };
-                let named = !matches!(r, Region::Squares(_));
-                // A named region is weak when it holds a weak opponent pawn, or a hole on the opponent's 3rd or 4th rank.
-                let ss = ss.into_iter().filter(|s| !named || match b.piece_at(*s) {
-                    None => matches!(rank(*s, !owner), 2 | 3),
-                    Some(pc) => pc.color != owner && pc.role == Role::Pawn,
-                });
-                let vs: Vec<_> = ss.map(|s| {
-                let s2 = s;
-                match b.piece_at(s2) {
-                    None => check(hole(p, s2, !owner), format!("{s} can still be guarded by a pawn")),
-                    Some(pc) if pc.color == owner => fail(format!("{s} is the owner's")),
-                    Some(pc) if pc.role == Role::Pawn => check(isolated(p, s2, !owner) || doubled(p, s2, !owner)
-                        || backward(p, s2, !owner) || would_hang(p, s2), format!("{s} is a sound pawn")),
-                    Some(_) => check(attackers(p, s2, !owner).is_empty() || would_hang(p, s2), format!("{s} is defended")),
-                }
-                }).collect();
-                if named { any(vs, "no weakness in the region") } else { all(vs) }
-            }
-            Active(s) => {
-                let s2 = sq(s);
-                match b.role_at(s2) {
-                    _ if !mine(s2) => fail(format!("{s} is not the owner's")),
-                    Some(Role::Pawn) => check(passed(p, s2, owner) || rank(s2, owner) >= 4, format!("{s} pawn not advanced")),
-                    Some(r) => {
-                        let need = match r { Role::Knight => 3, Role::Bishop | Role::Rook => 4, Role::Queen => 6, _ => 3 };
-                        let m = safe_mobility(p, s2);
-                        check(m >= need, format!("{s}: {m} safe moves"))
-                    }
-                    None => fail(format!("{s} empty")),
-                }
+            Isolated(reg) | Doubled(reg) | Backward(reg) | Hole(reg) | Weakened(reg) | Hanging(reg) => {
+                let ss = match region(reg, p, owner) { Err(e) => return fail(e), Ok(ss) => ss };
+                let named = !matches!(reg, Region::Squares(_));
+                let them = !owner;
+                let pawn = |s: Square| b.color_at(s) == Some(them) && b.role_at(s) == Some(Role::Pawn);
+                let test = |s: Square| match r {
+                    Isolated(_) => check(pawn(s) && isolated(p, s, them), format!("{s} is not an isolated pawn")),
+                    Doubled(_) => check(pawn(s) && doubled(p, s, them), format!("{s} is not a doubled pawn")),
+                    Backward(_) => check(pawn(s) && backward(p, s, them), format!("{s} is not a backward pawn")),
+                    Hole(_) => check(hole(p, s, them), format!("{s} can still be guarded by a pawn")),
+                    Weakened(_) => check(weakened(p, s, them), format!("{s} can still be guarded from both sides")),
+                    _ => check(b.color_at(s) == Some(them) && b.role_at(s) != Some(Role::King) && would_hang(p, s), format!("{s} does not hang")),
+                };
+                // A named region: holes count only on the opponent's 3rd and 4th ranks, weakenings only on its pawns.
+                let vs: Vec<_> = ss.into_iter()
+                    .filter(|s| !named || !matches!(r, Hole(_)) || matches!(rank(*s, them), 2 | 3))
+                    .filter(|s| !named || !matches!(r, Weakened(_)) || pawn(*s))
+                    .map(test).collect();
+                if named { any(vs, "none in the region") } else { all(vs) }
             }
             Better { pieces, than } => {
                 let worth = |ss: &Vec<Sq>| ss.iter().filter_map(|s| b.role_at(sq(s))).map(cp).sum::<i32>();
                 let mob = |ss: &Vec<Sq>| ss.iter().map(|s| safe_mobility(p, sq(s))).sum::<usize>();
+                let sum = |ev: &mut Ev, ss: &Vec<Sq>| ss.iter().map(|s| ev.worth(p, sq(s))).sum::<Option<i32>>();
+                if let (Some(a), Some(z)) = (sum(self, pieces), sum(self, than)) {
+                    return check(a > z, format!("worth {a} vs {z} cp"));
+                }
                 let (a, z) = (worth(pieces), worth(than));
-                if !pieces.iter().all(|s| mine(sq(s))) || !than.iter().all(|s| theirs(sq(s))) { return fail("wrong owners"); }
                 if a != z { check(a > z, format!("{a} vs {z} cp")) } else { check(mob(pieces) > mob(than), format!("mobility {} vs {}", mob(pieces), mob(than))) }
             }
+            Quality(s, g) => self.quality(p, sq(s), g, 50),
             Coordinate(ss) => {
                 let s: Vec<Square> = ss.iter().map(|s| sq(s)).collect();
                 if !s.iter().all(|x| mine(*x)) { return fail("not all the owner's"); }
@@ -713,13 +803,48 @@ impl Ev {
         }
     }
 
-    /// The owner can play `line` next without losing material on each own move.
+    /// How much worse the position gets for the piece's owner without the piece.
+    /// None without an engine, for a king, or when the board without it is illegal.
+    fn worth(&mut self, p: &Chess, s: Square) -> Option<i32> {
+        let c = p.board().color_at(s)?;
+        if p.board().role_at(s)? == Role::King { return None; }
+        let with = self.owner_score(p, c)?;
+        let mut setup = p.to_setup(EnPassantMode::Legal);
+        setup.board.discard_piece_at(s);
+        let q = setup.position::<Chess>(CastlingMode::Standard).or_else(|e| e.ignore_invalid_castling_rights()).ok()?;
+        Some(with - self.owner_score(&q, c)?)
+    }
+
+    /// The piece's worth beyond what a piece of its kind is typically worth, against `bar` centipawns.
+    fn quality(&mut self, p: &Chess, s: Square, g: &Grade, bar: i32) -> Verdict {
+        let Some(role) = p.board().role_at(s) else { return fail(format!("{s} empty")) };
+        let Some(w) = self.worth(p, s) else { return unknown("no engine, or illegal without the piece") };
+        let q = w - self.typical[role as usize];
+        match g {
+            Grade::Good => check(q >= bar, format!("{s}: {q:+} cp vs a typical {role:?}")),
+            Grade::Bad => check(q <= -bar, format!("{s}: {q:+} cp vs a typical {role:?}")),
+        }
+    }
+
+    /// Follow the engine's line while it captures, checks or promotes: the position once the exchanges settle.
+    fn settle(&mut self, p: &Chess) -> Option<Chess> {
+        let (_, pv) = self.eng.as_mut()?.analyse_nodes(p, SETTLE_NODES);
+        let mut q = p.clone();
+        for u in pv {
+            let Ok(m) = u.parse::<UciMove>().map_err(|_| ()).and_then(|u| u.to_move(&q).map_err(|_| ())) else { break };
+            let next = q.clone().play(m.clone()).unwrap();
+            if !m.is_capture() && m.promotion().is_none() && !next.is_check() { break; }
+            q = next;
+        }
+        Some(q)
+    }
+
+    /// The owner can legally play `line` next.
     fn enables(&mut self, p: &Chess, owner: Color, line: &[Move_]) -> Verdict {
         let Some(mut q) = as_mover(p, owner) else { return fail("owner in check, cannot pass") };
         for m in line {
             if *m == "--" { q = match q.swap_turn() { Ok(x) => x, Err(_) => return fail("cannot pass") }; continue; }
             let mv = match san(&q, m) { Ok(x) => x, Err(e) => return fail(e) };
-            if q.turn() == owner && see(&q, &mv) < 0 { return fail(format!("{m} loses material")); }
             q = q.play(mv).unwrap();
         }
         ok()
@@ -768,6 +893,32 @@ fn engine() -> Option<Engine> {
     });
     let nodes = std::env::var("NODES").ok().and_then(|n| n.parse().ok()).unwrap_or(300_000);
     Engine::start(&path, nodes)
+}
+
+const BASELINE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/baseline.tsv");
+
+/// Median `worth` per role over every 8th position of the commentary training set, written to `baseline.tsv`.
+pub fn baseline() {
+    let data = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../commentary_gen/data/train.jsonl")).unwrap();
+    let mut ev = Ev::new(Some(engine().expect("baseline needs the engine")));
+    let mut worths: HashMap<Role, Vec<i32>> = HashMap::new();
+    for l in data.lines().step_by(8) {
+        let Some(f) = l.split("\"fen\": \"").nth(1).and_then(|r| r.split('"').next()) else { continue };
+        let Ok(p) = Fen::from_ascii(f.as_bytes()).map_err(|_| ()).and_then(|f| f.into_position::<Chess>(CastlingMode::Standard).map_err(|_| ())) else { continue };
+        if p.is_check() || p.is_game_over() { continue; }
+        for s in p.board().occupied() {
+            let Some(w) = ev.worth(&p, s) else { continue };
+            if w.abs() < 5000 { worths.entry(p.board().role_at(s).unwrap()).or_default().push(w); }
+        }
+    }
+    let mut out = String::new();
+    for r in Role::ALL {
+        let Some(ws) = worths.get_mut(&r) else { continue };
+        ws.sort();
+        out += &format!("{}\t{}\t{}\n", r.char(), ws[ws.len() / 2], ws.len());
+    }
+    std::fs::write(BASELINE, &out).unwrap();
+    print!("{out}");
 }
 
 fn mark(v: V) -> &'static str { match v { V::Holds => "holds", V::Fails => "FAILS", V::Unknown => "unknown" } }

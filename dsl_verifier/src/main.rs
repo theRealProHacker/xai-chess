@@ -3,5 +3,8 @@ mod dsl_claude;
 mod eval;
 
 fn main() {
-    eval::report();
+    match std::env::args().nth(1).as_deref() {
+        Some("baseline") => eval::baseline(),
+        _ => eval::report(),
+    }
 }
