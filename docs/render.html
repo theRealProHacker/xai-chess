@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reason Renderer &middot; xai-chess</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.base.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.brown.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.cburnett.css">
+<style>
+  :root{
+    --shadow-s:
+      inset 0 1px 2px #ffffff30,
+      0 1px 2px #00000030,
+      0 2px 4px #00000015;
+    --shadow-m:
+      inset 0 1px 2px #ffffff50,
+      0 2px 4px #00000030,
+      0 4px 8px #00000015;
+    --yes:#0b7a2f; --no:#b00020; --unk:#6b6b6b;
+    --mono:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+
+  a.back{color:#8a8a8a;text-decoration:none;font-size:.9rem}
+  a.back:hover{color:#0b5fa5}
+
+  .pick{display:flex;gap:.4rem;margin:0 0 1rem}
+  .pick select{flex:1;min-width:0;font:inherit;font-size:.9rem;padding:.5rem .6rem;border:1px solid #e4e4e4;
+      border-radius:8px;background:#fff;color:#1a1a1a;cursor:pointer;box-shadow:var(--shadow-s)}
+  .pick button{font-size:1.1rem;padding:.35rem .8rem}
+  .pick select:focus{outline:none;border-color:#0b5fa5}
+
+  #board{width:100%;aspect-ratio:1/1;margin:0 0 .6rem;box-shadow:var(--shadow-s);border-radius:4px}
+  #board .cg-shapes{z-index:3;opacity:1}
+  #board coords.files{text-transform:lowercase}
+  #board coords coord{color:#2b2b2b !important;
+      text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff;font-weight:600}
+
+  button{font:inherit;font-size:.9rem;padding:.5rem .9rem;border:1px solid #e4e4e4;border-radius:8px;
+      background:#fff;color:#1a1a1a;cursor:pointer;box-shadow:var(--shadow-s);
+      transition:border-color .12s,background .12s,box-shadow .12s}
+  button:hover:not(:disabled){border-color:#0b5fa5;background:#fafafa;box-shadow:var(--shadow-m)}
+  button:disabled{opacity:.5;cursor:default;box-shadow:none}
+
+  h2{font-size:1.1rem;font-weight:600;margin:1.6rem 0 .5rem}
+  .comment{color:#333;margin:0;padding:.1rem 0 .1rem 1rem;border-left:4px solid #e4e4e4}
+
+  /* The output, so it outweighs everything that produced it. */
+  .result{border:1px solid #e4e4e4;border-left:4px solid #0b5fa5;border-radius:10px;
+      padding:1rem 1.15rem;box-shadow:var(--shadow-m);font-size:1.05rem;line-height:1.55}
+  .result.stale{color:#8a8a8a}
+
+  .field{display:grid;grid-template-columns:2.6rem 1fr;align-items:center;gap:.4rem;margin:0 0 .4rem}
+  .field label{color:#555;font-size:.85rem}
+  .field.top{align-items:start} .field.top label{padding-top:.5rem}
+  .field input,textarea{min-width:0;font:var(--mono);padding:.5rem .6rem;border:1px solid #e4e4e4;
+      border-radius:8px;color:#1a1a1a;background:#fff}
+  .field input:focus,textarea:focus{outline:none;border-color:#0b5fa5}
+  textarea{display:block;width:100%;box-sizing:border-box;min-height:3rem;resize:vertical;tab-size:2;
+      white-space:pre-wrap}
+  .hint{color:#6b6b6b;font-size:.82rem;margin:0}
+  textarea.bad{border-color:var(--no)}
+  .err{color:var(--no);font-size:.88rem;margin:.3rem 0 0 3rem;min-height:0}
+  .err:empty{display:none}
+
+  .verdict{font-size:1.15rem;font-weight:600;margin:0 0 .5rem}
+  .verdict.holds{color:var(--yes)} .verdict.fails{color:var(--no)} .verdict.unknown{color:var(--unk)}
+  .verdict.busy{color:#6b6b6b;font-weight:400;font-size:.95rem}
+  table{width:100%;border-collapse:collapse;font-size:.88rem;table-layout:fixed}
+  th{text-align:left;font-weight:400;color:#6b6b6b;font-size:.8rem;padding:0 .5rem .25rem 0}
+  th:nth-child(1){width:7.5rem} th:nth-child(2){width:6.5rem}
+  @media (max-width:430px){th:nth-child(1){width:5.5rem} th:nth-child(2){width:5.5rem}}
+  td{padding:.35rem .5rem .35rem 0;border-top:1px solid #eee;vertical-align:baseline;overflow-wrap:anywhere}
+  td.n{font:var(--mono)}
+  td.v{font-weight:600}
+  td.v.holds{color:var(--yes)} td.v.fails{color:var(--no)} td.v.unknown{color:var(--unk)}
+  td.w{color:#555}
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; xai-chess</a>
+  <h1>Reason Renderer</h1>
+  <p class="intro">A reason for a move, written in the Reason DSL, turned into English by fixed
+  templates, and checked against the board with Stockfish. Pick one of the 49 annotated examples or
+  write your own.</p>
+
+  <div class="pick">
+    <button id="prev" aria-label="Previous example">&larr;</button>
+    <select id="ex" aria-label="Example"></select>
+    <button id="next" aria-label="Next example">&rarr;</button>
+  </div>
+
+  <div id="board"></div>
+  <p class="hint">Drag a piece to change the move.</p>
+
+  <h2 id="commentHead">Original comment</h2>
+  <p class="comment" id="comment"></p>
+
+  <h2>Position, move and reason</h2>
+  <div class="field"><label for="fen">FEN</label><input id="fen" spellcheck="false"></div>
+  <div class="field"><label for="mov">Move</label><input id="mov" spellcheck="false"></div>
+  <div class="field top"><label for="dsl">DSL</label><textarea id="dsl" spellcheck="false"></textarea></div>
+  <p class="err" id="err" aria-live="polite"></p>
+
+  <h2>English</h2>
+  <div class="result" id="out" aria-live="polite">&nbsp;</div>
+
+  <h2>Does it hold?</h2>
+  <div id="check"><p class="verdict busy" id="verdict">Loading the engine&hellip;</p><table id="claims"></table></div>
+
+
+<script type="module">
+import { Chess } from './vendor/chess.js';
+import { Chessground } from './vendor/chessground/chessground.min.js';
+import init, * as dsl from './vendor/dsl/dsl_verifier.js';
+
+await init();
+const EXAMPLES = JSON.parse(dsl.examples());
+const $ = id => document.getElementById(id);
+const fenIn = $('fen'), movIn = $('mov'), dslIn = $('dsl'), sel = $('ex');
+
+EXAMPLES.forEach((e, i) => {
+  const o = document.createElement('option');
+  const c = e.comment.replace(/\s+/g, ' ');
+  const [, side, , , , n] = e.fen.split(' ');
+  o.value = i; o.textContent = `${n}${side === 'w' ? '.' : '...'}${e.mov} — ${c.length > 60 ? c.slice(0, 58) + '…' : c}`;
+  sel.append(o);
+});
+
+// Wasm traps on a panic; the panic message says why.
+function call(f, ...a){
+  try { return JSON.parse(f(...a)); }
+  catch(_) { return {error: dsl.last_panic() || 'The renderer crashed on this input.'}; }
+}
+
+// --- board ---
+const chess = new Chess();
+const ground = Chessground($('board'), {
+  coordinates: true,
+  movable: {free:false, showDests:true, events:{after:onDrag}},
+  drawable: {enabled:false},
+  animation: {enabled:false},
+});
+const colour = () => chess.turn() === 'w' ? 'white' : 'black';
+function dests(){
+  const d = new Map();
+  for (const m of chess.moves({verbose:true})) d.set(m.from, [...(d.get(m.from) || []), m.to]);
+  return d;
+}
+function drawBoard(){
+  if (!chess.load(fenIn.value.trim())) return;
+  const m = new Chess(chess.fen()).move(movIn.value.trim(), {sloppy:true});
+  ground.set({fen: chess.fen(), turnColor: colour(), lastMove: undefined,
+              movable: {color: colour(), dests: dests()}});
+  ground.setAutoShapes(m ? [{orig:m.from, dest:m.to, brush:'blue'}] : []);
+}
+function onDrag(from, to){
+  const m = new Chess(chess.fen()).move({from, to, promotion:'q'});
+  if (m) movIn.value = m.san;
+  $('comment').hidden = $('commentHead').hidden = true;
+  update();
+}
+
+// --- render, then check with the engine ---
+let gen = 0;
+function update(){
+  drawBoard();
+  const r = call(dsl.render, fenIn.value, movIn.value, dslIn.value);
+  const msg = r.error && r.error.replace(/`/g, '');
+  $('err').textContent = msg || '';
+  dslIn.classList.toggle('bad', !!msg);
+  $('out').classList.toggle('stale', !!msg);
+  $('out').textContent = msg ? 'No English until the DSL parses.' : r.text;
+  evaluate(++gen, msg);
+}
+
+function load(i){
+  const e = EXAMPLES[i];
+  sel.value = i;
+  fenIn.value = e.fen; movIn.value = e.mov; dslIn.value = e.dsl; fit();
+  ground.set({orientation: e.fen.split(' ')[1] === 'b' ? 'black' : 'white'});
+  $('comment').textContent = e.comment;
+  $('comment').hidden = $('commentHead').hidden = false;
+  update();
+}
+
+// The reason box grows with the reason instead of scrolling.
+function fit(){ dslIn.style.height = 'auto'; dslIn.style.height = dslIn.scrollHeight + 2 + 'px'; }
+
+addEventListener('resize', fit);
+
+let timer;
+for (const el of [fenIn, movIn, dslIn]) el.addEventListener('input', () => {
+  if (el !== dslIn) $('comment').hidden = $('commentHead').hidden = true;
+  if (el === dslIn) fit();
+  clearTimeout(timer); timer = setTimeout(update, 250);
+});
+dslIn.addEventListener('keydown', e => {
+  if (e.key !== 'Tab') return;
+  e.preventDefault(); document.execCommand('insertText', false, '  ');
+});
+sel.addEventListener('change', () => load(+sel.value));
+$('prev').onclick = () => load((+sel.value + EXAMPLES.length - 1) % EXAMPLES.length);
+$('next').onclick = () => load((+sel.value + 1) % EXAMPLES.length);
+
+// --- engine: Stockfish 18 lite in a worker. The evaluator asks for one search at a time. ---
+const engine = new Worker('vendor/stockfish/stockfish-18-lite-single.js');
+const lineOf = e => typeof e.data === 'string' ? e.data : (e.data && e.data.data) || '';
+let onLine = () => {};
+engine.onmessage = e => onLine(lineOf(e));
+const until = (tag, lines) => new Promise(res => {
+  onLine = l => { lines?.push(l); if (l.startsWith(tag)) res(lines); };
+});
+async function ready(){ engine.postMessage('isready'); await until('readyok'); }
+const booted = (async () => {
+  engine.postMessage('uci'); await until('uciok');
+  engine.postMessage('setoption name Threads value 1'); await ready();
+})();
+
+// One search at a time; a newer evaluation waits for the current search to stop.
+let queue = Promise.resolve();
+function search(key, g){
+  const run = async () => {
+    if (g !== gen) return null;
+    const i = key.lastIndexOf(' ');
+    engine.postMessage('ucinewgame'); await ready();
+    engine.postMessage('position fen ' + key.slice(0, i));
+    const done = until('bestmove', []);
+    engine.postMessage('go nodes ' + key.slice(i + 1));
+    const poll = setInterval(() => { if (g !== gen) engine.postMessage('stop'); }, 100);
+    const lines = await done;
+    clearInterval(poll);
+    return g === gen ? lines.join('\n') : null;
+  };
+  return queue = queue.then(run);
+}
+
+const WORD = {holds:'Holds', fails:'Fails', unknown:'Not decided'};
+function show(cls, text, claims = []){
+  $('verdict').className = 'verdict ' + cls;
+  $('verdict').textContent = text;
+  const t = $('claims'); t.replaceChildren();
+  // One claim repeats the headline; a column of empty reasons says nothing.
+  // Claims come children first, so a reason's first row is where it arose; later rows only pass it up.
+  const seen = new Set();
+  claims = claims.filter(c => !c.why || !seen.has(c.why) && seen.add(c.why));
+  if (claims.length < 2) return;
+  const why = claims.some(c => c.why);
+  {
+    const h = t.createTHead().insertRow();
+    for (const x of why ? ['Part', 'Result', 'Why'] : ['Part', 'Result']) h.append(Object.assign(document.createElement('th'), {textContent: x}));
+  }
+  for (const c of claims) {
+    const tr = t.insertRow();
+    tr.insertCell().className = 'n'; tr.cells[0].textContent = c.name;
+    tr.insertCell().className = 'v ' + c.v; tr.cells[1].textContent = WORD[c.v];
+    if (why) { tr.insertCell().className = 'w'; tr.cells[2].textContent = c.why; }
+  }
+}
+
+async function evaluate(g, error){
+  if (error) return show('busy', 'Fix the reason to check it.');
+  await booted;
+  let n = 0;
+  while (g === gen) {
+    const r = call(dsl.evaluate, fenIn.value, movIn.value, dslIn.value);
+    if (r.error) return show('unknown', r.error);
+    if (!r.need) {
+      return show(r.v, WORD[r.v] + (r.why ? ': ' + r.why : ''), r.claims);
+    }
+    show('busy', `Searching with Stockfish (${++n})…`);
+    const lines = await search(r.need, g);
+    if (lines === null) return;
+    dsl.searched(r.need, lines);
+  }
+}
+
+load(0);
+</script>
+</body>
+</html>

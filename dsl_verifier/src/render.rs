@@ -8,6 +8,8 @@
 //! `Removes` and `Loses`, before the top-level move for `Trade`. A line that does not replay leaves
 //! its subtree with bare squares; rendering never fails.
 
+#![cfg_attr(target_arch = "wasm32", allow(unused_imports, dead_code))]
+
 use shakmaty::fen::Fen;
 use shakmaty::{CastlingMode, Chess, Color, EnPassantMode, Move, Piece, Position, Role, Square};
 
@@ -653,6 +655,7 @@ pub fn render_reason(root: &Chess, mov: Move_, reason: &Reason) -> String {
 
 fn parse(fen: &str) -> Chess { Fen::from_ascii(fen.as_bytes()).unwrap().into_position(CastlingMode::Standard).unwrap() }
 
+#[cfg(not(target_arch = "wasm32"))]
 /// Every example: the comment, then the rendering.
 pub fn report() {
     for (i, ex) in examples().iter().enumerate() {

@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use serde::{Deserialize, Deserializer};
 use shakmaty::Role;
 
 /// SAN move. In a line, "--" is a pass.
@@ -7,12 +8,28 @@ pub(crate) type Move_ = &'static str;
 /// Square such as "e4". A piece is named by its square where the reason is evaluated.
 pub(crate) type Sq = &'static str;
 
+fn role_named(n: &str) -> Option<Role> { Role::ALL.into_iter().find(|r| format!("{r:?}") == n) }
+
+/// A role by its `Debug` name ("Pawn"), as the DSL text writes it.
+fn role<'de, D: Deserializer<'de>>(d: D) -> Result<Role, D::Error> {
+    let n = String::deserialize(d)?;
+    role_named(&n).ok_or_else(|| serde::de::Error::custom(format!("unknown piece {n}")))
+}
+
+fn roles<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<Role>, D::Error> {
+    Vec::<String>::deserialize(d)?
+        .into_iter()
+        .map(|n| role_named(&n).ok_or_else(|| serde::de::Error::custom(format!("unknown piece {n}"))))
+        .collect()
+}
+
 /// Squares named the way players name them. `opponent` is relative to the reason's owner.
 /// Listed `Squares` must each satisfy the reason. A named region is quantified the way players speak:
 /// `Control` every square, `Isolated`, `Doubled`, `Backward` and `Hanging` some such opponent pawn or piece,
 /// `Hole` some hole on the opponent's 3rd or 4th rank,
 /// `Pressure` more squares aimed at than the opponent aims at, `Outnumber` more squares outnumbering than outnumbered.
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
+#[serde(bound(deserialize = "'de: 'static"))]
 pub(crate) enum Region {
     Squares(Vec<Sq>),
     /// The f-, g- and h-files. The d- and e-files are the centre, as in "central majority".
@@ -34,7 +51,8 @@ pub(crate) enum Region {
 }
 
 /// How good a move is, on the annotation scale (?? ? ?! !? ! !!).
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
+#[serde(bound(deserialize = "'de: 'static"))]
 pub(crate) enum Annotation {
     Blunder,
     Mistake,
@@ -50,14 +68,16 @@ pub(crate) enum Annotation {
 }
 
 /// How good a piece is: what it adds beyond its material. `Degree` scales it.
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
+#[serde(bound(deserialize = "'de: 'static"))]
 pub(crate) enum Grade {
     Good,
     Bad,
 }
 
 /// How strongly a reason holds.
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
+#[serde(bound(deserialize = "'de: 'static"))]
 pub(crate) enum Level {
     Slight,
     Clear,
@@ -65,14 +85,15 @@ pub(crate) enum Level {
 }
 
 /// Which of the owner's knights, bishops, rooks and queens a reason is about.
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
+#[serde(bound(deserialize = "'de: 'static"))]
 pub(crate) enum Pieces {
     /// Development in general: the knights and bishops.
     All,
     /// The piece on this square.
     At(Sq),
     /// Every piece of this kind: "the queen", "the rooks".
-    Every(Role),
+    Every(#[serde(deserialize_with = "role")] Role),
     /// The pieces that start in this region: "the kingside".
     On(Region),
 }
@@ -80,7 +101,8 @@ pub(crate) enum Pieces {
 /// A reason belongs to a side: the mover at the top, the opponent inside `Allows`, `Prevents` and `Removes`.
 /// It is evaluated after the move (or after the line that wraps it).
 /// A line starts with the side to move; `Threatens` and `Enables` let the owner move first.
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
+#[serde(bound(deserialize = "'de: 'static"))]
 pub(crate) enum Reason {
     And(Vec<Reason>),
     /// At least one holds ("either trades queens or loses the pawn").
@@ -108,7 +130,7 @@ pub(crate) enum Reason {
     /// What the alternative move would have achieved.
     Instead(Move_, Box<Reason>),
     /// Material given up for the reason.
-    Sacrifice(Vec<Role>, Box<Reason>),
+    Sacrifice(#[serde(deserialize_with = "roles")] Vec<Role>, Box<Reason>),
     /// The reason does not hold ("not really weak", "no way to attack it").
     Not(Box<Reason>),
     /// The first reason holds because of the second.
@@ -138,7 +160,7 @@ pub(crate) enum Reason {
     Check,
     /// The side to move is checkmated.
     Mate,
-    WinMaterial(Vec<Role>),
+    WinMaterial(#[serde(deserialize_with = "roles")] Vec<Role>),
     /// The owner is this many pawns ahead in material (N, B = 3, R = 5, Q = 9; negative: behind).
     Material(i8),
     /// Pieces named by their squares before the move.

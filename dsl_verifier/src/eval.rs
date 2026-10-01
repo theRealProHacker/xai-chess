@@ -12,9 +12,13 @@
 //! - `WinMaterial` follows the engine's line (`SETTLE_NODES`) until the exchanges settle. `Sacrifice` uses static exchange evaluation.
 //! - `Prevents`, `Loses`, `Gains` and `Concedes` compare with the position before the enclosing move or line.
 
+#![cfg_attr(target_arch = "wasm32", allow(unused_imports, dead_code))]
+
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
+#[cfg(not(target_arch = "wasm32"))]
 use std::io::{BufRead, BufReader, Write};
+#[cfg(not(target_arch = "wasm32"))]
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 use shakmaty::fen::Fen;
@@ -286,6 +290,22 @@ fn slider_line(role: Role, a: Square, b: Square) -> bool {
 
 // --------------------------------------------------------------------------- engine
 
+/// Score in centipawns for the side to move (mate = ±10000) and the principal variation in UCI,
+/// from the `info` lines of one search.
+pub(crate) fn parse_search(lines: &[String]) -> (i32, Vec<String>) {
+    let (mut score, mut pv) = (0, vec![]);
+    for l in lines {
+        let t: Vec<&str> = l.split_whitespace().collect();
+        let Some(i) = t.iter().position(|x| *x == "score") else { continue };
+        if t.contains(&"upperbound") || t.contains(&"lowerbound") { continue; }
+        let n: i32 = t[i + 2].parse().unwrap_or(0);
+        score = if t[i + 1] == "mate" { if n > 0 { 10000 } else { -10000 } } else { n };
+        if let Some(j) = t.iter().position(|x| *x == "pv") { pv = t[j + 1..].iter().map(|s| s.to_string()).collect(); }
+    }
+    (score, pv)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub struct Engine {
     _child: Child,
     inp: ChildStdin,
@@ -294,6 +314,7 @@ pub struct Engine {
     cache: HashMap<String, (i32, Vec<String>)>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl Engine {
     pub fn start(path: &str, nodes: u64) -> Option<Engine> {
         let mut child = Command::new(path).stdin(Stdio::piped()).stdout(Stdio::piped()).spawn().ok()?;
@@ -339,22 +360,39 @@ impl Engine {
         self.until("readyok");
         self.send(&format!("position fen {f}"));
         self.send(&format!("go nodes {nodes}"));
-        let (mut score, mut pv) = (0, vec![]);
-        for l in self.until("bestmove") {
-            let t: Vec<&str> = l.split_whitespace().collect();
-            let Some(i) = t.iter().position(|x| *x == "score") else { continue };
-            if t.contains(&"upperbound") || t.contains(&"lowerbound") { continue; }
-            let n: i32 = t[i + 2].parse().unwrap_or(0);
-            score = if t[i + 1] == "mate" { if n > 0 { 10000 } else { -10000 } } else { n };
-            if let Some(j) = t.iter().position(|x| *x == "pv") { pv = t[j + 1..].iter().map(|s| s.to_string()).collect(); }
-        }
-        self.cache.insert(key, (score, pv.clone()));
-        (score, pv)
+        let r = parse_search(&self.until("bestmove"));
+        self.cache.insert(key, r.clone());
+        r
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl Drop for Engine {
     fn drop(&mut self) { let _ = writeln!(self.inp, "quit"); }
+}
+
+/// In the browser the search runs in JavaScript, outside this call. A search not in `cache` is
+/// recorded in `missing`, answered with a dummy, and the caller runs the search and evaluates again.
+#[cfg(target_arch = "wasm32")]
+pub struct Engine {
+    pub nodes: u64,
+    pub cache: HashMap<String, (i32, Vec<String>)>,
+    /// The first search this evaluation lacked: "fen nodes".
+    pub missing: Option<String>,
+}
+
+#[cfg(target_arch = "wasm32")]
+impl Engine {
+    pub fn analyse(&mut self, p: &Chess) -> (i32, Vec<String>) { self.analyse_nodes(p, self.nodes) }
+
+    pub fn analyse_nodes(&mut self, p: &Chess, nodes: u64) -> (i32, Vec<String>) {
+        if p.is_checkmate() { return (-10000, vec![]); }
+        if p.is_stalemate() || p.is_insufficient_material() { return (0, vec![]); }
+        let key = format!("{} {nodes}", fen(p));
+        if let Some(r) = self.cache.get(&key) { return r.clone(); }
+        self.missing.get_or_insert(key);
+        (0, vec![])
+    }
 }
 
 // --------------------------------------------------------------------------- evaluator
@@ -372,7 +410,7 @@ impl Cx {
 }
 
 pub struct Ev {
-    eng: Option<Engine>,
+    pub(crate) eng: Option<Engine>,
     /// Position before the move: `Trade` names pieces by their squares here.
     root: Chess,
     /// Position after the played move: `Stronger` and `Weaker` compare with it.
@@ -380,7 +418,7 @@ pub struct Ev {
     /// Nodes that the comment claims hold, with their verdicts. Nodes under `Not`, `Prevents` and the like are not claims.
     pub claims: Vec<(String, Verdict)>,
     quiet: usize,
-    /// Median `worth` per role over corpus positions (see `baseline`), indexed by `Role as usize`.
+/// Median `worth` per role over corpus positions (see `baseline`), indexed by `Role as usize`.
     typical: [i32; 7],
 }
 
@@ -390,7 +428,11 @@ impl Ev {
     pub fn new(eng: Option<Engine>) -> Ev {
         let mut typical = [0; 7];
         for r in Role::ALL { typical[r as usize] = cp(r); }
-        if let Ok(t) = std::fs::read_to_string(BASELINE) {
+        #[cfg(not(target_arch = "wasm32"))]
+        let t = std::fs::read_to_string(BASELINE);
+        #[cfg(target_arch = "wasm32")]
+        let t: Result<&str, ()> = Ok(include_str!("../baseline.tsv"));
+        if let Ok(t) = t {
             for l in t.lines() {
                 let f: Vec<&str> = l.split('\t').collect();
                 if let (Some(r), Some(Ok(m))) = (f.first().and_then(|c| c.chars().next()).and_then(Role::from_char), f.get(1).map(|m| m.parse())) {
@@ -950,6 +992,7 @@ impl Ev {
 
 // --------------------------------------------------------------------------- report
 
+#[cfg(not(target_arch = "wasm32"))]
 fn engine() -> Option<Engine> {
     let path = std::env::var("STOCKFISH").unwrap_or_else(|_| {
         concat!(env!("CARGO_MANIFEST_DIR"), "/../vendor/stockfish/stockfish-ubuntu-x86-64-avx2").to_string()
@@ -960,6 +1003,7 @@ fn engine() -> Option<Engine> {
 
 const BASELINE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/baseline.tsv");
 
+#[cfg(not(target_arch = "wasm32"))]
 /// Median `worth` per role over every 8th position of the commentary training set, written to `baseline.tsv`.
 pub fn baseline() {
     let data = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../commentary_gen/data/train.jsonl")).unwrap();
@@ -986,6 +1030,7 @@ pub fn baseline() {
 
 fn mark(v: V) -> &'static str { match v { V::Holds => "holds", V::Fails => "FAILS", V::Unknown => "unknown" } }
 
+#[cfg(not(target_arch = "wasm32"))]
 /// Every example on its real move.
 pub fn report() {
     let eng = engine();
