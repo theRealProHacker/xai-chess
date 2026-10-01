@@ -154,7 +154,7 @@ fn as_mover(p: &Chess, c: Color) -> Option<Chess> {
     if p.turn() == c { Some(p.clone()) } else { p.clone().swap_turn().ok() }
 }
 
-fn san(p: &Chess, m: Move_) -> Result<Move, String> {
+pub(crate) fn san(p: &Chess, m: Move_) -> Result<Move, String> {
     San::from_ascii(m.as_bytes()).map_err(|_| format!("bad SAN {m}"))?.to_move(p).map_err(|_| format!("illegal {m}"))
 }
 
