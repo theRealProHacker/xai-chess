@@ -149,7 +149,7 @@ pub fn families() -> Vec<Family> {
         f("space", "Space",
           "In each sector, count the squares in the opponent's half a side holds (it attacks them more often, batteries included, as on the Space demo). Two or more squares more than the opponent is more space."),
         f("space_pawns", "Space (pawn advance)",
-          "Count each side's pawns on its 4th, 5th and 6th rank. The side with more leads by the difference: 1, 2, or 3 or more."),
+          "Count each side's pawns on its 4th, 5th and 6th rank, over the whole board and in each sector (queenside a–c, centre d–e, kingside f–h). The side with more leads by the difference: 1, 2, or 3 or more."),
         f("initiative", "Initiative",
           "The side with the initiative makes the other answer its threats. The side not to move has it when it threatens something now: a check, mate in one, or to win a piece (hit by something cheaper, or hit and unguarded). Otherwise the engine's best move decides: if it leaves such a threat and the best reply answers without a threat of its own, the side to move has the initiative; if the reply carries a threat, the initiative passes to the other side."),
     ]

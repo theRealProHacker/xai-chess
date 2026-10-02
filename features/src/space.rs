@@ -74,22 +74,31 @@ pub fn run(g: &Geo, o: &mut Out) {
     }
 }
 
-/// Space (pawn advance): own pawns on the 4th, 5th or 6th rank, against the opponent's.
+/// Space (pawn advance): own pawns on the 4th, 5th or 6th rank, against the opponent's, over the
+/// whole board and per sector.
 pub fn pawn_advance(g: &Geo, o: &mut Out) {
+    let all = 0..=7;
+    pawn_lead(g, o, "space_pawns", &all, "overall: ");
+    for (sector, files) in SECTORS {
+        pawn_lead(g, o, &format!("space_pawns.{sector}"), &files, &format!("{sector}: "));
+    }
+}
+
+fn pawn_lead(g: &Geo, o: &mut Out, id: &str, files: &RangeInclusive<i32>, where_: &str) {
     let adv = |c: Color| -> Vec<String> {
-        let mut v: Vec<_> = g.pawns(c).into_iter().filter(|&(_, r)| (3..=5).contains(&rel(c, r))).collect();
+        let mut v: Vec<_> = g.pawns(c).into_iter().filter(|&(f, r)| files.contains(&f) && (3..=5).contains(&rel(c, r))).collect();
         v.sort();
         v.into_iter().map(|(f, r)| name(f, r)).collect()
     };
     let (aw, ab) = (adv(Color::White), adv(Color::Black));
     let d = aw.len() as i32 - ab.len() as i32;
-    let why = format!("pawns on their own 4th to 6th rank: White {} ({}), Black {} ({})",
-                      aw.len(), aw.join(" "), ab.len(), ab.join(" "));
-    o.global("space_pawns.equal", d == 0, vec![], why.clone());
+    let list = |v: &[String]| if v.is_empty() { "0".to_string() } else { format!("{} ({})", v.len(), v.join(" ")) };
+    let why = format!("{where_}White {}, Black {}", list(&aw), list(&ab));
+    o.global(format!("{id}.equal"), d == 0, vec![], why.clone());
     for c in Color::ALL {
         let mine = if c.is_white() { d } else { -d };
         let hit = if mine > 0 { (mine - 1).min(2) as usize } else { 99 };
         // both sides' advanced pawns, so the page can mark the other side's too
-        o.one_hot("space_pawns", Some(c), &["plus1", "plus2", "plus3plus"], hit, aw.iter().chain(&ab).cloned().collect(), &why);
+        o.one_hot(id, Some(c), &["plus1", "plus2", "plus3plus"], hit, aw.iter().chain(&ab).cloned().collect(), &why);
     }
 }

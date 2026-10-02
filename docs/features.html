@@ -157,7 +157,8 @@ function label(id){
   const fam = famOf(id);
   let v = id.slice(fam.length + 1);
   if (!v) return 'yes';
-  if (id.startsWith('local.') || id.startsWith('space.')) {
+  if (fam === 'space_pawns' && !v.includes('.')) return words(v) + ' overall';
+  if (id.startsWith('local.') || id.startsWith('space.') || fam === 'space_pawns') {
     const [sector, rest] = v.split('.');
     return (rest ? words(rest) + ' ' : '') + (sector === 'centre' ? 'in the centre' : 'on the ' + sector);
   }
@@ -342,7 +343,7 @@ function render(){
       if (fam.id === 'initiative' && !top) v = s === chess.turn().replace('w', 'white').replace('b', 'black') ? 'asking Stockfish…' : '';
       else if (fam.id === 'context.turn') v = (on.length > 0) === (s === 'white') ? 'yes' : 'no';
       else if (single) v = on.some(f => f.side === s || !f.side) ? 'yes' : 'no';
-      else if (fam.id === 'local' || fam.id === 'space') v = cell(s) || (fam.id === 'local' ? 'equal' : 'no');
+      else if (['local', 'space', 'space_pawns'].includes(fam.id)) v = cell(s) || (fam.id === 'space' ? 'no' : 'equal');
       else v = cell(s) || g || 'no';   // whole-position values hold for both
       td.textContent = v;
       if (['no', 'equal', '0', ''].includes(v) || v.endsWith('…')) td.classList.add('empty');
