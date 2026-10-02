@@ -52,15 +52,15 @@
   .case .lead .qt{font-weight:600}
   .case .lead .ctx{color:#555}
   .case .lead a{color:#6b6b6b;font-size:.85rem}
-  .case .hole{aspect-ratio:1/1;margin-left:14px;width:calc(100% - 14px);border:1px dashed #d6d6d6;border-radius:4px;
+  .case .hole{margin:0 0 1.5rem;border:1px dashed #d6d6d6;border-radius:4px;
       display:flex;align-items:center;justify-content:center;padding:1.2rem;box-sizing:border-box;
       color:#6b6b6b;font-size:.95rem;text-align:center}
-  .case .mini{width:calc(100% - 14px);margin:0 0 1.5rem 14px;aspect-ratio:1/1;box-shadow:var(--shadow-s);border-radius:4px}
+  .case .mini{width:100%;margin:0 0 1.9rem;aspect-ratio:1/1;box-shadow:var(--shadow-s);border-radius:4px}
   .mini coords coord,#board coords coord{color:#333 !important;text-shadow:none;font-weight:400}
   .mini coords,#board coords{font-size:12px;opacity:1}
   /* chessground places coordinates with fixed pixel offsets sized for a large board; on these
      boards that puts each file letter under the next file. Anchor them to the square instead. */
-  .mini coords.files,#board coords.files{left:0;bottom:-15px;height:auto;text-transform:lowercase}
+  .mini coords.files,#board coords.files{left:0;bottom:-19px;height:auto;text-transform:lowercase}
   .mini coords.files coord,#board coords.files coord{flex:1 1 0;text-align:center}
   .mini coords.ranks,#board coords.ranks{top:0;left:-13px;width:10px}
   .mini coords.ranks coord,#board coords.ranks coord{flex:1 1 0;transform:none;display:flex;align-items:center;justify-content:flex-end}
@@ -74,10 +74,10 @@
   .case .det{font-size:.9rem;color:#333;margin:0 0 .3rem}
   .case .note{font-size:.9rem;color:#1a1a1a;margin:.35rem 0 .5rem}
 
-  #board{width:min(440px, calc(100% - 14px));margin:0 0 1.6rem 14px;aspect-ratio:1/1;box-shadow:var(--shadow-s);border-radius:4px}
+  #board{width:min(440px, 100%);margin:0 0 2rem;aspect-ratio:1/1;box-shadow:var(--shadow-s);border-radius:4px}
   .mini .cg-shapes, #board .cg-shapes{opacity:1}
   #board coords.files{text-transform:lowercase}
-  .fenrow{display:flex;gap:.4rem;align-items:center;margin:0 0 .3rem}
+  .fenrow{display:flex;gap:.4rem;align-items:stretch;margin:0 0 .3rem}
   .fenrow input{flex:1;min-width:0;font:var(--mono);padding:.5rem .6rem;border:1px solid #e4e4e4;
       border-radius:8px;color:#1a1a1a;background:#fff}
   .fenrow input:focus{outline:none;border-color:#0b5fa5}
