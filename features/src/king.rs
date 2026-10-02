@@ -52,7 +52,7 @@ pub fn run(g: &Geo, o: &mut Out) {
         o.side("king.shield.breached", c, on, sq,
                if on { why.join("; ") } else { format!("own pawns on the {}- and {}-files, and {} of {} still home", fl(files[0]), fl(files[1]), home.len(), row.iter().map(|&f| name(f, r2)).collect::<Vec<_>>().join(", ")) });
 
-        // attackers and defenders on the king's wing, counted as for local superiority
+        // attackers and defenders on the king's wing
         let wing = SECTORS.iter().find(|(_, fs)| fs.contains(&kf)).unwrap().1.clone();
         let z = zone(g, c);
         let att = forces(g, c.other(), &wing, z, true);

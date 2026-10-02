@@ -27,9 +27,22 @@ pub fn forces(g: &Geo, c: Color, files: &RangeInclusive<i32>, zone: Bitboard, fa
     v
 }
 
+/// `c`'s knights, bishops, rooks and queens that stand on `files` (not a minor piece at home, not a
+/// shut-in rook), or that attack an enemy unit or three squares there in the opponent's half.
+fn bearing(g: &Geo, c: Color, files: &RangeInclusive<i32>) -> Vec<Square> {
+    let mut v: Vec<Square> = g.pieces(c).into_iter().map(|x| x.0).filter(|&s| {
+        let a: Vec<Square> = g.attacks(s).into_iter().filter(|&t| { let (f, r) = fr(t); files.contains(&f) && rel(c, r) >= 4 }).collect();
+        let (f, r) = fr(s);
+        let home = rel(c, r) == 0 && matches!(g.b.role_at(s), Some(Role::Knight | Role::Bishop)) && [1, 2, 5, 6].contains(&f);
+        (files.contains(&f) && !shut_in(g, c, s) && !home) || a.len() >= 3 || a.iter().any(|&t| g.b.by_color(c.other()).contains(t))
+    }).collect();
+    v.sort_by_key(|s| s.to_string());
+    v
+}
+
 pub fn local(g: &Geo, o: &mut Out) {
     for (sector, files) in SECTORS {
-        let (fw, fb) = (forces(g, Color::White, &files, Bitboard::EMPTY, true), forces(g, Color::Black, &files, Bitboard::EMPTY, true));
+        let (fw, fb) = (bearing(g, Color::White, &files), bearing(g, Color::Black, &files));
         let d = fw.len() as i32 - fb.len() as i32;
         let why = format!("{sector}: White {} ({}), Black {} ({})", fw.len(), names(fw.clone()).join(" "), fb.len(), names(fb.clone()).join(" "));
         o.global(format!("local.{sector}.equal"), d == 0, vec![], why.clone());
