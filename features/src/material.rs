@@ -138,6 +138,16 @@ pub fn run(g: &Geo, o: &mut Out) {
     o.global("material.imbalance.other", other, vec![],
              if other { format!("White keeps {} against {}", words(w), words(b)) } else { String::new() });
 
+    // material off the board: what each side has lost from its starting set
+    for c in Color::ALL {
+        let gone = |r: Role, start: usize| start.saturating_sub(g.count(c, r));
+        let (q, r, m) = (gone(Role::Queen, 1), gone(Role::Rook, 2), gone(Role::Knight, 2) + gone(Role::Bishop, 2));
+        let why = format!("{} has lost {} queen, {} rook{} and {} minor piece{}", title(c), q, r, if r == 1 { "" } else { "s" }, m, if m == 1 { "" } else { "s" });
+        o.side("material.traded.queen", c, q == 1, vec![], why.clone());
+        o.one_hot("material.traded", Some(c), &["one_rook", "two_rooks"], r.wrapping_sub(1), vec![], &why);
+        o.one_hot("material.traded", Some(c), &["one_minor", "two_minors", "three_minors", "four_minors"], m.wrapping_sub(1), vec![], &why);
+    }
+
     for c in Color::ALL {
         let bs: Vec<_> = g.b.by_piece(shakmaty::Piece { color: c, role: Role::Bishop }).into_iter().collect();
         let pair = |bs: &[shakmaty::Square]| bs.iter().any(|s| s.is_light()) && bs.iter().any(|s| s.is_dark());

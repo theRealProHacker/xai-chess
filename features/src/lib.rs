@@ -106,6 +106,8 @@ pub fn families() -> Vec<Family> {
           "Pawn 1, knight 3, bishop 3, rook 5, queen 9. Equal, or one side ahead by exactly 1, exactly 2, or 3 or more."),
         f("material.imbalance", "Unlike material",
           "Split both armies into like-for-like pairs and named trades, every piece used once: bishop against knight, rook against minor piece (the exchange), two minor pieces against a rook, two knights against a bishop, two rooks against a queen, three minor pieces against a queen, queen against rook and minor piece, or a minor piece against two or more pawns. Each trade in the split is on; one position can hold several. Where no split exists, the type is other."),
+        f("material.traded", "Material traded",
+          "What each side has lost from its starting set: the queen; one rook or both; one, two, three or all four minor pieces. A promoted piece does not make up for one lost."),
         f("material.bishop_pair", "Bishop pair", "A bishop on each square colour, while the opponent lacks one of the two."),
         f("material.opposite_bishops", "Unlike bishops", "Each side has exactly one bishop, and they run on different square colours."),
         f("local", "Local superiority",

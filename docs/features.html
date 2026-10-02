@@ -139,9 +139,9 @@ import init, * as fx from './vendor/features/features.js';
 
 await init();
 const ALL_FAMS = JSON.parse(fx.families());
-// Families without book cases here: the first four follow from the board by definition. They
-// still show under "Try a position".
-const NO_CASES = ['context.turn', 'material.bishop_pair', 'material.opposite_bishops', 'pawns.doubled', 'pieces.rook_seventh'];
+// Families without book cases here: all but rook on the seventh follow from the board by
+// definition. They still show under "Try a position".
+const NO_CASES = ['context.turn', 'material.traded', 'material.bishop_pair', 'material.opposite_bishops', 'pawns.doubled', 'pieces.rook_seventh'];
 const FAMS = ALL_FAMS.filter(f => !NO_CASES.includes(f.id));
 const CASES = JSON.parse(fx.examples());
 const $ = id => document.getElementById(id);
@@ -163,7 +163,10 @@ function label(id){
   }
   return words(v);
 }
+// material traded: short enough to sit on one line in the table
+const TRADED = {one_rook: 'rook', two_rooks: '2 rooks', one_minor: 'minor', two_minors: '2 minors', three_minors: '3 minors', four_minors: '4 minors'};
 function words(v){
+  if (TRADED[v]) return TRADED[v];
   return v
     .replace(/^up(\d)$/, '+$1').replace(/^up3plus$/, '+3 or more')
     .replace(/^plus(\d)_5$/, '+$1.5').replace(/^plus3plus$/, '+3 or more').replace(/^plus(\d)$/, '+$1')
@@ -171,7 +174,7 @@ function words(v){
     .replace(/^(\d)plus$/, '$1 or more')
     .replace(/_/g, ' ');
 }
-const NO_MARKS = ['context.phase', 'material.balance', 'material.imbalance', 'pieces.development', 'initiative'];
+const NO_MARKS = ['context.phase', 'material.balance', 'material.imbalance', 'material.traded', 'pieces.development', 'initiative'];
 // Families whose squares hold both sides' pieces: the side named first and the side it is set against.
 const TWO_SIDED = {
   'local': ['Green circles mark the pieces counted for the side asked about, blue those counted against it.', s => s],
