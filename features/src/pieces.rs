@@ -6,7 +6,7 @@ use shakmaty::{Bitboard, Color, Piece, Role, Square};
 use crate::Out;
 use crate::context::Phase;
 use crate::geo::{Geo, fr, fwd, name, names, on, rel, sq, title, val};
-use crate::pawns::passed;
+use crate::pawns::{backward, passed};
 
 fn home(c: Color, s: Square, role: Role) -> bool {
     let (f, r) = fr(s);
@@ -49,6 +49,36 @@ fn line_lengths(g: &Geo, s: Square) -> [(usize, usize); 2] {
     out
 }
 
+/// Up its file the rook reaches a square on the opponent's second or back rank that no enemy
+/// piece or pawn attacks.
+fn entry(g: &Geo, c: Color, s: Square) -> bool {
+    let (f, r) = fr(s);
+    let mut rr = r + fwd(c);
+    while on(f, rr) {
+        if rel(c, rr) >= 6 && g.control(f, rr)[if c.is_white() { 1 } else { 0 }] == 0 { return true; }
+        if g.piece(f, rr).is_some() { return false; }
+        rr += fwd(c);
+    }
+    false
+}
+
+/// The first pawn up the rook's file, past own pieces, is its own, has left its starting rank and
+/// can step forward: the rook stands behind a lever.
+fn rook_behind_lever(g: &Geo, c: Color, s: Square) -> bool {
+    let (f, r) = fr(s);
+    let mut rr = r + fwd(c);
+    while on(f, rr) {
+        if let Some(p) = g.piece(f, rr) {
+            if p.role == Role::Pawn {
+                return p.color == c && rel(c, rr) >= 2 && on(f, rr + fwd(c)) && g.piece(f, rr + fwd(c)).is_none();
+            }
+            if p.color != c || p.role == Role::King { return false; }
+        }
+        rr += fwd(c);
+    }
+    false
+}
+
 pub fn run(g: &Geo, phase: Phase, o: &mut Out) {
     let centre = Bitboard(0x3c3c_3c3c_u64 << 16);
     for c in Color::ALL {
@@ -56,16 +86,19 @@ pub fn run(g: &Geo, phase: Phase, o: &mut Out) {
         let ek = g.king(them).map(|k| shakmaty::attacks::king_attacks(k).with(k)).unwrap_or(Bitboard::EMPTY);
         let enemy = g.b.by_color(them);
 
-        // out of play
+        // out of play. Own pieces other than pawns and the king will step aside, so lines run
+        // through them.
         let mut oop = vec![];
+        let solid = g.b.pawns() | g.b.kings() | g.b.by_color(them);
         for (s, role) in g.pieces(c) {
-            // a piece still on its back rank is undeveloped, which the development family covers
-            if rel(c, fr(s).1) == 0 { continue; }
-            let a = g.attacks(s);
+            // in the opening a piece on its back rank is undeveloped, which the development family covers
+            if phase == Phase::Opening && rel(c, fr(s).1) == 0 { continue; }
+            let a = shakmaty::attacks::attacks(s, Piece { color: c, role }, solid);
+            if role == Role::Rook && rook_behind_lever(g, c, s) { continue; }
             let safe = (a & !g.b.by_color(c)).into_iter().filter(|&t| safe_square(g, c, role, s, t)).count();
             if safe <= 2 && !a.intersects(centre) && !a.intersects(ek) && !a.intersects(enemy) { oop.push((s, safe)); }
         }
-        let why = oop.iter().map(|(s, n)| format!("{} on {s}: {n} safe moves, reaches nothing that matters", g.b.role_at(*s).unwrap().char().to_ascii_uppercase())).collect::<Vec<_>>().join("; ");
+        let why = oop.iter().map(|(s, n)| format!("{} on {s}: {n} safe move{}, reaches nothing that matters", format!("{:?}", g.b.role_at(*s).unwrap()).to_lowercase(), if *n == 1 { "" } else { "s" })).collect::<Vec<_>>().join("; ");
         o.side("pieces.out_of_play", c, !oop.is_empty(), names(oop.iter().map(|x| x.0)), why);
 
         // knight outposts
@@ -73,11 +106,14 @@ pub fn run(g: &Geo, phase: Phase, o: &mut Out) {
         for s in g.b.by_piece(Piece { color: c, role: Role::Knight }) {
             let (f, r) = fr(s);
             if !(3..=5).contains(&rel(c, r)) || !g.pawn_attacked(f, r, c) { continue; }
-            let kickable = g.pawns(them).iter().any(|&(pf, pr)| (pf - f).abs() == 1 && rel(c, pr) > rel(c, r));
+            // an enemy pawn on a neighbouring file, ahead of the knight, with no pawn in its way
+            // to the square from which it would hit the knight
+            let kickable = g.pawns(them).iter().any(|&(pf, pr)| (pf - f).abs() == 1 && rel(c, pr) > rel(c, r)
+                && (1..(rel(c, pr) - rel(c, r))).all(|d| g.b.pawns().is_disjoint(Bitboard::from_square(sq(pf, pr - d * fwd(c))))));
             if !kickable { posts.push(s); }
         }
         o.side("pieces.knight_outpost", c, !posts.is_empty(), names(posts.clone()),
-               if posts.is_empty() { String::new() } else { format!("knight on {}: guarded by a pawn, no enemy pawn can attack it", names(posts).join(", ")) });
+               if posts.is_empty() { String::new() } else { format!("knight on {}: guarded by a pawn, no enemy pawn can come to attack it", names(posts).join(", ")) });
 
         // bishops
         let mut open = vec![];
@@ -85,7 +121,9 @@ pub fn run(g: &Geo, phase: Phase, o: &mut Out) {
         for s in g.b.by_piece(Piece { color: c, role: Role::Bishop }) {
             let l = line_lengths(g, s);
             if l.iter().any(|&(n, far)| n >= 5 && far >= 3) { open.push(s); }
+            // own centre pawns (c- to f-file) on its colour, blocked by an enemy pawn, ahead of it
             let fixed: Vec<Square> = g.pawns(c).into_iter().filter(|&(f, r)| sq(f, r).is_light() == s.is_light()
+                && (2..=5).contains(&f) && rel(c, r) > rel(c, fr(s).1)
                 && on(f, r + fwd(c)) && g.pawn(f, r + fwd(c), them)).map(|(f, r)| sq(f, r)).collect();
             if fixed.len() >= 2 { bad.push((s, fixed)); }
         }
@@ -101,12 +139,14 @@ pub fn run(g: &Geo, phase: Phase, o: &mut Out) {
         for &s in &rooks {
             let (f, r) = fr(s);
             let (mine, theirs) = (file_pawns(f, c), file_pawns(f, them));
-            if mine == 0 && theirs == 0 { open_f.push(s); } else if mine == 0 { half_f.push(s); }
+            // an enemy pawn guarded by a pawn closes the file
+            let solid = (0..8).any(|rr| g.pawn(f, rr, them) && g.pawn_attacked(f, rr, them));
+            if mine == 0 && theirs == 0 && entry(g, c, s) { open_f.push(s); } else if mine == 0 && !solid { half_f.push(s); }
             if rel(c, r) == 6 { seventh.push(s); }
             for rr in 0..8 {
                 if !g.pawn(f, rr, c) || rel(c, rr) <= rel(c, r) { continue; }
                 if passed(g, c, f, rr) { behind.push(s); }
-                if g.pawn(f, rr + fwd(c), them) { blocked.push(s); }
+                if g.pawn(f, rr + fwd(c), them) || backward(g, c, f, rr) { blocked.push(s); }
             }
         }
         behind.dedup(); blocked.dedup();
@@ -115,7 +155,7 @@ pub fn run(g: &Geo, phase: Phase, o: &mut Out) {
         o.global_or_side("pieces.rook_file.half_open", c, &half_f, at(&half_f, "on a half-open file"));
         o.global_or_side("pieces.rook_seventh", c, &seventh, at(&seventh, "on the seventh"));
         o.global_or_side("pieces.rook_behind_passer", c, &behind, at(&behind, "behind its passed pawn"));
-        o.global_or_side("pieces.rook_blocked", c, &blocked, at(&blocked, "behind a blocked own pawn"));
+        o.global_or_side("pieces.rook_blocked", c, &blocked, at(&blocked, "behind a blocked or backward own pawn"));
 
         // queen
         let mut good = vec![];

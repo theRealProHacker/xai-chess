@@ -23,7 +23,7 @@ pub fn families() -> String { hook(); serde_json::to_string(&crate::families()).
 #[wasm_bindgen]
 pub fn examples() -> String { crate::EXAMPLES.to_string() }
 
-/// Every feature, on and off. `top` is the engine's best moves, space-separated UCI, or empty.
+/// Every feature, on and off. `top` is the engine's principal variation, space-separated UCI, or empty.
 #[wasm_bindgen]
 pub fn extract(fen: &str, top: &str) -> String {
     hook();

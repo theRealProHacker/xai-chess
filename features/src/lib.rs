@@ -20,8 +20,6 @@ use serde::Serialize;
 use shakmaty::fen::Fen;
 use shakmaty::{CastlingMode, Chess, Color, Position};
 
-pub use initiative::forcing;
-
 /// The researched cases shown on docs/features.html; `tests/examples.rs` holds the detector to them.
 pub const EXAMPLES: &str = include_str!("../examples.json");
 
@@ -75,8 +73,8 @@ pub fn position(fen: &str) -> Result<Chess, String> {
         .map_err(|e| format!("FEN: {e}"))
 }
 
-/// Every feature of the position. `top` is the engine's best moves (UCI) for the side to move;
-/// without it the initiative family is left out.
+/// Every feature of the position. `top` is the engine's principal variation (UCI) from the
+/// position; without it the initiative family is left out.
 pub fn extract(pos: &Chess, top: Option<&[String]>) -> Vec<Feature> {
     let g = geo::Geo { b: pos.board().clone() };
     let mut o = Out(vec![]);
@@ -88,6 +86,7 @@ pub fn extract(pos: &Chess, top: Option<&[String]>) -> Vec<Feature> {
     pawns::run(&g, &mut o);
     centre::run(&g, &mut o);
     space::run(&g, &mut o);
+    space::pawn_advance(&g, &mut o);
     if let Some(top) = top { initiative::run(pos, top, &mut o); }
     o.0
 }
@@ -106,27 +105,27 @@ pub fn families() -> Vec<Family> {
         f("material.balance", "Material balance",
           "Pawn 1, knight 3, bishop 3, rook 5, queen 9. Equal, or one side ahead by exactly 1, exactly 2, or 3 or more."),
         f("material.imbalance", "Unlike material",
-          "Cancel identical pieces; what is left decides the type: bishop against knight, rook against minor piece (the exchange), two minor pieces against a rook, two knights against a bishop, two rooks against a queen, three minor pieces against a queen, queen against rook and minor piece, or a minor piece against pawns."),
+          "Split both armies into like-for-like pairs and named trades, every piece used once: bishop against knight, rook against minor piece (the exchange), two minor pieces against a rook, two knights against a bishop, two rooks against a queen, three minor pieces against a queen, queen against rook and minor piece, or a minor piece against two or more pawns. Each trade in the split is on; one position can hold several. Where no split exists, the type is other."),
         f("material.bishop_pair", "Bishop pair", "A bishop on each square colour, while the opponent lacks one of the two."),
         f("material.opposite_bishops", "Unlike bishops", "Each side has exactly one bishop, and they run on different square colours."),
         f("local", "Local superiority",
-          "In each sector (queenside a–c, centre d–e, kingside f–h) count the knights, bishops, rooks and queens that stand on its files or attack at least three of its squares in the opponent's half. The side with more is superior by the difference: 1, 2, or 3 or more."),
-        f("king.castled", "King position", "King on the g- or h-file: castled kingside. On the a-, b- or c-file: castled queenside. On the d-, e- or f-file: uncastled."),
+          "In each sector (queenside a–c, centre d–e, kingside f–h) count the knights, bishops, rooks and queens that stand on its files or attack at least three of its squares in the opponent's half. A rook still on its back rank behind an own pawn does not count. The side with more is superior by the difference: 1, 2, or 3 or more."),
+        f("king.castled", "King position", "Castled kingside: the king stands on g1, h1, g2 or h2 (g8, h8, g7, h7 for Black). Castled queenside: on the a- to c-file, first or second rank. Uncastled: anywhere else."),
         f("king.shield", "Pawn shield breached",
-          "On the king's file and each file next to it there must be an own pawn one or two ranks in front of the king. One missing breaches the shield."),
+          "For a castled king. Kingside: breached when the g- or the h-file holds no own pawn, or when at most one of the pawns on f2, g2 and h2 (f7, g7, h7) is left. Queenside the same with the b- and a-file and a2, b2, c2."),
         f("king.attack", "Attackers and defenders",
-          "Attackers: enemy knights, bishops, rooks and queens that hit the king's square or a square next to it. Defenders: own pieces of those kinds that hit or stand on one. The difference decides: more defenders, equal, or 1, 2, 3, or at least 4 more attackers."),
+          "On the king's sector, counted as for local superiority. Attackers: enemy knights, bishops, rooks and queens that stand on the sector's files, hit three of its squares in the king's half, or hit a square next to the king. Defenders: own pieces that stand on the sector's files or hit a square next to the king. A rook still on its back rank behind an own pawn counts only if it hits a square next to the king. The difference decides: more defenders, equal, or 1, 2, 3, or at least 4 more attackers."),
         f("pieces.out_of_play", "Piece out of play",
-          "A knight, bishop, rook or queen off its back rank that has at most two safe moves, hits no enemy piece or pawn, no square of the central sixteen (c3–f6) and no square next to the enemy king."),
+          "A knight, bishop, rook or queen that has at most two safe moves, hits no enemy piece or pawn, no square of the central sixteen (c3–f6) and no square next to the enemy king. Lines run through its own pieces other than pawns and the king, which can step aside. A rook behind an own advanced pawn that can step forward is in play. In the opening, pieces on the back rank are left to development."),
         f("pieces.knight_outpost", "Knight on an outpost",
-          "A knight on its 4th, 5th or 6th rank, guarded by an own pawn, that no enemy pawn can ever attack."),
+          "A knight on its 4th, 5th or 6th rank, guarded by an own pawn, that no enemy pawn can come to attack: every enemy pawn on a neighbouring file ahead of it is blocked by a pawn on its way."),
         f("pieces.bishop_diagonal", "Bishop on an open diagonal",
           "A bishop that reaches at least five squares along one diagonal, at least three of them in the opponent's half."),
-        f("pieces.bad_bishop", "Bad bishop", "A bishop with at least two own pawns on its square colour that are blocked by enemy pawns."),
-        f("pieces.rook_file", "Rook on an open file", "Open: no pawn on the rook's file. Half-open: only enemy pawns on it."),
+        f("pieces.bad_bishop", "Bad bishop", "A bishop with at least two own centre pawns (c- to f-file) on its square colour that are blocked by enemy pawns and standing ahead of it."),
+        f("pieces.rook_file", "Rook on an open file", "Open: no pawn on the rook's file, and up the file the rook reaches a square on the opponent's second or back rank that no enemy piece or pawn attacks. Half-open: only enemy pawns on it, none of them guarded by a pawn."),
         f("pieces.rook_seventh", "Rook on the seventh", "A rook on the opponent's second rank."),
         f("pieces.rook_behind_passer", "Rook behind a passed pawn", "A rook on the file of its own passed pawn, behind it."),
-        f("pieces.rook_blocked", "Rook behind blocked pawns", "A rook whose file holds an own pawn, in front of it, that an enemy pawn blocks."),
+        f("pieces.rook_blocked", "Rook behind blocked pawns", "A rook whose file holds an own pawn, in front of it, that an enemy pawn blocks or that is backward (its advance square hit by an enemy pawn and no own pawn beside or behind it to support it)."),
         f("pieces.queen", "Safe and active queen",
           "The queen hits at least five squares in the opponent's half, and no enemy pawn, minor piece or rook attacks it."),
         f("pieces.development", "Development lead",
@@ -147,7 +146,9 @@ pub fn families() -> Vec<Family> {
           "More pawns than the opponent on a sector (queenside a–c, centre d–e, kingside f–h), at least one of them free to advance."),
         f("space", "Space",
           "In each sector, count the squares in the opponent's half a side holds (it attacks them more often, batteries included, as on the Space demo). Two or more squares more than the opponent is more space."),
+        f("space_pawns", "Space (pawn advance)",
+          "Count each side's pawns on its 4th, 5th and 6th rank. The side with more leads by the difference: 1, 2, or 3 or more."),
         f("initiative", "Initiative",
-          "The side to move has it when every one of the engine's best moves (within 0.5 pawns of the top one) is forcing: a check, a capture, or a new threat to win material or to mate."),
+          "The side with the initiative makes the other answer its threats. The side not to move has it when it threatens something now: a check, mate in one, or to win a piece (hit by something cheaper, or hit and unguarded). Otherwise the engine's best move decides: if it leaves such a threat and the best reply answers without a threat of its own, the side to move has the initiative; if the reply carries a threat, the initiative passes to the other side."),
     ]
 }

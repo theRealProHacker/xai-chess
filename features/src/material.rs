@@ -31,25 +31,82 @@ fn words(s: Set) -> String {
     if parts.is_empty() { "nothing".into() } else { parts.join(" and ") }
 }
 
-/// Imbalance types as (id, has, against): `has` is the side the feature is about.
-fn kind(a: Set, b: Set) -> Option<&'static str> {
-    let [an, ab, ar, aq] = a;
-    let [bn, bb, br, bq] = b;
-    let (am, bm) = (an + ab, bn + bb);
-    Some(match () {
-        _ if a == [0, 1, 0, 0] && b == [1, 0, 0, 0] => "bishop_vs_knight",
-        _ if ar == 1 && aq == 0 && am == 0 && b[2..] == [0, 0] && bm == 1 => "exchange",
-        _ if am == 2 && ar == 0 && aq == 0 && b == [0, 0, 1, 0] => "two_minors_vs_rook",
-        _ if a == [2, 0, 0, 0] && b == [0, 1, 0, 0] => "two_knights_vs_bishop",
-        _ if a == [0, 0, 2, 0] && b == [0, 0, 0, 1] => "two_rooks_vs_queen",
-        _ if am == 3 && ar == 0 && aq == 0 && b == [0, 0, 0, 1] => "three_minors_vs_queen",
-        _ if a == [0, 0, 0, 1] && br == 1 && bm == 1 && bq == 0 => "queen_vs_rook_minor",
-        _ => return None,
-    })
-}
+/// The named trades as (id, what the side has, what it faces), counts of (N, B, R, Q).
+const TRADES: [(&str, Set, Set); 16] = [
+    ("bishop_vs_knight", [0, 1, 0, 0], [1, 0, 0, 0]),
+    ("exchange", [0, 0, 1, 0], [1, 0, 0, 0]),
+    ("exchange", [0, 0, 1, 0], [0, 1, 0, 0]),
+    ("two_minors_vs_rook", [2, 0, 0, 0], [0, 0, 1, 0]),
+    ("two_minors_vs_rook", [1, 1, 0, 0], [0, 0, 1, 0]),
+    ("two_minors_vs_rook", [0, 2, 0, 0], [0, 0, 1, 0]),
+    ("two_knights_vs_bishop", [2, 0, 0, 0], [0, 1, 0, 0]),
+    ("two_rooks_vs_queen", [0, 0, 2, 0], [0, 0, 0, 1]),
+    ("three_minors_vs_queen", [3, 0, 0, 0], [0, 0, 0, 1]),
+    ("three_minors_vs_queen", [2, 1, 0, 0], [0, 0, 0, 1]),
+    ("three_minors_vs_queen", [1, 2, 0, 0], [0, 0, 0, 1]),
+    ("three_minors_vs_queen", [0, 3, 0, 0], [0, 0, 0, 1]),
+    ("queen_vs_rook_minor", [0, 0, 0, 1], [1, 0, 1, 0]),
+    ("queen_vs_rook_minor", [0, 0, 0, 1], [0, 1, 1, 0]),
+    ("piece_vs_pawns", [1, 0, 0, 0], [0, 0, 0, 0]),
+    ("piece_vs_pawns", [0, 1, 0, 0], [0, 0, 0, 0]),
+];
 
 const KINDS: [&str; 8] = ["bishop_vs_knight", "exchange", "two_minors_vs_rook", "two_knights_vs_bishop",
     "two_rooks_vs_queen", "three_minors_vs_queen", "queen_vs_rook_minor", "piece_vs_pawns"];
+
+fn sub(a: Set, b: Set) -> Option<Set> {
+    let mut o = a;
+    for i in 0..4 { o[i] -= b[i]; if o[i] < 0 { return None; } }
+    Some(o)
+}
+
+/// Split the two armies into identical pairs and named trades, every piece used once. Among the
+/// splits, keep the one with the most identical pairs, then the fewest trades. Each trade is
+/// (white has it, id). `lone[c]` allows a lone minor piece against pawns for that side.
+fn split(w: Set, b: Set, lone: [bool; 2]) -> Option<(usize, Vec<(bool, &'static str)>)> {
+    if w == [0; 4] && b == [0; 4] { return Some((0, vec![])); }
+    let mut best: Option<(usize, Vec<(bool, &'static str)>)> = None;
+    let mut keep = |cand: Option<(usize, Vec<(bool, &'static str)>)>| {
+        if let Some(c) = cand {
+            if best.as_ref().is_none_or(|b| (c.0, std::cmp::Reverse(c.1.len())) > (b.0, std::cmp::Reverse(b.1.len()))) { best = Some(c); }
+        }
+    };
+    // the first piece type still on the board: either it pairs off with its like, or it goes into a trade
+    let i = (0..4).find(|&i| w[i] > 0 || b[i] > 0).unwrap();
+    if w[i] > 0 && b[i] > 0 {
+        let mut one = [0; 4]; one[i] = 1;
+        keep(split(sub(w, one).unwrap(), sub(b, one).unwrap(), lone).map(|(n, t)| (n + 1, t)));
+    }
+    for (id, has, against) in TRADES {
+        for white in [true, false] {
+            if id == "piece_vs_pawns" && !lone[if white { 0 } else { 1 }] { continue; }
+            let (mine, theirs) = if white { (w, b) } else { (b, w) };
+            // every split is found once: the trade must use that first piece type
+            if has[i] == 0 && against[i] == 0 { continue; }
+            let (Some(m), Some(t)) = (sub(mine, has), sub(theirs, against)) else { continue };
+            let (nw, nb) = if white { (m, t) } else { (t, m) };
+            keep(split(nw, nb, lone).map(|(n, mut ts)| { ts.push((white, id)); (n, ts) }));
+        }
+    }
+    best
+}
+
+fn phrase(id: &str) -> &'static str {
+    match id {
+        "bishop_vs_knight" => "bishop against knight",
+        "exchange" => "rook against a minor piece",
+        "two_minors_vs_rook" => "two minor pieces against a rook",
+        "two_knights_vs_bishop" => "two knights against a bishop",
+        "two_rooks_vs_queen" => "two rooks against the queen",
+        "three_minors_vs_queen" => "three minor pieces against the queen",
+        "queen_vs_rook_minor" => "queen against rook and minor piece",
+        _ => "a minor piece against pawns",
+    }
+}
+
+fn count_set(g: &Geo, c: Color) -> Set {
+    [Role::Knight, Role::Bishop, Role::Rook, Role::Queen].map(|r| g.count(c, r) as i32)
+}
 
 pub fn run(g: &Geo, o: &mut Out) {
     let (tw, tb) = (total(g, Color::White), total(g, Color::Black));
@@ -64,26 +121,22 @@ pub fn run(g: &Geo, o: &mut Out) {
         }
     }
 
-    let (w, b) = residue(g);
+    // a lone minor piece for pawns: the other side has two or more pawns more
     let pawns = |c| g.count(c, Role::Pawn) as i32;
+    let lone = [pawns(Color::Black) - pawns(Color::White) >= 2, pawns(Color::White) - pawns(Color::Black) >= 2];
+    let (w, b) = residue(g);
+    let trades = if w == [0; 4] && b == [0; 4] { Some(vec![]) } else { split(count_set(g, Color::White), count_set(g, Color::Black), lone).map(|x| x.1) };
     for c in Color::ALL {
-        let (mine, theirs) = if c.is_white() { (w, b) } else { (b, w) };
-        let mut k = kind(mine, theirs);
-        // A lone minor piece for pawns: the other side has nothing extra but two or more pawns.
-        if k.is_none() && mine[0] + mine[1] == 1 && mine[2..] == [0, 0] && theirs == [0; 4]
-            && pawns(c.other()) - pawns(c) >= 2 {
-            k = Some("piece_vs_pawns");
-        }
-        let why = format!("{} keeps {} against {}", title(c), words(mine), words(theirs));
+        let mine: Vec<&str> = trades.iter().flatten().filter(|t| t.0 == c.is_white()).map(|t| t.1).collect();
+        let why = format!("{}: {}", title(c), mine.iter().map(|id| phrase(id)).collect::<Vec<_>>().join(", "));
         for id in KINDS {
-            let on = k == Some(id);
+            let on = mine.contains(&id);
             o.side(format!("material.imbalance.{id}"), c, on, vec![], if on { why.clone() } else { String::new() });
         }
     }
-    let other = w != b && kind(w, b).is_none() && kind(b, w).is_none() && w != [0; 4] && b != [0; 4];
+    let other = trades.is_none();
     o.global("material.imbalance.other", other, vec![],
              if other { format!("White keeps {} against {}", words(w), words(b)) } else { String::new() });
-
 
     for c in Color::ALL {
         let bs: Vec<_> = g.b.by_piece(shakmaty::Piece { color: c, role: Role::Bishop }).into_iter().collect();

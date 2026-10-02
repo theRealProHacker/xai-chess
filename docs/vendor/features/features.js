@@ -84,7 +84,7 @@ function getStringFromWasm0(ptr, len) {
     return decodeText(ptr, len);
 }
 /**
- * Every feature, on and off. `top` is the engine's best moves, space-separated UCI, or empty.
+ * Every feature, on and off. `top` is the engine's principal variation, space-separated UCI, or empty.
  * @param {string} fen
  * @param {string} top
  * @returns {string}

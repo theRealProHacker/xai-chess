@@ -31,7 +31,7 @@
   "fen": "r1bqk2r/1pp2ppp/p1np1n2/2b1p3/B3P3/2NP1N2/PPP2PPP/R1BQ1RK1 b kq - 0 7",
   "game": "Unnamed masters' match game (Lasker's Diagram 49)",
   "move": "after White's 7th move",
-  "quote": "The following middle game from a match of two masters furnishes an example. After White's seventh move the position of Diagram 49 was reached, in which Black continued with P-b5 with the view to playing B-g4 and Kt-d4.",
+  "quote": "The following middle game from a match of two masters furnishes an example. After White's seventh move the position of Diagram 49 was reached, in which Black continued with [...b5] with the view to playing [...Bg4] and [...Nd4].",
   "source": "Edward Lasker, Chess and Checkers: The Way to Mastership (1918), The Middle Game, Diagram 49",
   "url": "https://www.gutenberg.org/cache/epub/4913/pg4913.txt",
   "note": "Lasker already calls this a middle game; the rule still says opening, since 14 pieces besides kings and pawns remain, both back ranks hold five and the armies have not met."
@@ -44,7 +44,7 @@
   "fen": "r1bq1rk1/ppp2ppp/2np1n2/1B2p1B1/1b2P3/2NP1N2/PPP2PPP/R2Q1RK1 b - - 1 7",
   "game": "Capablanca's Four Knights model line, as in Capablanca – Lasker, St Petersburg 1914",
   "move": "after 7.Bg5",
-  "quote": "A very powerful move, which brings us to the middle-game stage, as there is already in view a combination to win quickly by Kt - Q 5.",
+  "quote": "A very powerful move, which brings us to the middle-game stage, as there is already in view a combination to win quickly by [Nd5].",
   "source": "Capablanca, Chess Fundamentals (1921), ch. 6 General strategy of the opening, Example 17, note to 7. B - Kt 5",
   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt",
   "note": "For Capablanca the middle game starts when a concrete combination appears; the rule waits for exchanges, emptied back ranks or interpenetrating armies."
@@ -121,19 +121,6 @@
   "note": "Lasker values two rooks as one queen; the 1-3-3-5-9 scale makes them a pawn more, so the rule reads White a pawn up."
  },
  {
-  "family": "material.balance",
-  "case": "fn",
-  "feature": "material.balance.up3plus",
-  "side": "black",
-  "fen": "r2q1rk1/4bppp/R3b3/1P1p4/2pP4/5Q2/B1P2PPP/2B2RK1 b - - 1 16",
-  "game": "Spielmann – Tarrasch, San Sebastian 1912",
-  "move": "after 16.Ba2",
-  "quote": "Now the Bishop is hemmed in permanently; in other words, Black is a piece up and must win easily.",
-  "source": "Edward Lasker, Chess Strategy (1915), Game No. 14, note to White's 16th move",
-  "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt",
-  "note": "Lasker writes off White's bishop on a2, shut in for good behind Black's c4 pawn, so he counts Black a piece up; the rule counts every piece on the board and sees White a pawn up."
- },
- {
   "family": "material.imbalance",
   "case": "tp",
   "feature": "material.imbalance.three_minors_vs_queen",
@@ -156,32 +143,6 @@
   "quote": "Besides, the Bishop is better with Rooks than the Knight (see pages 48-56, where the relative values of the Knight and Bishop are compared), and, as already stated, with Pawns on both sides of the board the Bishop is superior because of its long range.",
   "source": "Capablanca, Chess Fundamentals (1921), Game 14, note to White's 21st move",
   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt"
- },
- {
-  "family": "material.imbalance",
-  "case": "fp",
-  "feature": "material.imbalance.other",
-  "side": null,
-  "fen": "4rk2/1pRR1ppp/8/8/p3PN2/6PB/q4P1P/6K1 w - - 0 1",
-  "game": "Unnamed master game (Lasker's Diagram 30)",
-  "move": "White to move",
-  "quote": "As far as the material is concerned the players are about even, as the Queen is worth as much as the two Rooks while Knight and Bishop are an approximate equivalent of the Black Rook and the Pawn which Black is ahead.",
-  "source": "Edward Lasker, Chess and Checkers: The Way to Mastership (1918), ch. How the different men cooperate, Diagram 30",
-  "url": "https://www.gutenberg.org/cache/epub/4913/pg4913.txt",
-  "note": "Lasker reads two named trades (two rooks for the queen, two minor pieces for rook and pawn); the rule first cancels one rook a side, leaves knight, bishop and rook against queen, and files it as unnamed."
- },
- {
-  "family": "material.imbalance",
-  "case": "fn",
-  "feature": "material.imbalance.bishop_vs_knight",
-  "side": "white",
-  "fen": "1r3rk1/p4p2/3p3p/2nB2p1/3b4/1P5P/P1P2PP1/3R1RK1 w - - 0 24",
-  "game": "Capablanca – Marshall, St Petersburg 1914",
-  "move": "after 23...Bxd4",
-  "quote": "The Knight was too threatening. But now the ending brought about is one in which the Bishop is stronger than the Knight; which makes Black's plight a desperate one.",
-  "source": "Capablanca, Chess Fundamentals (1921), Game 10, note to Black's 23rd move",
-  "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt",
-  "note": "Capablanca counts 24.Rxd4 as already played; the rule counts the bishop still standing on d4 and sees Black a knight up instead of bishop against knight."
  },
  {
   "family": "material.bishop_pair",
@@ -215,7 +176,7 @@
   "fen": "r2q1rk1/pp2b1pp/4p3/3p4/3Bn3/6P1/PP2PPBP/R2Q1RK1 b - - 0 15",
   "game": "Alekhine – Muffang, Paris 1923",
   "move": "after 15.Bxd4",
-  "quote": "On the other hand, the advantage of the two Bishops is illusory, for it is clear that after ....B—B 3 White cannot avoid the exchange of his Q B.",
+  "quote": "On the other hand, the advantage of the two Bishops is illusory, for it is clear that after [...Bf6] White cannot avoid the exchange of his [d4 bishop].",
   "source": "Alekhine, My Best Games of Chess 1908–1923 (1927), Game 99 (first match game, Paris 1923), note to White's 15th move",
   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
   "note": "Alekhine sees that ...Bf6 forces off White's dark bishop, so the pair is worth nothing; the rule only checks that both bishops are on the board."
@@ -283,7 +244,7 @@
   "fen": "4rb1k/3q2pp/2n1bp2/2p1pN2/1pP1P1P1/3PBQ2/rP1R1N1P/5RK1 w - - 3 25",
   "game": "Blackburne – Nimzowitsch, St Petersburg 1914",
   "move": "after 24...Ra2",
-  "quote": "Before trying to push home his advantage on the Queen’s side, which is made possible by the weakness of White’s QP, Black should look after his King’s side, where White has collected an alarming array of forces.",
+  "quote": "Before trying to push home his advantage on the Queen’s side, which is made possible by the weakness of White’s [d3 pawn], Black should look after his King’s side, where White has collected an alarming array of forces.",
   "source": "Edward Lasker, Chess Strategy (1915), Game No. 48, note to Black's 24th move",
   "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt"
  },
@@ -302,7 +263,7 @@
  {
   "family": "local",
   "case": "fp",
-  "feature": "local.kingside.plus2",
+  "feature": "local.kingside.plus1",
   "side": "white",
   "fen": "r2q2rk/p4p1p/2n1p2b/1p1b1p1N/2pP4/2P2N1Q/PPB2PPP/R3K2R w KQ - 16 22",
   "game": "Yates – Esser, Anglo-Dutch match 1914",
@@ -310,20 +271,7 @@
   "quote": "Black has now a preponderance of material on the field of battle, and it can be concluded off-hand that White, not being able to bring his Rooks into play, must lose.",
   "source": "Edward Lasker, Chess Strategy (1915), Game No. 23, note to Black's 21st move",
   "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt",
-  "note": "The rule counts Qh3, Rh1, Nf3 and Nh5 on the kingside files against Black's Rg8 and Bh6. Lasker says White cannot bring his rooks into play, while Black's rooks are bound for the g-file."
- },
- {
-  "family": "local",
-  "case": "fn",
-  "feature": "local.kingside.plus3plus",
-  "side": "white",
-  "fen": "rn3rk1/pbppq1pp/1p2pb2/4N2Q/3PN3/3B4/PPP2PPP/R3K2R w KQ - 6 11",
-  "game": "Edward Lasker – Thomas, London 1912",
-  "move": "after 10...Qe7",
-  "quote": "The possibility of a sacrifice with consequent forced mate is always indicated if a greatly superior force is available for attack at the part of the board where the opposing King is located. An example is offered by the position reproduced on the book cover.",
-  "source": "Edward Lasker, Chess and Checkers (1918), ch. II (Elementary Tactics), the book-cover position",
-  "url": "https://www.gutenberg.org/cache/epub/4913/pg4913.txt",
-  "note": "Lasker sees a superior force of Qh5, both knights and Bd3 massed by Black's king, and all of them take part in the mating hunt. The rule files Ne5, Ne4 and Bd3 under the centre and counts the kingside 2 against 2 (Qh5, Rh1 vs Rf8, Bf6)."
+  "note": "The h1 rook, still behind its own pawn, does not count. Lasker gives Black the preponderance, with White unable to bring his rooks into play."
  },
  {
   "family": "king.castled",
@@ -333,7 +281,7 @@
   "fen": "rn2r1k1/1p1b1ppp/p5q1/8/3QP3/3B4/P2B1PPP/1R2K2R w K - 3 18",
   "game": "Johner – Alekhine, Pistyan 1922",
   "move": "after 17...Qg6",
-  "quote": "White already finds himself in a very difficult position, since he cannot Castle on account of 18. B—R 6, winning the Exchange.",
+  "quote": "White already finds himself in a very difficult position, since he cannot Castle on account of 18...[Bh3], winning the Exchange.",
   "source": "Alekhine, My Best Games of Chess 1908–1923 (1927), Game 64, position after Black's 17th move",
   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt"
  },
@@ -350,32 +298,6 @@
   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt"
  },
  {
-  "family": "king.castled",
-  "case": "fp",
-  "feature": "king.castled.kingside",
-  "side": "black",
-  "fen": "rn3r2/pbppq1p1/1p2pN2/8/3P2NP/6P1/PPP1BP1R/R3K1k1 w Q - 5 18",
-  "game": "Edward Lasker – Thomas, London 1912",
-  "move": "after 17...Kg1",
-  "quote": "White now continually checks Black's King in such a manner that he has only one square to go to until he is finally driven to the first rank, all White pieces participating in the chase.",
-  "source": "Edward Lasker, Chess and Checkers (1918), ch. II (Elementary Tactics), book-cover game, note after 2...Kh6",
-  "url": "https://www.gutenberg.org/cache/epub/4913/pg4913.txt",
-  "note": "The king reached g1 at the end of a king hunt across the board, one move before mate; the rule reads any king on the g- or h-file as castled kingside."
- },
- {
-  "family": "king.castled",
-  "case": "fn",
-  "feature": "king.castled.uncastled",
-  "side": "black",
-  "fen": "rn3r2/pbppq1p1/1p2pN1k/4N3/3P4/3B4/PPP2PPP/R3K2R w KQ - 1 13",
-  "game": "Edward Lasker – Thomas, London 1912",
-  "move": "after 12...Kh6",
-  "quote": "However, White can force the mate with a neat Queen's sacrifice which drives Black's King right into the arms of the remaining White pieces.",
-  "source": "Edward Lasker, Chess and Checkers (1918), ch. II (Elementary Tactics), book-cover game",
-  "url": "https://www.gutenberg.org/cache/epub/4913/pg4913.txt",
-  "note": "The author sees the king dragged out of its castled shelter into the open; the rule only looks at the file, so a king on h6 still counts as castled and 'uncastled' stays off."
- },
- {
   "family": "king.shield",
   "case": "tp",
   "feature": "king.shield.breached",
@@ -383,7 +305,7 @@
   "fen": "r2r1bk1/p7/2ppqp1p/2p1nNp1/4P3/1PQ3B1/P1P2PPP/3RR1K1 w - - 0 27",
   "game": "Alekhine – von Freymann, Cologne 1911",
   "move": "after 26...f6",
-  "quote": "Now the threat of 27. P—B 4, Kt—Kt 3; 28. PxP, followed by 29. BxP, etc. forces Black to weaken his King-side still more.",
+  "quote": "Now the threat of 27. [f4] … forces Black to weaken his King-side still more.",
   "source": "Alekhine, My Best Games of Chess 1908–1923 (1927), Game 37, note to White's 26th move",
   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt"
  },
@@ -392,12 +314,13 @@
   "case": "tn",
   "feature": "king.shield.breached",
   "side": "black",
-  "fen": "r2r1nk1/pb2q1p1/1p2pp1p/3pN3/Q2P4/2R1P1N1/PP3PPP/5RK1 w - - 0 18",
-  "game": "Alekhine – Vajda, Portsmouth 1923",
-  "move": "after 17...f6",
-  "quote": "This slight weakening of the Castled position was inevitable, as the White Knight was in a dominating position on K 5; but Black’s position is solid enough to stand this weakness.",
-  "source": "Alekhine, My Best Games of Chess 1908–1923 (1927), Game 87, note to Black's 17th move",
-  "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt"
+  "fen": "3r1rk1/2q2pp1/p6p/1p6/8/1PP2P2/1PQB1PKb/R3R3 b - - 1 21",
+  "game": "Showalter – Ed. Lasker, Western Championship, Lexington 1917",
+  "move": "after 21.Kg2",
+  "quote": "Moreover, White's King is rather exposed while Black's King is safely entrenched behind his Pawns.",
+  "source": "Edward Lasker, Chess and Checkers: The Way to Mastership (1918), Illustrative Game No. 1, note after White's 21st move (Diagram 68)",
+  "url": "https://www.gutenberg.org/cache/epub/4913/pg4913.txt",
+  "note": "Lasker calls the king safely entrenched, as the rule does."
  },
  {
   "family": "king.shield",
@@ -410,20 +333,20 @@
   "quote": "Black’s castled position was still too strongly defended, so White intends first to force a re-grouping of the enemy forces.",
   "source": "Nimzowitsch, My System (1930), Illustrative Game 33, note to White's 25th move",
   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
-  "note": "With the king on g7 the h7 pawn stands beside it, not in front, so the rule calls the shield breached. Nimzowitsch still calls Black's castled position too strongly defended to attack directly."
+  "note": "Of f7, g7 and h7 only h7 still holds a pawn, so the rule calls the shield breached. Nimzowitsch still calls Black's castled position too strongly defended to attack directly."
  },
  {
   "family": "king.shield",
   "case": "fn",
   "feature": "king.shield.breached",
   "side": "black",
-  "fen": "r1bq1rk1/ppp2p2/4pbpp/8/3PQ3/3B1N2/PPP2PPP/R3K2R w KQ - 0 12",
-  "game": "Capablanca – Chajes, New York 1918",
-  "move": "after 11...g6",
-  "quote": "This weakens Black's King's side. R - K 1 was the right move.",
-  "source": "Capablanca, Chess Fundamentals (1921), ch. VI, Game 12, note to Black's 11th move",
-  "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt",
-  "note": "Every shield file still has a pawn within two ranks (f7, g6, h6), so the rule sees no breach. Capablanca does not say where the weakness lies, and White's reply 12.P-KR4 aims at the new g6 pawn."
+  "fen": "r1bq1rk1/pp1nbpp1/2pp1n1p/4p3/P1BPP3/2N2N2/1PP1QPPP/R1B2RK1 w - - 0 9",
+  "game": "Alekhine – Marco, Stockholm 1912",
+  "move": "after 8...h6",
+  "quote": "The anxiety to provide against [Ng5] or [Bg5] is natural enough, but the resultant weakening of the King’s position may have unfortunate consequences, as the bad development of the Black pieces does not warrant this move.",
+  "source": "Alekhine, My Best Games of Chess 1908–1923 (1927), Game 9, note to Black's 8th move",
+  "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+  "note": "Alekhine says 8...h6 has weakened the king's position; with f7 and g7 at home, the rule still calls the shield intact."
  },
  {
   "family": "king.attack",
@@ -433,7 +356,7 @@
   "fen": "2rr2k1/1b2qppp/pb2p3/1p2P3/1P3Pn1/P1NB4/1B2Q1PP/R4R1K w - - 3 21",
   "game": "Rotlewi – Rubinstein, Lodz 1907",
   "move": "after 20...Ng4",
-  "quote": "The beginning of magnificent sacrifices. 21. QxKt cannot be played because of RxB and R-Q7, etc.",
+  "quote": "The beginning of magnificent sacrifices. 21. [Qxg4] cannot be played because of [...Rxd3] and [...Rd2], etc.",
   "source": "Edward Lasker, Chess Strategy (1915), Game No. 39, note after Black's 20th move (Diag. 156)",
   "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt"
  },
@@ -450,32 +373,6 @@
   "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt"
  },
  {
-  "family": "king.attack",
-  "case": "fp",
-  "feature": "king.attack.equal",
-  "side": "black",
-  "fen": "2r3r1/pp1b1p1k/4p1pp/3nP2P/1q1NQP2/2p3R1/P1P2BP1/R5K1 w - - 1 24",
-  "game": "Chajes – Capablanca, New York 1916",
-  "move": "after 23...Qb4",
-  "quote": "In reality nearly all these precautions are unnecessary, since White's attack amounts to nothing.",
-  "source": "Capablanca, Chess Fundamentals (1921), ch. VI, Game 6, note to Black's 23rd move",
-  "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt",
-  "note": "Qe4 and Rg3 hit squares round the king, so the rule counts 2 attackers against 2 defenders. Capablanca had already said the d5 knight paralyses White's attack, and here calls the attack nothing."
- },
- {
-  "family": "king.attack",
-  "case": "fn",
-  "feature": "king.attack.attackers_plus1",
-  "side": "black",
-  "fen": "4rb1k/3q3p/2n1bpp1/2p1pNP1/1pP1P3/3PBQ2/rP1R1N1P/5RK1 w - - 0 26",
-  "game": "Blackburne – Nimzowitsch, St Petersburg 1914",
-  "move": "after 25...g6",
-  "quote": "After the move in the text, White’s attack is overwhelming.",
-  "source": "Edward Lasker, Chess Strategy (1915), Game No. 48, note to Black's 25th move (Diag. 167)",
-  "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt",
-  "note": "Only Nf5 touches the king's zone, so the rule counts 1 attacker against 3 defenders. The attack Lasker calls overwhelming is the sacrifice 26.Ng4!, which breaks the king's cover with 27.Nxf6."
- },
- {
   "family": "pieces.out_of_play",
   "case": "tp",
   "feature": "pieces.out_of_play",
@@ -485,7 +382,8 @@
   "move": "after 22...Qxc6",
   "quote": "Now Black is a whole Rook ahead. But it is as much out of play as his Queen’s side pieces.",
   "source": "Edward Lasker, Chess Strategy (1915), Game No. 43, note to Black's 22nd move",
-  "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt"
+  "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt",
+  "note": ""
  },
  {
   "family": "pieces.out_of_play",
@@ -495,22 +393,9 @@
   "fen": "r2q1rk1/pppb1pb1/2np1npp/1B6/4P2B/2N2N2/PPPQ1PPP/2KR3R b - - 3 11",
   "game": "Morrison – Capablanca, New York 1918",
   "move": "after 11.O-O-O",
-  "quote": "The Black Bishop at Kt 2 becomes a very powerful attacking piece.",
+  "quote": "The Black Bishop on [g7] becomes a very powerful attacking piece.",
   "source": "Capablanca, Chess Fundamentals (1921), Game 13, note to White's 11th move",
   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt"
- },
- {
-  "family": "pieces.out_of_play",
-  "case": "fp",
-  "feature": "pieces.out_of_play",
-  "side": "white",
-  "fen": "5r1k/2pr2pp/1pq1bp2/p1p1p3/2P1P1PP/3PN1R1/PQP2PRK/8 b - - 3 27",
-  "game": "Nimzowitsch – Leonhardt, San Sebastian 1911",
-  "move": "after 27.R1g2",
-  "quote": "White quietly makes his last preparations for a worthy reception of the enemy Q at her Q5, for which point she is striving. Observe how the first player has succeeded in combining the defence of the centre with his plans for a K side attack.",
-  "source": "Nimzowitsch, My System (1930), Game 16, note to White's 27th move",
-  "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
-  "note": "The g2 rook stands behind the g3 rook, has one safe move and reaches no centre square, enemy piece or square by the enemy king. Nimzowitsch counts it as part of the prepared king-side attack."
  },
  {
   "family": "pieces.out_of_play",
@@ -533,7 +418,7 @@
   "fen": "r2r2k1/5pp1/4p1p1/8/1p3P2/1Pn5/2R2PPP/4RBK1 w - - 0 30",
   "game": "Rubinstein – Alekhine, London 1922",
   "move": "after 29...b4",
-  "quote": "The continuation of the game shows that the text-move offers Black a chance of victory, by allowing him to support his Kt at Q B 6 by P—Kt 5 on his 29th move.",
+  "quote": "The continuation of the game shows that the text-move offers Black a chance of victory, by allowing him to support his [knight on c3] by [...b4] on his 29th move.",
   "source": "Alekhine, My Best Games of Chess 1908–1923 (1927), Game 70, note to White's 20th move",
   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt"
  },
@@ -566,14 +451,14 @@
   "family": "pieces.knight_outpost",
   "case": "fn",
   "feature": "pieces.knight_outpost",
-  "side": "black",
-  "fen": "r1b4r/pp3pk1/4p1pp/q2nP3/4QP2/2p5/P1P1NBPP/R2R2K1 w - - 5 19",
-  "game": "Chajes – Capablanca, New York 1916",
-  "move": "after 18...Nd5",
-  "quote": "This Knight completely paralyses the attack, as it dominates the whole situation, and there is no way to dislodge it.",
-  "source": "Capablanca, Chess Fundamentals (1921), Game 6, note to Black's 18th move",
-  "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt",
-  "note": "The only White pawn that could ever reach c4 is the c2 pawn, which is blocked for good by Black's c3 pawn; the rule treats any pawn on an adjacent file ahead of the knight as a threat."
+  "side": "white",
+  "fen": "r1b2k2/p3qpb1/7r/2ppPp1p/5Np1/4Q2P/PPP2PPB/R3R1K1 b - - 1 19",
+  "game": "Nimzowitsch – von Freymann, Wilna 1912",
+  "move": "after 19.Nf4",
+  "quote": "White has the better game, for the two [bishops] have little to say in view of the strength of the unassailable [knight]",
+  "source": "Nimzowitsch, My System (1930), Part II ch. 5 (Over-protection), position after Diagram CLXVI (Game No. 15), text after 19. Kt-B4",
+  "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
+  "note": "No black pawn can ever reach the knight on f4, but the bishop on h2 and the queen guard it, not a pawn, so the rule stays off."
  },
  {
   "family": "pieces.bishop_diagonal",
@@ -583,7 +468,7 @@
   "fen": "1n1r1nk1/b4pp1/2Bp2bp/4p3/4P1P1/6NP/3N1P2/3Q2K1 w - - 0 34",
   "game": "Capablanca – R. T. Black, New York 1916",
   "move": "after 33...Nxb8",
-  "quote": "Again best. If R X R; Q — R 4, and if B X R the Black B would no longer command the long diagonal.",
+  "quote": "Again best. … the Black [bishop on a7] would no longer command the long diagonal.",
   "source": "Capablanca, My Chess Career (1920), Game No. 28, note to Black's 33rd move",
   "url": "https://archive.org/download/15748865AJoseRaulMyChessCareer_201906/15748865-a-Jose-Raul-My-Chess-Career_djvu.txt"
  },
@@ -595,7 +480,7 @@
   "fen": "5rk1/1b2bppp/p4n2/1p1p2B1/2q5/2N1PN2/PP2QPPP/3R2K1 w - - 2 18",
   "game": "Capablanca – Teichmann, Berlin 1913",
   "move": "after 17...Qc4",
-  "quote": "Black aims at the exchange of Queens in order to remain with two Bishops for the ending, but in this position such a course is a mistake, because the Bishop at Kt 2 is inactive and cannot come into the game by any means, unless Black gives up the isolated Queen's Pawn which the Bishop must defend.",
+  "quote": "Black aims at the exchange of Queens in order to remain with two Bishops for the ending, but in this position such a course is a mistake, because the Bishop on [b7] is inactive and cannot come into the game by any means, unless Black gives up the isolated Queen's Pawn which the Bishop must defend.",
   "source": "Capablanca, Chess Fundamentals (1921), Game 9, note to Black's 17th move",
   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt"
  },
@@ -607,7 +492,7 @@
   "fen": "r1b4r/pp3pk1/2n1p1pp/q3P3/4QP2/2p1B3/P1P1N1PP/R2R2K1 b - - 2 17",
   "game": "Chajes – Capablanca, New York 1916",
   "move": "after 17.Be3",
-  "quote": "Better would have been P - Q R 4, in order to play B - R 3. The White B would be much better posted on the open diagonal than here, where it acts purely on the defensive.",
+  "quote": "Better would have been [a4], in order to play [Ba3]. The White [bishop] would be much better posted on the open diagonal than here, where it acts purely on the defensive.",
   "source": "Capablanca, Chess Fundamentals (1921), Game 6, note to White's 17th move",
   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt",
   "note": "The e3 bishop sees six squares on the a7–g1 diagonal, three in Black's half, but Capablanca calls the post purely defensive and wants it on a3 (the a3–f8 diagonal)."
@@ -633,7 +518,7 @@
   "fen": "rnbqk2r/ppp1bppp/4p3/3pP1B1/3Pn3/2N5/PPP2PPP/R2QKBNR w KQkq - 1 6",
   "game": "Forgacs – Tartakower, St Petersburg 1909",
   "move": "after 5...Ne4",
-  "quote": "The text move allows the exchange of two minor pieces, which can only be to White’s advantage, as Black cannot get his QB into play, and is for a long time practically a piece down.",
+  "quote": "The text move allows the exchange of two minor pieces, which can only be to White’s advantage, as Black cannot get his [c8 bishop] into play, and is for a long time practically a piece down.",
   "source": "Edward Lasker, Chess Strategy (1915), Game No. 22, note to Black's 5th move",
   "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt"
  },
@@ -645,22 +530,9 @@
   "fen": "r4rk1/pp3ppp/3p1q2/b1pP1b2/3p1P2/1P1B1Q2/PBPP2PP/4RRK1 w - - 6 15",
   "game": "Wolf – Alekhine, Carlsbad 1923",
   "move": "after 14...Ba5",
-  "quote": "In order to post this Bishop on Q R 4, an especially favourable position as White cannot screen his Q P from its attack, because of the unfavourable position of his K B.",
+  "quote": "In order to post this Bishop on [a5], an especially favourable position as White cannot screen his [d2 pawn] from its attack, because of the unfavourable position of his [d3 bishop].",
   "source": "Alekhine, My Best Games of Chess 1908–1923 (1927), Game 84, note to Black's 13th move",
   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt"
- },
- {
-  "family": "pieces.bad_bishop",
-  "case": "fp",
-  "feature": "pieces.bad_bishop",
-  "side": "white",
-  "fen": "r1bqk2r/4np1p/ppnbp1pP/3p2B1/3P4/2N2N2/PP2PPP1/R2QKB1R b KQkq - 1 12",
-  "game": "Alekhine – Rubinstein, The Hague 1921",
-  "move": "after 12.Bg5",
-  "quote": "In the other case White’s Q B will occupy the diagonal K R 4—Q 8, where it exercises a very embarrassing pressure.",
-  "source": "Alekhine, My Best Games of Chess 1908–1923 (1927), Game 61, note to White's 11th move",
-  "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
-  "note": "d4 and h6 are fixed on the bishop's colour, but the h6 pawn gives the bishop dark squares by the king. Alekhine says that from g5 it exerts very embarrassing pressure."
  },
  {
   "family": "pieces.bad_bishop",
@@ -670,7 +542,7 @@
   "fen": "1r3r2/p2bppbk/q1np2pp/1n1P4/4PPP1/4B2P/P2QN1B1/2RN1RK1 b - - 0 21",
   "game": "Tarrasch – Spielmann, Mannheim 1914",
   "move": "after 21.d5",
-  "quote": "This shuts in the White KB altogether, and at the same time opens the diagonal of Black’s KB.",
+  "quote": "This shuts in the White [g2 bishop] altogether, and at the same time opens the diagonal of Black’s [g7 bishop].",
   "source": "Edward Lasker, Chess Strategy (1915), Game No. 30, note to White's 21st move",
   "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt",
   "note": "The g2 bishop is shut behind its own e4 and d5 pawns, but only d5 is blocked by an enemy pawn (e5 is empty), so the rule counts one fixed pawn instead of two."
@@ -701,29 +573,16 @@
  },
  {
   "family": "pieces.rook_file",
-  "case": "fp",
-  "feature": "pieces.rook_file.half_open",
-  "side": "white",
-  "fen": "r2qrnk1/1b2bppp/p4n2/1p1pN1B1/2pP1P2/2N1PQ2/PP4PP/1BR1R1K1 w - - 3 16",
-  "game": "Pillsbury – Tarrasch, Hastings 1895",
-  "move": "after 15...Nf8",
-  "quote": "The worst placed White pieces are the Rooks. They have no open files, for the Q B file is closed by the strong hostile Pawn, advanced to the fifth rank.",
-  "source": "Znosko-Borovsky, The Middle Game in Chess (1922), ch. on construction and execution of the plan, Diagram XLIX",
-  "url": "https://archive.org/download/middlegameinches00znos/middlegameinches00znos_djvu.txt",
-  "note": "The rule counts the c-file as half-open for the Rc1 because only Black's c4 pawn is on it; the author treats that advanced enemy pawn as closing the file."
- },
- {
-  "family": "pieces.rook_file",
   "case": "fn",
   "feature": "pieces.rook_file.open",
   "side": "white",
   "fen": "r2qr1k1/pppb1pb1/2np1npp/1B6/4P2B/2N2N2/PPPQ1PPP/2KRR3 b - - 5 12",
   "game": "Morrison – Capablanca, New York 1918",
   "move": "after 12.Rhe1",
-  "quote": "White wanted to keep his Q R on the open file, and consequently brings over his other Rook to the centre to defend his K P, which Black threatened to win by P - K Kt 4, followed by Kt x P.",
+  "quote": "White wanted to keep his [d1 rook] on the open file, and consequently brings over his other Rook to the centre to defend his [e4 pawn], which Black threatened to win by [...g5], followed by [...Nxe4].",
   "source": "Capablanca, Chess Fundamentals (1921), Game 13, note to White's 12th move",
   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt",
-  "note": "Capablanca calls the d-file open although Black's d6 pawn stands on it; the rule files it as half-open, so .open is off (.half_open is on)."
+  "note": "Capablanca calls the d-file open although Black's d6 pawn stands on it. The rule calls it neither open nor half-open, since c7 guards d6."
  },
  {
   "family": "pieces.rook_seventh",
@@ -733,7 +592,7 @@
   "fen": "5k2/R7/1p2r2p/4N2P/Pn6/4P3/4K1P1/8 w - - 1 36",
   "game": "Nimzowitsch – Tarrasch, Breslau 1925",
   "move": "after 35...Re6",
-  "quote": "A glance at the position shows (1) that White commands the 7th Row; (2) that White's KP is isolated and his KKtP backward.",
+  "quote": "A glance at the position shows (1) that White commands the 7th Row; (2) that White's [e3 pawn] is isolated and his [g2 pawn] backward.",
   "source": "Nimzowitsch, My System (1930), Illustrative Game 10, note after Black's 35th move",
   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt"
  },
@@ -757,7 +616,7 @@
   "fen": "4rb1k/3q2pp/2n1bp2/2p1pN2/1pP1P1P1/3PBQ2/rP1R1N1P/5RK1 w - - 3 25",
   "game": "Blackburne – Nimzowitsch, St Petersburg 1914",
   "move": "after 24...Ra2",
-  "quote": "Before trying to push home his advantage on the Queen’s side, which is made possible by the weakness of White’s QP, Black should look after his King’s side, where White has collected an alarming array of forces. After the text move the Rook is quite out of play.",
+  "quote": "Before trying to push home his advantage on the Queen’s side, which is made possible by the weakness of White’s [d3 pawn], Black should look after his King’s side, where White has collected an alarming array of forces. After the text move the Rook is quite out of play.",
   "source": "Edward Lasker, Chess Strategy (1915), Game No. 48, note to Black's 24th move (R-R7)",
   "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt",
   "note": "The rook on a2 is on White's second rank, but its only target, b2, is guarded by the d2 rook. Lasker calls it out of play while White masses on the king's side."
@@ -775,10 +634,10 @@
   "fen": "r4kr1/5p2/3P1n2/p3p2p/2P1P1q1/P2Q2P1/5P2/3RR1K1 b - - 1 26",
   "game": "Olland – Alekhine, Scheveningen 1913",
   "move": "after 26.Rad1",
-  "quote": "Threatening 27. P—Q 7 followed by Q—Q 6 ch and Q x P, etc.",
+  "quote": "Threatening 27. [d7] followed by [Qd6+] …",
   "source": "Alekhine, My Best Games of Chess 1908–1923 (1927), Game 18, note to White's 26th move (QR-Q1)",
   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
-  "note": "White's queen on d3 stands between the rook and the d6 passer; the rule does not ask for a clear file, and the author still reads QR-Q1 as backing the pawn's advance."
+  "note": "White's queen on d3 stands between the rook and the d6 passer; the rule does not ask for a clear file, and the author still reads Rad1 as backing the pawn's advance."
  },
  {
   "family": "pieces.rook_behind_passer",
@@ -837,23 +696,10 @@
   "fen": "2r1k2r/pp1b1pp1/1q2p3/n2pPn1p/3P4/P1N2N1P/1P1QBPP1/3RR1K1 b k - 4 18",
   "game": "Nimzowitsch – Spielmann, Stockholm 1920",
   "move": "after 18.Rfe1",
-  "quote": "18. KR-K1 (PQ4 and to a certain degree PK5 are now systematically over-protected, and this strategy makes it possible later to be automatically, so to speak, master of the situation, whatever complications may arise)",
+  "quote": "18. [Rfe1] ([d4] and to a certain degree [e5] are now systematically over-protected, and this strategy makes it possible later to be automatically, so to speak, master of the situation, whatever complications may arise)",
   "source": "Nimzowitsch, My System (1930), Part II ch. 5 (Over-protection), §1, note to White's 18th move",
   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
-  "note": "Both rooks sit behind the blocked d4 and e5 pawns, but Nimzowitsch reads them as over-protectors that draw strength from those points and are free to switch files (21.R-QB1), not as shut-in rooks."
- },
- {
-  "family": "pieces.rook_blocked",
-  "case": "fn",
-  "feature": "pieces.rook_blocked",
-  "side": "white",
-  "fen": "r2qrnk1/1b2bppp/p4n2/1p1pN1B1/2pP1P2/2N1PQ2/PP4PP/1BR1R1K1 w - - 3 16",
-  "game": "Pillsbury – Tarrasch, Hastings 1895",
-  "move": "after 15...Nf8",
-  "quote": "The K file is blocked by the backward Pawn on K 3, which cannot be pushed forward, since then the Pawns on Q 4 and K B 4 will become very weak.",
-  "source": "Znosko-Borovsky, The Middle Game in Chess (1922), ch. on construction and execution of the plan, Diagram XLIX",
-  "url": "https://archive.org/download/middlegameinches00znos/middlegameinches00znos_djvu.txt",
-  "note": "The e3 pawn in front of the Re1 is stuck because advancing it would weaken d4 and f4, not because an enemy pawn stands on e4, so the rule does not fire."
+  "note": "Both rooks sit behind the blocked d4 and e5 pawns, but Nimzowitsch reads them as over-protectors that draw strength from those points and are free to switch files (21.Rc1), not as shut-in rooks."
  },
  {
   "family": "pieces.queen",
@@ -863,7 +709,7 @@
   "fen": "r4rk1/ppp1nppp/4b2q/8/3Q4/5NN1/PPP2PPP/3RR1K1 b - - 2 14",
   "game": "Teichmann – Amateurs (consultation), Glasgow 1902",
   "move": "after 14.Rad1",
-  "quote": "Now White is ahead with his development, having both Rooks in play and his Queen better placed. Nor can the latter be attacked by R-Q1, as White would simply play QxR.",
+  "quote": "Now White is ahead with his development, having both Rooks in play and his Queen better placed. Nor can the latter be attacked by [...Rd8], as White would simply play [Qxd8].",
   "source": "Edward Lasker, Chess Strategy (1915), Game No. 10, note to White's 14th move",
   "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt"
  },
@@ -875,7 +721,7 @@
   "fen": "1k1r2r1/pbpn1pqp/1p2pp2/8/2PP1P1N/3RQ1P1/P1P1B2P/2KR4 w - - 1 19",
   "game": "Capablanca – Znosko-Borovsky, St Petersburg 1913",
   "move": "after 18...Qg7",
-  "quote": "But by forcing Q - K Kt 4; White gains a very important move with P - B 4, which not only consolidates his position, but also drives the Queen away, putting it out of the game for the moment.",
+  "quote": "But by forcing [...Qg5]; White gains a very important move with [f4], which not only consolidates his position, but also drives the Queen away, putting it out of the game for the moment.",
   "source": "Capablanca, Chess Fundamentals (1921), Game 4, note to White's 17th move",
   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt"
  },
@@ -887,7 +733,7 @@
   "fen": "r3r1k1/p4ppp/2p5/1p2n3/2n2NP1/5P2/qPP1R2P/2BR1QK1 w - - 0 23",
   "game": "Alapin – Alekhine, Carlsbad 1911",
   "move": "after 22...Qxa2",
-  "quote": "Against that, however, the Black Queen, after capturing the R P, will momentarily be out of play, which will give White the necessary time to inaugurate a counter-attack.",
+  "quote": "Against that, however, the Black Queen, after capturing the [a2 pawn], will momentarily be out of play, which will give White the necessary time to inaugurate a counter-attack.",
   "source": "Alekhine, My Best Games of Chess 1908–1923 (1927), Game 6, note to Black's 21st move",
   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
   "note": "On a2 the queen touches seven squares in White's camp and nothing cheaper can hit it, but the author says the pawn hunt takes her out of play long enough for White's counter-attack."
@@ -900,7 +746,7 @@
   "fen": "r1b2rk1/p3nppq/1p1p1n2/2p4p/2PPpP2/1NP1P2P/P2BB1PK/R3QR2 w - - 4 17",
   "game": "Johner – Nimzowitsch, Dresden 1926",
   "move": "after 16...Qh7",
-  "quote": "The Q is bound for—KR2! Where she will be excellently placed, for then the crippling of White’s K side by P-R5 will at once be threatened.",
+  "quote": "The [queen] is bound for—[h7]! Where she will be excellently placed, for then the crippling of White’s K side by [...h4] will at once be threatened.",
   "source": "Nimzowitsch, My System (1930), Game 35, note to Black's 15th move",
   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
   "note": "From h7 the queen reaches almost nothing in White's half (her own h5 and e4 pawns block her); her value is restraint, backing ...h4 against White's K-side pawns, which the square count cannot measure."
@@ -934,13 +780,13 @@
   "case": "fp",
   "feature": "pieces.development.plus1",
   "side": "black",
-  "fen": "rn1qkb1r/1p1bpp1p/p5p1/2nP4/8/4QN2/PP3PPP/RNB1KB1R b KQkq - 1 10",
-  "game": "Alekhine – Wolf, Pistyan 1922",
-  "move": "after 10.Nf3",
-  "quote": "Black’s King being kept in the centre, White's attack will be facilitated, thanks to his superior development.",
-  "source": "Alekhine, My Best Games of Chess 1908–1923 (1927), Game 65, note to White's 10th move",
+  "fen": "rn1q1rk1/pb2bppp/1pp1p3/8/3PP3/2PB1N2/P1Q2PPP/R1B1K2R w KQ - 2 11",
+  "game": "Alekhine – König, Vienna 1922",
+  "move": "after 10...O-O",
+  "quote": "It was more prudent to delay this move, by playing first 10...[Nd7], for now White will utilise his great advantage in development to undertake a strong attack against the inadequately defended position of the Black King.",
+  "source": "Alekhine, My Best Games of Chess 1908–1923 (1927), Game 77, note to Black's 10th move",
   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
-  "note": "The tally gives Black two minor pieces out (c5, d7) against White's one (f3); Alekhine counts White's gain of time and Black's king held in the centre, which the tally does not see."
+  "note": "The rule counts Bb7, Be7 and the castled king against Nf3 and Bd3. Alekhine gives White a great advantage in development."
  },
  {
   "family": "pieces.development",
@@ -963,7 +809,7 @@
   "fen": "r3kb1r/p2nqppp/5n2/1B2p1B1/4P3/1Q6/PPP2PPP/2KR3R b kq - 2 12",
   "game": "Morphy – Duke Karl of Brunswick and Count Isouard, Paris 1858",
   "move": "after 12.O-O-O",
-  "quote": "There followed 12. O-O-O (the quickest way to unite the Rooks for an attack in the Q file against the point Q7)",
+  "quote": "There followed 12. O-O-O (the quickest way to unite the Rooks for an attack on the [d-file] against the point [d7])",
   "source": "Nimzowitsch, My System (1930), Part I ch. 7 (The pin), 'The 2nd Motive', p. 99",
   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt"
  },
@@ -1000,7 +846,7 @@
   "fen": "7r/2R1N3/3p3k/p3np2/r6P/6P1/2P3K1/4R3 b - - 2 46",
   "game": "Schlechter – Lasker, World Championship match (game 1) 1910",
   "move": "after 46.Ne7",
-  "quote": "He has three isolated Pawns, one of which is now attacked, another (Q 3) will be attacked next move.",
+  "quote": "He has three isolated Pawns, one of which is now attacked, another ([d6]) will be attacked next move.",
   "source": "Znosko-Borovsky, The Middle Game in Chess (1922), Inferiority in Force, Diagram LXVI, note to White's 4th move (game move 46)",
   "url": "https://archive.org/download/middlegameinches00znos/middlegameinches00znos_djvu.txt"
  },
@@ -1017,32 +863,6 @@
   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt"
  },
  {
-  "family": "pawns.islands",
-  "case": "fp",
-  "feature": "pawns.islands.2",
-  "side": "white",
-  "fen": "2kr1b1r/ppp3pp/2q1pp2/3nP3/3P4/4BN2/PP2QPPP/1R3RK1 w - - 4 13",
-  "game": "Three Swedish Amateurs – Nimzowitsch, consultation game 1921",
-  "move": "after 12...Nd5",
-  "quote": "We may with a clear conscience regard White's QP as isolated.",
-  "source": "Nimzowitsch, My System (1930), Illustrative Games, Game 39, note to Black's 12th move",
-  "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
-  "note": "The false negative's position again, tested for two islands: the rule joins d4 to the e5, f2, g2 and h2 pawns, while Nimzowitsch, calling d4 isolated, counts three."
- },
- {
-  "family": "pawns.islands",
-  "case": "fn",
-  "feature": "pawns.islands.3",
-  "side": "white",
-  "fen": "2kr1b1r/ppp3pp/2q1pp2/3nP3/3P4/4BN2/PP2QPPP/1R3RK1 w - - 4 13",
-  "game": "Three Swedish Amateurs – Nimzowitsch, consultation game 1921",
-  "move": "after 12...Nd5",
-  "quote": "We may with a clear conscience regard White's QP as isolated.",
-  "source": "Nimzowitsch, My System (1930), Illustrative Games, Game 39, note to Black's 12th move",
-  "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
-  "note": "Nimzowitsch calls White's d4 pawn isolated although e5 stands beside it; e5 is ahead of d4 and can never guard it. The rule joins the d- and e-files into one island."
- },
- {
   "family": "pawns.doubled",
   "case": "tp",
   "feature": "pawns.doubled.1",
@@ -1050,7 +870,7 @@
   "fen": "1k2r3/1ppr2pp/p1p2p2/5R2/4P3/1P1P3P/P1P3P1/5RK1 w - - 1 27",
   "game": "Capablanca – Janowski, New York 1913",
   "move": "after 26...Re8",
-  "quote": "Black's game has the disadvantage of his double Q B P, which, to make matters worse, he cannot advance, because as soon as Black plays P - Q Kt 3, White replies P - Q Kt 4.",
+  "quote": "Black's game has the disadvantage of his double [c-pawn], which, to make matters worse, he cannot advance, because as soon as Black plays [...b6], White replies [b4].",
   "source": "Capablanca, Chess Fundamentals (1921), ch. V, §29, Example 61 (introductory note to the diagram)",
   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt"
  },
@@ -1084,7 +904,7 @@
   "fen": "2rq1rk1/1b2bppp/pp3n2/2np2B1/B7/2N1PN2/PP2QPPP/2R2RK1 w - - 0 14",
   "game": "Capablanca – Teichmann, Berlin 1913",
   "move": "after 13...Nxc5",
-  "quote": "The drawback to the text move is that it leaves Black's Q P isolated, and consequently weak and subject to attack.",
+  "quote": "The drawback to the text move is that it leaves Black's [d5 pawn] isolated, and consequently weak and subject to attack.",
   "source": "Capablanca, Chess Fundamentals (1921), Part II, Game 9, note to Black's 13th move",
   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt"
  },
@@ -1121,7 +941,7 @@
   "fen": "2r3k1/1p3p1p/p3p3/4bp2/1P6/2P5/1P3PPP/3K1B1R w - - 0 21",
   "game": "Alekhine – Tartakower, Vienna 1922",
   "move": "after 20...Rxc8",
-  "quote": "(4) Black's K R P is isolated and therefore weak.",
+  "quote": "(4) Black's [h7 pawn] is isolated and therefore weak.",
   "source": "Alekhine, My Best Games of Chess 1908–1923 (1927), Game 78, note to Black's 20th move",
   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
   "note": "Alekhine calls h7 weak because it is isolated. The rule also wants a file free of enemy pawns and a blocked advance, and here White's h2 stands on the file and h6 is free."
@@ -1134,7 +954,7 @@
   "fen": "8/1kp1r1pp/p1p1r3/Pp4R1/1P2P3/3PK2P/2P5/5R2 b - - 0 36",
   "game": "Capablanca – Janowski, New York 1913",
   "move": "after 36.Rxg5",
-  "quote": "White not only has a passed Pawn, but his King is in a commanding position in the centre of the board ready to support the advance of White's Pawns, or, if necessary, to go to Q B 5, or to move to the right wing in case of danger.",
+  "quote": "White not only has a passed Pawn, but his King is in a commanding position in the centre of the board ready to support the advance of White's Pawns, or, if necessary, to go to [c5], or to move to the right wing in case of danger.",
   "source": "Capablanca, Chess Fundamentals (1921), ch. V, §29, Example 61, note after White's 10th move (game move 36)",
   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt"
  },
@@ -1154,19 +974,6 @@
   "family": "pawns.passed",
   "case": "fp_impossible",
   "note": "Not found. Every author uses “passed” in the rule's sense."
- },
- {
-  "family": "pawns.passed",
-  "case": "fn",
-  "feature": "pawns.passed.3plus",
-  "side": "white",
-  "fen": "br3r1k/p5b1/8/1p2p1B1/2p2P2/P6P/2B3PK/1R3N2 w - - 0 29",
-  "game": "Bernstein – Alekhine, Vilna 1912",
-  "move": "after 28...e5",
-  "quote": "At first sight this appears to be risky on account of White's three passed Pawns on the King's side, but Black had worked out that his Queen-side Pawns would queen first.",
-  "source": "Alekhine, My Best Games of Chess 1908–1923 (1927), Game 12, note to Black's 28th move",
-  "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
-  "note": "Alekhine counts f4 among White's three king-side passers, since it can step to f5 past the e5 pawn (29.P-B5 in the game). The rule sees e5 ahead of it on a neighbouring file and counts only g2 and h3."
  },
  {
   "family": "centre.type",
@@ -1200,7 +1007,7 @@
   "fen": "r1bq1rk1/ppp2ppp/2p2n2/4p3/1b2P3/2NP1N2/PPP2PPP/R1BQ1RK1 b - - 0 7",
   "game": "Nimzowitsch – Leonhardt, San Sebastian 1911",
   "move": "after 7.d3",
-  "quote": "This solidity, however, also finds expression in the fact that White’s KP can never be troubled by an advance of Black’s QP; in other words, the centre cannot be opened.",
+  "quote": "This solidity, however, also finds expression in the fact that White’s [e4 pawn] can never be troubled by an advance of Black’s [queen’s pawn]; in other words, the centre cannot be opened.",
   "source": "Nimzowitsch, My System (1930), Illustrative Game 16, note to White's 7th move",
   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
   "note": "The detector reads one e-file ram plus a half-open d-file as 'nothing fixed', but the protected d3 pawn means Black's d-file pressure bites on granite and no pawn break can open the centre, so the author calls it fixed."
@@ -1213,7 +1020,7 @@
   "fen": "r1bqr1k1/3nbppp/p1p1pn2/1pPp2B1/3P4/P1N1PN1P/1PQ2PP1/2R1KB1R b K - 0 11",
   "game": "Alekhine – Chajes, Carlsbad 1923",
   "move": "after 11.c5",
-  "quote": "Whereas now Black will not succeed in breaking through in the centre, and the weakness of his Q B P will make itself felt sooner or later. It is, however, without immediate consequences, on account of the blocked position of the two adversaries and the difficulties experienced by White in penetrating the hostile lines.",
+  "quote": "Whereas now Black will not succeed in breaking through in the centre, and the weakness of his [c6 pawn] will make itself felt sooner or later. It is, however, without immediate consequences, on account of the blocked position of the two adversaries and the difficulties experienced by White in penetrating the hostile lines.",
   "source": "Alekhine, My Best Games of Chess 1908–1923 (1927), Game 85, note to White's 11th move",
   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
   "note": "The centre is locked by rams on d4/d5 and c5/c6 while e3 and e6 are not in contact, so the rule, which wants rams on both the d- and e-files, misses the blocked centre."
@@ -1226,7 +1033,7 @@
   "fen": "r1bqr1k1/pp1nppbp/2p2np1/8/3PP3/2NBBN1P/PP1Q1PP1/R3K2R w KQ - 4 11",
   "game": "Bogoljubow – Romanovsky, Leningrad match 1924",
   "move": "after 10...Nbd7",
-  "quote": "White dominates the centre, but Black wants to simplify his game by P—K4 and to regain a share of the centre.",
+  "quote": "White dominates the centre, but Black wants to simplify his game by [...e5] and to regain a share of the centre.",
   "source": "Emanuel Lasker, Lasker's Manual of Chess (1927), Bogoljubow v. Romanowski (Reti Opening), note to Black's 10th move",
   "url": "https://archive.org/download/bwb_S0-CIH-670/bwb_S0-CIH-670_djvu.txt"
  },
@@ -1238,7 +1045,7 @@
   "fen": "r2qrnk1/1b2bppp/p4n2/1p1pN1B1/2pP1P2/2N1PQ2/PP4PP/1BR1R1K1 w - - 3 16",
   "game": "Pillsbury – Tarrasch, Hastings 1895",
   "move": "after 15...Nf8",
-  "quote": "White has also a small advantage in space, because he holds the centre, thanks to the Pawns on Q 4 and K B 4 and also to the Bishop on K Kt 5 and Knight on K 5.",
+  "quote": "White has also a small advantage in space, because he holds the centre, thanks to the Pawns on [d4] and [f4] and also to the Bishop on [g5] and Knight on [e5].",
   "source": "Znosko-Borovsky, The Middle Game in Chess (1922), Construction and Execution of the Plan, Diagram XLIX",
   "url": "https://archive.org/download/middlegameinches00znos/middlegameinches00znos_djvu.txt"
  },
@@ -1263,7 +1070,7 @@
   "fen": "1r1q1rk1/p1n1p1bp/4b1p1/1p3p2/2pP4/P1P1P2P/2QNBPP1/1RBR2K1 w - - 0 17",
   "game": "Bernstein – Alekhine, Vilna 1912",
   "move": "after 16...f5",
-  "quote": "Permanently taking hold of the centre, as his Q 4 is definitely secured. From the strategic point of view this consideration is of paramount importance.",
+  "quote": "Permanently taking hold of the centre, as his [d5] is definitely secured. From the strategic point of view this consideration is of paramount importance.",
   "source": "Alekhine, My Best Games of Chess 1908–1923 (1927), Game 12, note to Black's 16th move",
   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
   "note": "The detector scores the four squares equal (d5 Black, e5 even, d4 and e4 White by half a point), while Alekhine counts the permanent possession of d5, which f5 makes unassailable by e4, as holding the centre."
@@ -1300,7 +1107,7 @@
   "fen": "rn1qkb1r/pb1ppppp/5n2/2p5/2P5/5NP1/PP2PPBP/RNBQK2R b KQkq - 0 6",
   "game": "Rubinstein – Nimzowitsch, Marienbad 1925",
   "move": "after 6.c4",
-  "quote": "He holds the Q file with the outpost station belonging to it at Q5, whereas Black's majority in the centre (the QB, Q, and K Pawns against the QB and K pawns gives evidence of but slight mobility.",
+  "quote": "He holds the [d-file] with the outpost station belonging to it at [d5], whereas Black's majority in the centre (the [c-, d- and e-pawns] against the [c- and e-pawns] gives evidence of but slight mobility.",
   "source": "Nimzowitsch, My System (1930), Illustrative Games, Game 18, note to White's 6th move",
   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
   "note": "The rule calls the d7/e7 majority mobile because a pawn can step forward; Nimzowitsch judges it hardly mobile, since White's hold on the d-file and d5 stops it from advancing usefully."
@@ -1338,7 +1145,7 @@
   "fen": "r2q1rk1/pb1nbpnp/1ppp2p1/3Pp3/1PP1P1P1/P2B1NN1/1B1Q1P1P/R4RK1 w - - 0 17",
   "game": "Opocensky – Nimzowitsch, Marienbad 1925",
   "move": "after 16...c6",
-  "quote": "The diversion of the Kt, now completed, has so altered the situation that Black, though much cramped on the Q’s Wing, can venture to proceed to the attack!",
+  "quote": "The diversion of the [knight], now completed, has so altered the situation that Black, though much cramped on the Q’s Wing, can venture to proceed to the attack!",
   "source": "Nimzowitsch, My System (1930), Part II, Elements of Position Play, § 6 over-protection of the centre, Diagram CXXIII",
   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt"
  },
@@ -1369,6 +1176,58 @@
   "note": "White's e4/f4 pawns and Nd4 stand on his own fourth rank and stop Black's Nf6 and Bg4. The rule counts only squares in the opponent's half, where neither side holds a centre square."
  },
  {
+  "family": "space_pawns",
+  "case": "tp",
+  "feature": "space_pawns.plus1",
+  "side": "black",
+  "fen": "3r1rk1/1bp1q1pp/pp1b4/4np2/2P1p3/1PB1P2P/P2RBPP1/3RQNK1 w - - 4 22",
+  "game": "Vergani – Teichmann, Hastings 1895",
+  "move": "after 21...Ne5",
+  "quote": "As regards space, Black has undoubtedly gained, thanks to his advanced Pawns on [e4] and [f5] and the Knight on [e5]. White has only one Pawn on the fourth rank ([c4]), all his other men being crowded together on the first three ranks.",
+  "source": "Znosko-Borovsky, The Middle Game in Chess (1922), Valuation of the Position, Diagram XLIII",
+  "url": "https://archive.org/download/middlegameinches00znos/middlegameinches00znos_djvu.txt",
+  "note": "Znosko counts the same pawns as the rule."
+ },
+ {
+  "family": "space_pawns",
+  "case": "tn",
+  "feature": "space_pawns.equal",
+  "side": null,
+  "fen": "3rr1k1/ppp2ppp/1n1q1n2/3P4/3Q1P2/2N2N1P/PPP3P1/2KR3R w - - 1 16",
+  "game": "Leonhardt – Marshall, San Sebastian 1911",
+  "move": "after 15...Rad8",
+  "quote": "We can further easily see that White has gained also in space, because his Pawns stand on [d5] and [f4], and the Queen on [d4], while Black has all his pieces posted on three ranks.",
+  "source": "Znosko-Borovsky, The Middle Game in Chess (1922), Valuation of the Position, Diagram XLII",
+  "url": "https://archive.org/download/middlegameinches00znos/middlegameinches00znos_djvu.txt",
+  "note": "The rule gives White a lead of two pawns, so equal is off; Znosko gives White the space."
+ },
+ {
+  "family": "space_pawns",
+  "case": "fp",
+  "feature": "space_pawns.plus1",
+  "side": "black",
+  "fen": "r3k2r/5ppp/p3b3/2p3N1/Pp6/8/1PP2PPP/R3R1K1 b kq - 0 20",
+  "game": "Maróczy – Tarrasch, San Sebastian 1911",
+  "move": "after 20.Nxg5",
+  "quote": "The number of moves and pieces is equal on both sides and we might look on Black as having an advantage in space on the Queen's wing. We know, however, that in reality the latter is not the case.",
+  "source": "Znosko-Borovsky, The Middle Game in Chess (1922), Inferior Positions, Inferiority in Time, Diagram LXVII",
+  "url": "https://archive.org/download/middlegameinches00znos/middlegameinches00znos_djvu.txt",
+  "note": "Znosko denies Black that space: with Black undeveloped and uncastled, the advanced pawns are targets for White's rooks."
+ },
+ {
+  "family": "space_pawns",
+  "case": "fn",
+  "feature": "space_pawns.plus1",
+  "side": "white",
+  "fen": "r2q1rk1/1b1nbppp/p4n2/1p1pN1B1/2pP1P2/2N1P3/PP4PP/1BRQR1K1 b - - 0 14",
+  "game": "Pillsbury – Tarrasch, Hastings 1895",
+  "move": "after 14.f4",
+  "quote": "White has also a small advantage in space, because he holds the centre, thanks to the Pawns on [d4] and [f4] and also to the Bishop on [g5] and Knight on [e5].",
+  "source": "Znosko-Borovsky, The Middle Game in Chess (1922), Construction and Execution of the Plan, Diagram XLIX",
+  "url": "https://archive.org/download/middlegameinches00znos/middlegameinches00znos_djvu.txt",
+  "note": "Znosko gives White the space because d4 and f4 hold the centre; the rule weighs Black's b5, c4 and d5 the same."
+ },
+ {
   "family": "initiative",
   "case": "tp",
   "feature": "initiative",
@@ -1379,7 +1238,7 @@
   "quote": "By this new sacrifice White gets the initiative, which now decides the game.",
   "source": "Znosko-Borovsky, The Middle Game in Chess (1922), Part III, ch. V (The Counter-Battle), §4, Diagram XCIX game, note to White's 56th move (14 in the book's count)",
   "url": "https://archive.org/download/middlegameinches00znos/middlegameinches00znos_djvu.txt",
-  "top": "f5f6"
+  "top": "f5f6 g6h7"
  },
  {
   "family": "initiative",
@@ -1392,21 +1251,7 @@
   "quote": "With this unexpected sally, White completely assumes the initiative.",
   "source": "Alekhine, My Best Games of Chess 1908–1923 (1927), Game 5, note to White's 9th move",
   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
-  "top": "g8h8 g7h6"
- },
- {
-  "family": "initiative",
-  "case": "fp",
-  "feature": "initiative",
-  "side": "black",
-  "fen": "8/2p4k/1p4Q1/p1nP1R2/2P1p1K1/PP2q3/5RP1/1B6 b - - 0 56",
-  "game": "Duras – Teichmann, Ostend 1906",
-  "move": "after 56.Qxg6+",
-  "quote": "By this new sacrifice White gets the initiative, which now decides the game.",
-  "source": "Znosko-Borovsky, The Middle Game in Chess (1922), Part III, ch. V (The Counter-Battle), §4, Diagram XCIX game, note to White's 56th move (14 in the book's count)",
-  "url": "https://archive.org/download/middlegameinches00znos/middlegameinches00znos_djvu.txt",
-  "top": "h7g6",
-  "note": "Black's only good move is the forced recapture Kxg6, which counts as a capture, so the rule hands Black the initiative at the very moment the author says White seized it."
+  "top": "g8h8 f1e1"
  },
  {
   "family": "initiative",
@@ -1416,10 +1261,10 @@
   "fen": "rn2k2r/pbp2p1p/1p2pp2/8/3Pq3/2P2NP1/P1PK1PBP/R2Q3R b kq - 4 11",
   "game": "Tarrasch – Alekhine, St Petersburg 1914",
   "move": "after 11.Kd2",
-  "quote": "The text-move, just as 11. K—B 1 (Réti—Bogoljuboff, Berlin, 1920) is insufficient, in view of the exposed position of his King. Black at once assumes the initiative and keeps it to the end.",
+  "quote": "The text-move, just as 11. [Kf1] (Réti—Bogoljuboff, Berlin, 1920) is insufficient, in view of the exposed position of his King. Black at once assumes the initiative and keeps it to the end.",
   "source": "Alekhine, My Best Games of Chess 1908–1923 (1927), Game 26, note to White's 11th move",
   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
-  "top": "e4f5 e4g6 e4g4",
-  "note": "Black's best moves (Qf5, Qg6, Qg4) are quiet queen moves that parry the threat Nh4, which would uncover the g2 bishop on the queen. The rule wants every one to be a check, capture or threat."
+  "top": "e4f5 a2a4",
+  "note": "Black's best move, Qf5, is a quiet queen move that parries the threat Nh4 (uncovering the g2 bishop on the queen) and threatens nothing itself, so the rule withholds the initiative."
  }
 ]

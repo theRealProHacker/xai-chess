@@ -1,4 +1,4 @@
-//! One FEN per line on stdin, optionally followed by a tab and the engine's best moves
+//! One FEN per line on stdin, optionally followed by a tab and the engine's principal variation
 //! (UCI, space-separated). One JSON line out per FEN: the features that are on.
 //!
 //!   features [--all]     --all also prints the features that are off

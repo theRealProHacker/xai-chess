@@ -93,6 +93,7 @@
   tr.fam{cursor:pointer}
   tr.fam:hover td{background:#fafafa}
   tr.fam.sel td{background:#f1f5f9}
+  tr.solo td{padding-top:1.1rem}
   td.empty{color:#8a8a8a}
   .why{color:#555;font-size:.85rem;margin:.6rem 0 0;min-height:1.4em}
 </style>
@@ -138,9 +139,10 @@ import init, * as fx from './vendor/features/features.js';
 
 await init();
 const ALL_FAMS = JSON.parse(fx.families());
-// Computed by the crate but not shown here: they follow from the board by definition.
-const HIDDEN = ['context.turn', 'material.bishop_pair', 'material.opposite_bishops', 'pawns.doubled'];
-const FAMS = ALL_FAMS.filter(f => !HIDDEN.includes(f.id));
+// Families without book cases here: the first four follow from the board by definition. They
+// still show under "Try a position".
+const NO_CASES = ['context.turn', 'material.bishop_pair', 'material.opposite_bishops', 'pawns.doubled', 'pieces.rook_seventh'];
+const FAMS = ALL_FAMS.filter(f => !NO_CASES.includes(f.id));
 const CASES = JSON.parse(fx.examples());
 const $ = id => document.getElementById(id);
 
@@ -170,6 +172,23 @@ function words(v){
     .replace(/_/g, ' ');
 }
 const NO_MARKS = ['context.phase', 'material.balance', 'material.imbalance', 'pieces.development', 'initiative'];
+// Families whose squares hold both sides' pieces: the side named first and the side it is set against.
+const TWO_SIDED = {
+  'local': ['Green circles mark the pieces counted for the side asked about, blue those counted against it.', s => s],
+  'king.attack': ['Green circles mark the attackers, blue the defenders of the king asked about.', s => s === 'white' ? 'black' : 'white'],
+  'space_pawns': ['Green circles mark the advanced pawns of the side asked about, blue the other side’s.', s => s],
+};
+// The colour of the piece on a square, from the FEN's board field.
+function colourAt(fen, sq){
+  const rows = fen.split(' ')[0].split('/');
+  let f = 0;
+  for (const ch of rows[8 - +sq[1]]) {
+    if (/\d/.test(ch)) { f += +ch; continue; }
+    if (f === sq.charCodeAt(0) - 97) return ch === ch.toUpperCase() ? 'white' : 'black';
+    f++;
+  }
+  return null;
+}
 const GROUPS = [['Context', ['context.']], ['Material', ['material.']], ['Local superiority', ['local']],
   ['King safety', ['king.']], ['Pieces', ['pieces.']], ['Pawn structure and centre', ['pawns.', 'centre.']],
   ['Space', ['space']], ['Initiative', ['initiative']]];
@@ -195,6 +214,7 @@ function showFamily(i){
   $('fam').value = i;
   $('famTitle').textContent = fam.title;
   $('marks').hidden = NO_MARKS.includes(fam.id);
+  $('marks').textContent = TWO_SIDED[fam.id]?.[0] || 'Where the rule says yes, circles mark the squares it rests on.';
   $('rule').textContent = fam.rule;
   const g = $('gallery'); g.replaceChildren();
   for (const k of ['tp', 'tn', 'fp', 'fn']) {
@@ -210,8 +230,11 @@ function showCase(k){
   const fam = FAMS[famIx];
   for (const b of $('gallery').children) b.classList.toggle('on', b.dataset.k === k);
   const d = $('cases'); d.replaceChildren(); mini = null;
+  $('marks').hidden = NO_MARKS.includes(fam.id);
+  $('marks').style.visibility = '';
   const c = CASES.find(x => x.family === fam.id && x.case === k);
   if (!c) {
+    $('marks').style.visibility = 'hidden';
     const why = CASES.find(x => x.family === fam.id && x.case === k + '_impossible');
     const p = document.createElement('div'); p.className = 'hole';
     p.textContent = why ? why.note.replace(/^Not found\. /, 'None in the books. ') : 'None in the books.';
@@ -241,9 +264,13 @@ function showCase(k){
   det.textContent = f?.why ? f.why[0].toUpperCase() + f.why.slice(1) + '.' : f?.on ? '' : 'Nothing here meets the rule.';
   d.append(det);
   if (c.note) { const n = document.createElement('p'); n.className = 'note'; n.textContent = c.note; d.append(n); }
+  // the legend explains circles; without any it would promise what the board does not show
+  if (!f?.squares?.length) $('marks').style.visibility = 'hidden';
   mini = Chessground(b, {fen: c.fen, viewOnly: true, coordinates: true,
     orientation: 'white', animation: {enabled: false}, drawable: {enabled: false}});
-  mini.setAutoShapes((f?.squares || []).map(s => ({orig: s, brush: f.on ? 'green' : 'red'})));
+  const two = TWO_SIDED[fam.id];
+  mini.setAutoShapes((f?.squares || []).map(s => ({orig: s,
+    brush: two ? (colourAt(c.fen, s) === two[1](c.side) ? 'green' : 'blue') : f.on ? 'green' : 'red'})));
 }
 // The dropdown: "Try a position" first, then the features. Option value -1 is the try view.
 { const o = document.createElement('option'); o.value = -1; o.textContent = 'Try a position'; $('fam').append(o); }
@@ -293,12 +320,15 @@ function render(){
   for (const x of ['Feature', 'White', 'Black']) h.append(Object.assign(document.createElement('th'), {textContent: x}));
   const body = t.createTBody();
   let group = '';
-  for (const fam of FAMS) {
+  for (const fam of ALL_FAMS) {
     const g0 = GROUPS.find(([, ps]) => ps.some(p => fam.id.startsWith(p)))[0];
-    if (g0 !== group && g0 !== fam.title) { group = g0; const gr = body.insertRow(); gr.className = 'grp'; const c = gr.insertCell(); c.colSpan = 3; c.textContent = g0; }
+    // a group gets a heading row unless its only family carries the group's name
+    const solo = ALL_FAMS.filter(f => GROUPS.find(([, ps]) => ps.some(p => f.id.startsWith(p)))[0] === g0).length === 1 && g0 === fam.title;
+    const fresh = g0 !== group; group = g0;
+    if (fresh && !solo) { const gr = body.insertRow(); gr.className = 'grp'; const c = gr.insertCell(); c.colSpan = 3; c.textContent = g0; }
     const fs = r.features.filter(f => famOf(f.id) === fam.id);
     const on = fs.filter(f => f.on);
-    const tr = body.insertRow(); tr.className = 'fam'; tr.dataset.fam = fam.id;
+    const tr = body.insertRow(); tr.className = fresh && solo ? 'fam solo' : 'fam'; tr.dataset.fam = fam.id;
     tr.insertCell().textContent = fam.title;
     const cell = side => on.filter(f => f.side === side).map(f => label(f.id)).join(', ');
     const g = on.filter(f => !f.side).map(f => label(f.id)).join(', ');
@@ -307,6 +337,7 @@ function render(){
       const td = tr.insertCell();
       let v;
       if (fam.id === 'initiative' && !top) v = s === chess.turn().replace('w', 'white').replace('b', 'black') ? 'asking Stockfish…' : '';
+      else if (fam.id === 'context.turn') v = (on.length > 0) === (s === 'white') ? 'yes' : 'no';
       else if (single) v = on.some(f => f.side === s || !f.side) ? 'yes' : 'no';
       else if (fam.id === 'local' || fam.id === 'space') v = cell(s) || (fam.id === 'local' ? 'equal' : 'no');
       else v = cell(s) || g || 'no';   // whole-position values hold for both
@@ -320,11 +351,13 @@ function render(){
 function mark(r){
   for (const tr of $('read').querySelectorAll('tr.fam')) tr.classList.toggle('sel', tr.dataset.fam === selected);
   const on = selected ? r.features.filter(f => famOf(f.id) === selected && f.on) : [];
-  ground.setAutoShapes(on.flatMap(f => f.squares.map(s => ({orig: s, brush: f.side === 'black' ? 'red' : 'blue'}))));
+  // blue for White, red for Black; where both sides' pieces are listed, by the piece's own colour
+  const who = (f, s) => TWO_SIDED[selected] ? colourAt(chess.fen(), s) : f.side;
+  ground.setAutoShapes(on.flatMap(f => f.squares.map(s => ({orig: s, brush: who(f, s) === 'black' ? 'red' : 'blue'}))));
   $('why').textContent = on.map(f => (sideWord(f.side) ? sideWord(f.side) + ': ' : '') + (f.why || label(f.id))).join(' · ');
 }
 
-// --- Stockfish 18 lite for the initiative row: MultiPV 3, moves within 50 cp of the best ---
+// --- Stockfish 18 lite for the initiative row: the principal variation ---
 const engine = new Worker('vendor/stockfish/stockfish-18-lite-single.js');
 const lineOf = e => typeof e.data === 'string' ? e.data : (e.data && e.data.data) || '';
 let onLine = () => {};
@@ -332,7 +365,7 @@ engine.onmessage = e => onLine(lineOf(e));
 const until = (tag, lines) => new Promise(res => { onLine = l => { lines?.push(l); if (l.startsWith(tag)) res(lines); }; });
 const booted = (async () => {
   engine.postMessage('uci'); await until('uciok');
-  engine.postMessage('setoption name MultiPV value 3'); engine.postMessage('isready'); await until('readyok');
+  engine.postMessage('isready'); await until('readyok');
 })();
 let queue = Promise.resolve();
 function think(g){
@@ -346,14 +379,9 @@ function think(g){
     const poll = setInterval(() => { if (g !== gen) engine.postMessage('stop'); }, 100);
     const lines = await done; clearInterval(poll);
     if (g !== gen) return;
-    const best = new Map();
-    for (const l of lines) {
-      const m = l.match(/ multipv (\d+) .*score (cp|mate) (-?\d+).* pv (\S+)/);
-      if (m) best.set(+m[1], {cp: m[2] === 'mate' ? Math.sign(+m[3]) * (100000 - Math.abs(+m[3])) : +m[3], mv: m[4]});
-    }
-    const xs = [...best.values()];
-    const b0 = Math.max(...xs.map(x => x.cp));
-    top = xs.filter(x => b0 - x.cp <= 50).map(x => x.mv).join(' ') || ' ';
+    // the last full line the engine reported: best move, then the reply
+    const pv = lines.filter(l => / pv /.test(l)).pop()?.split(' pv ')[1] || '';
+    top = pv.split(' ').slice(0, 2).join(' ') || ' ';
     render();
   });
 }
