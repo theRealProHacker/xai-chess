@@ -48,7 +48,13 @@ def default_head(title: str) -> str:
     return (
         '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
-        f"<title>{title}</title><style>\n{DEFAULT_STYLE}</style></head>\n<body>"
+        f"<title>{title}</title>\n"
+        '<link rel="icon" href="favicon.ico" sizes="any">\n'
+        '<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">\n'
+        '<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">\n'
+        '<link rel="apple-touch-icon" href="apple-touch-icon.png">\n'
+        '<link rel="manifest" href="site.webmanifest">\n'
+        f"<style>\n{DEFAULT_STYLE}</style></head>\n<body>"
     )
 
 
