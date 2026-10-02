@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Positional Features &middot; xai-chess</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.base.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.brown.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.cburnett.css">
+<style>
+  :root{
+    --shadow-s:
+      inset 0 1px 2px #ffffff30,
+      0 1px 2px #00000030,
+      0 2px 4px #00000015;
+    --shadow-m:
+      inset 0 1px 2px #ffffff50,
+      0 2px 4px #00000030,
+      0 4px 8px #00000015;
+    --yes:#0b7a2f; --no:#b00020;
+    --mono:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  a.back{color:#8a8a8a;text-decoration:none;font-size:.9rem}
+  a.back:hover{color:#0b5fa5}
+
+  .pick{display:flex;gap:.4rem;margin:0 0 .8rem}
+  .pick select{flex:1;min-width:0;font:inherit;font-size:.9rem;padding:.5rem .6rem;border:1px solid #e4e4e4;
+      border-radius:8px;background:#fff;color:#1a1a1a;cursor:pointer;box-shadow:var(--shadow-s)}
+  .pick button{font-size:1.1rem;padding:.35rem .8rem}
+  .pick select:focus{outline:none;border-color:#0b5fa5}
+
+  button{font:inherit;font-size:.9rem;padding:.5rem .9rem;border:1px solid #e4e4e4;border-radius:8px;
+      background:#fff;color:#1a1a1a;cursor:pointer;box-shadow:var(--shadow-s);
+      transition:border-color .12s,background .12s,box-shadow .12s}
+  button:hover:not(:disabled){border-color:#0b5fa5;background:#fafafa;box-shadow:var(--shadow-m)}
+
+  h2{font-size:1.1rem;font-weight:600;margin:1.8rem 0 .5rem}
+  h2#famTitle{margin-top:1.1rem;font-size:1.25rem}
+  .rule{color:#333;margin:0 0 1.2rem}
+
+  .gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem;margin:0 0 .9rem}
+  @media (max-width:560px){.gallery{grid-template-columns:1fr 1fr}}
+  button.on{background:#0b5fa5;border-color:#0b5fa5;color:#fff}
+  button.on:hover:not(:disabled){background:#0a5390;border-color:#0a5390}
+  .case .lead{margin:0 0 .8rem;font-size:.95rem;line-height:1.55}
+  .case .lead .qt{font-weight:600}
+  .case .lead .ctx{color:#555}
+  .case .lead a{color:#6b6b6b;font-size:.85rem}
+  .case .hole{aspect-ratio:1/1;margin-left:14px;width:calc(100% - 14px);border:1px dashed #d6d6d6;border-radius:4px;
+      display:flex;align-items:center;justify-content:center;padding:1.2rem;box-sizing:border-box;
+      color:#6b6b6b;font-size:.95rem;text-align:center}
+  .case .mini{width:calc(100% - 14px);margin:0 0 1.5rem 14px;aspect-ratio:1/1;box-shadow:var(--shadow-s);border-radius:4px}
+  .mini coords coord,#board coords coord{color:#333 !important;text-shadow:none;font-weight:400}
+  .mini coords,#board coords{font-size:12px;opacity:1}
+  /* chessground places coordinates with fixed pixel offsets sized for a large board; on these
+     boards that puts each file letter under the next file. Anchor them to the square instead. */
+  .mini coords.files,#board coords.files{left:0;bottom:-15px;height:auto;text-transform:lowercase}
+  .mini coords.files coord,#board coords.files coord{flex:1 1 0;text-align:center}
+  .mini coords.ranks,#board coords.ranks{top:0;left:-13px;width:10px}
+  .mini coords.ranks coord,#board coords.ranks coord{flex:1 1 0;transform:none;display:flex;align-items:center;justify-content:flex-end}
+  .marks{color:#6b6b6b;font-size:.85rem;margin:-.6rem 0 1.2rem}
+  h2#try{margin-top:1.1rem;font-size:1.25rem}
+  [hidden]{display:none !important}
+  .case .q{font-weight:600;font-size:1rem;margin:0 0 .15rem}
+  .case .verd{font-size:.95rem;margin:0 0 .7rem}
+  .case .verd b{font-weight:600}
+  .case .verd b.on{color:var(--yes)} .case .verd b.off{color:var(--no)}
+  .case .det{font-size:.9rem;color:#333;margin:0 0 .3rem}
+  .case .note{font-size:.9rem;color:#1a1a1a;margin:.35rem 0 .5rem}
+
+  #board{width:min(440px, calc(100% - 14px));margin:0 0 1.6rem 14px;aspect-ratio:1/1;box-shadow:var(--shadow-s);border-radius:4px}
+  .mini .cg-shapes, #board .cg-shapes{opacity:1}
+  #board coords.files{text-transform:lowercase}
+  .fenrow{display:flex;gap:.4rem;align-items:center;margin:0 0 .3rem}
+  .fenrow input{flex:1;min-width:0;font:var(--mono);padding:.5rem .6rem;border:1px solid #e4e4e4;
+      border-radius:8px;color:#1a1a1a;background:#fff}
+  .fenrow input:focus{outline:none;border-color:#0b5fa5}
+  .err{color:var(--no);font-size:.85rem;margin:0 0 .4rem}
+  .err:empty{display:none}
+  .hint{color:#6b6b6b;font-size:.85rem;margin:.2rem 0 1.2rem}
+
+  table{width:100%;border-collapse:collapse;font-size:.88rem;table-layout:fixed}
+  th{text-align:left;font-weight:600;color:#333;font-size:.85rem;padding:0 .5rem .35rem 0;border-bottom:1px solid #d6d6d6}
+  th:nth-child(2),th:nth-child(3){width:30%}
+  td{padding:.35rem .5rem .35rem 0;border-top:1px solid #eee;vertical-align:baseline;overflow-wrap:anywhere}
+  tr.grp td{border-top:none;padding-top:1.1rem;font-weight:600;color:#1a1a1a}
+  tr.fam{cursor:pointer}
+  tr.fam:hover td{background:#fafafa}
+  tr.fam.sel td{background:#f1f5f9}
+  td.empty{color:#8a8a8a}
+  .why{color:#555;font-size:.85rem;margin:.6rem 0 0;min-height:1.4em}
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; xai-chess</a>
+  <h1>Positional Features</h1>
+  <p class="intro">Yes/no positional features, each a fixed rule over the board. Counts and scores
+  are split into one yes/no per value, such as &ldquo;three pawn islands&rdquo;. Every feature is
+  checked against up to four positions from master games that a classic book annotated: where the rule and the
+  author agree, and where they part ways.</p>
+
+  <div class="pick">
+    <button id="prev" aria-label="Previous feature">&larr;</button>
+    <select id="fam" aria-label="Feature"></select>
+    <button id="next" aria-label="Next feature">&rarr;</button>
+  </div>
+  <div id="famView">
+  <h2 id="famTitle"></h2>
+  <p class="rule" id="rule"></p>
+  <p class="marks" id="marks">Where the rule says yes, circles mark the squares it rests on.</p>
+  <div class="gallery" id="gallery"></div>
+  <div class="case" id="cases"></div>
+  </div>
+
+  <div id="tryView" hidden>
+  <h2 id="try">Try a position</h2>
+  <div id="board"></div>
+  <div class="fenrow">
+    <input id="fen" spellcheck="false" aria-label="FEN">
+    <button id="flip">Flip</button>
+  </div>
+  <p class="err" id="err"></p>
+  <p class="hint">Drag a piece, or paste a FEN. Click a row to mark its squares.</p>
+  <table id="read"></table>
+  <p class="why" id="why"></p>
+  </div>
+
+<script type="module">
+import { Chess } from './vendor/chess.js';
+import { Chessground } from './vendor/chessground/chessground.min.js';
+import init, * as fx from './vendor/features/features.js';
+
+await init();
+const ALL_FAMS = JSON.parse(fx.families());
+// Computed by the crate but not shown here: they follow from the board by definition.
+const HIDDEN = ['context.turn', 'material.bishop_pair', 'material.opposite_bishops', 'pawns.doubled'];
+const FAMS = ALL_FAMS.filter(f => !HIDDEN.includes(f.id));
+const CASES = JSON.parse(fx.examples());
+const $ = id => document.getElementById(id);
+
+function call(f, ...a){
+  try { return JSON.parse(f(...a)); }
+  catch(_) { return {error: fx.last_panic() || 'The detector crashed on this position.'}; }
+}
+
+// --- labels: binary id -> words ---
+const famOf = id => ALL_FAMS.map(f => f.id).filter(f => id === f || id.startsWith(f + '.')).sort((a, b) => b.length - a.length)[0];
+function label(id){
+  const fam = famOf(id);
+  let v = id.slice(fam.length + 1);
+  if (!v) return 'yes';
+  if (id.startsWith('local.') || id.startsWith('space.')) {
+    const [sector, rest] = v.split('.');
+    return (rest ? words(rest) + ' ' : '') + (sector === 'centre' ? 'in the centre' : 'on the ' + sector);
+  }
+  return words(v);
+}
+function words(v){
+  return v
+    .replace(/^up(\d)$/, '+$1').replace(/^up3plus$/, '+3 or more')
+    .replace(/^plus(\d)_5$/, '+$1.5').replace(/^plus3plus$/, '+3 or more').replace(/^plus(\d)$/, '+$1')
+    .replace(/^attackers_plus4$/, 'at least 4 more attackers').replace(/^attackers_plus(\d)$/, '$1 more attacker' + (v.endsWith('1') ? '' : 's'))
+    .replace(/^(\d)plus$/, '$1 or more')
+    .replace(/_/g, ' ');
+}
+const NO_MARKS = ['context.phase', 'material.balance', 'material.imbalance', 'pieces.development', 'initiative'];
+const GROUPS = [['Context', ['context.']], ['Material', ['material.']], ['Local superiority', ['local']],
+  ['King safety', ['king.']], ['Pieces', ['pieces.']], ['Pawn structure and centre', ['pawns.', 'centre.']],
+  ['Space', ['space']], ['Initiative', ['initiative']]];
+const sideWord = s => s === 'white' ? 'White' : s === 'black' ? 'Black' : '';
+
+// --- the four cases of a family ---
+const CASE = {
+  tp: ['Correct positive', 'The book sees it and so does the detector.'],
+  tn: ['Correct negative', 'Neither the book nor the detector sees it.'],
+  fp: ['False positive', 'The detector fires; the book says otherwise.'],
+  fn: ['False negative', 'The book sees it; the detector does not.'],
+};
+let mini = null, kind = 'tp', famIx = 0;
+function show(i){
+  $('fam').value = i;
+  $('famView').hidden = i < 0;
+  $('tryView').hidden = i >= 0;
+  if (i < 0) ground.redrawAll(); else showFamily(i);
+}
+function showFamily(i){
+  famIx = i;
+  const fam = FAMS[i];
+  $('fam').value = i;
+  $('famTitle').textContent = fam.title;
+  $('marks').hidden = NO_MARKS.includes(fam.id);
+  $('rule').textContent = fam.rule;
+  const g = $('gallery'); g.replaceChildren();
+  for (const k of ['tp', 'tn', 'fp', 'fn']) {
+    const b = document.createElement('button');
+    b.textContent = CASE[k][0]; b.dataset.k = k;
+    b.onclick = () => showCase(k);
+    g.append(b);
+  }
+  showCase(kind);
+}
+function showCase(k){
+  kind = k;
+  const fam = FAMS[famIx];
+  for (const b of $('gallery').children) b.classList.toggle('on', b.dataset.k === k);
+  const d = $('cases'); d.replaceChildren(); mini = null;
+  const c = CASES.find(x => x.family === fam.id && x.case === k);
+  if (!c) {
+    const why = CASES.find(x => x.family === fam.id && x.case === k + '_impossible');
+    const p = document.createElement('div'); p.className = 'hole';
+    p.textContent = why ? why.note.replace(/^Not found\. /, 'None in the books. ') : 'None in the books.';
+    d.append(p); return;
+  }
+  // the author's words and where they come from, above the board
+  const lead = document.createElement('p'); lead.className = 'lead';
+  const qt = document.createElement('span'); qt.className = 'qt'; qt.textContent = `“${c.quote}”`;
+  const ctx = document.createElement('span'); ctx.className = 'ctx';
+  ctx.textContent = ` ${c.game}, ${c.move.replace(/^after /, 'after ')}. `;
+  const a = document.createElement('a'); a.href = c.url; a.textContent = c.source; a.target = '_blank'; a.rel = 'noopener';
+  lead.append(qt, ctx, a);
+  const b = document.createElement('div'); b.className = 'mini';
+  const r = call(fx.extract, c.fen, c.top || '');
+  const f = r.features?.find(x => x.id === c.feature && x.side === (c.side || null));
+  const v = label(c.feature);
+  const ask = document.createElement('p'); ask.className = 'q';
+  ask.textContent = `${sideWord(c.side) ? sideWord(c.side) + ': ' : ''}${v === 'yes' ? fam.title.toLowerCase() : fam.title.toLowerCase() + ' = ' + v}`
+    .replace(/^./, x => x.toUpperCase());
+  d.append(ask);
+  const book = k === 'tp' || k === 'fn';
+  const verd = document.createElement('p'); verd.className = 'verd';
+  // the rule's answer is green where it agrees with the book, red where it does not
+  verd.innerHTML = `Book: <b>${book ? 'yes' : 'no'}</b> &middot; Rule: <b class="${!!f?.on === book ? 'on' : 'off'}">${f?.on ? 'yes' : 'no'}</b>`;
+  d.append(verd, lead, b);
+  const det = document.createElement('p'); det.className = 'det';
+  det.textContent = f?.why ? f.why[0].toUpperCase() + f.why.slice(1) + '.' : f?.on ? '' : 'Nothing here meets the rule.';
+  d.append(det);
+  if (c.note) { const n = document.createElement('p'); n.className = 'note'; n.textContent = c.note; d.append(n); }
+  mini = Chessground(b, {fen: c.fen, viewOnly: true, coordinates: true,
+    orientation: 'white', animation: {enabled: false}, drawable: {enabled: false}});
+  mini.setAutoShapes((f?.squares || []).map(s => ({orig: s, brush: f.on ? 'green' : 'red'})));
+}
+// The dropdown: "Try a position" first, then the features. Option value -1 is the try view.
+{ const o = document.createElement('option'); o.value = -1; o.textContent = 'Try a position'; $('fam').append(o); }
+FAMS.forEach((f, i) => {
+  const o = document.createElement('option'); o.value = i; o.textContent = f.title; $('fam').append(o);
+});
+$('fam').addEventListener('change', () => show(+$('fam').value));
+// prev/next cycle through the try view (-1) and every feature
+const step = d => show(((+$('fam').value + 1 + d + FAMS.length + 1) % (FAMS.length + 1)) - 1);
+$('prev').onclick = () => step(-1);
+$('next').onclick = () => step(1);
+
+// --- try a position ---
+const chess = new Chess();
+const ground = Chessground($('board'), {
+  coordinates: true, animation: {enabled: false}, drawable: {enabled: false},
+  movable: {free: false, showDests: true, events: {after: onMove}},
+});
+const colour = () => chess.turn() === 'w' ? 'white' : 'black';
+function dests(){
+  const d = new Map();
+  for (const m of chess.moves({verbose: true})) d.set(m.from, [...(d.get(m.from) || []), m.to]);
+  return d;
+}
+function onMove(from, to){
+  chess.move({from, to, promotion: 'q'});
+  $('fen').value = chess.fen();
+  refresh();
+}
+$('flip').onclick = () => ground.toggleOrientation();
+$('fen').addEventListener('input', () => {
+  const ok = (() => { try { chess.load($('fen').value.trim()); return true; } catch(_) { return false; } })();
+  $('err').textContent = ok ? '' : 'Not a legal FEN.';
+  if (ok) refresh();
+});
+
+let top = '', selected = null, gen = 0;
+function refresh(){
+  ground.set({fen: chess.fen(), turnColor: colour(), movable: {color: colour(), dests: dests()}});
+  top = ''; render(); think(++gen);
+}
+function render(){
+  const r = call(fx.extract, chess.fen(), top);
+  const t = $('read'); t.replaceChildren();
+  if (r.error) { $('err').textContent = r.error; return; }
+  const h = t.createTHead().insertRow();
+  for (const x of ['Feature', 'White', 'Black']) h.append(Object.assign(document.createElement('th'), {textContent: x}));
+  const body = t.createTBody();
+  let group = '';
+  for (const fam of FAMS) {
+    const g0 = GROUPS.find(([, ps]) => ps.some(p => fam.id.startsWith(p)))[0];
+    if (g0 !== group && g0 !== fam.title) { group = g0; const gr = body.insertRow(); gr.className = 'grp'; const c = gr.insertCell(); c.colSpan = 3; c.textContent = g0; }
+    const fs = r.features.filter(f => famOf(f.id) === fam.id);
+    const on = fs.filter(f => f.on);
+    const tr = body.insertRow(); tr.className = 'fam'; tr.dataset.fam = fam.id;
+    tr.insertCell().textContent = fam.title;
+    const cell = side => on.filter(f => f.side === side).map(f => label(f.id)).join(', ');
+    const g = on.filter(f => !f.side).map(f => label(f.id)).join(', ');
+    const single = fs.length && new Set(fs.map(f => f.id)).size === 1;   // one yes/no, not a count
+    for (const s of ['white', 'black']) {
+      const td = tr.insertCell();
+      let v;
+      if (fam.id === 'initiative' && !top) v = s === chess.turn().replace('w', 'white').replace('b', 'black') ? 'asking Stockfish…' : '';
+      else if (single) v = on.some(f => f.side === s || !f.side) ? 'yes' : 'no';
+      else if (fam.id === 'local' || fam.id === 'space') v = cell(s) || (fam.id === 'local' ? 'equal' : 'no');
+      else v = cell(s) || g || 'no';   // whole-position values hold for both
+      td.textContent = v;
+      if (['no', 'equal', '0', ''].includes(v) || v.endsWith('…')) td.classList.add('empty');
+    }
+    tr.onclick = () => { selected = fam.id === selected ? null : fam.id; mark(r); };
+  }
+  mark(r);
+}
+function mark(r){
+  for (const tr of $('read').querySelectorAll('tr.fam')) tr.classList.toggle('sel', tr.dataset.fam === selected);
+  const on = selected ? r.features.filter(f => famOf(f.id) === selected && f.on) : [];
+  ground.setAutoShapes(on.flatMap(f => f.squares.map(s => ({orig: s, brush: f.side === 'black' ? 'red' : 'blue'}))));
+  $('why').textContent = on.map(f => (sideWord(f.side) ? sideWord(f.side) + ': ' : '') + (f.why || label(f.id))).join(' · ');
+}
+
+// --- Stockfish 18 lite for the initiative row: MultiPV 3, moves within 50 cp of the best ---
+const engine = new Worker('vendor/stockfish/stockfish-18-lite-single.js');
+const lineOf = e => typeof e.data === 'string' ? e.data : (e.data && e.data.data) || '';
+let onLine = () => {};
+engine.onmessage = e => onLine(lineOf(e));
+const until = (tag, lines) => new Promise(res => { onLine = l => { lines?.push(l); if (l.startsWith(tag)) res(lines); }; });
+const booted = (async () => {
+  engine.postMessage('uci'); await until('uciok');
+  engine.postMessage('setoption name MultiPV value 3'); engine.postMessage('isready'); await until('readyok');
+})();
+let queue = Promise.resolve();
+function think(g){
+  queue = queue.then(async () => {
+    await booted;
+    if (g !== gen) return;
+    if (!chess.moves().length) { top = ' '; render(); return; }
+    engine.postMessage('position fen ' + chess.fen());
+    const done = until('bestmove', []);
+    engine.postMessage('go depth 14');
+    const poll = setInterval(() => { if (g !== gen) engine.postMessage('stop'); }, 100);
+    const lines = await done; clearInterval(poll);
+    if (g !== gen) return;
+    const best = new Map();
+    for (const l of lines) {
+      const m = l.match(/ multipv (\d+) .*score (cp|mate) (-?\d+).* pv (\S+)/);
+      if (m) best.set(+m[1], {cp: m[2] === 'mate' ? Math.sign(+m[3]) * (100000 - Math.abs(+m[3])) : +m[3], mv: m[4]});
+    }
+    const xs = [...best.values()];
+    const b0 = Math.max(...xs.map(x => x.cp));
+    top = xs.filter(x => b0 - x.cp <= 50).map(x => x.mv).join(' ') || ' ';
+    render();
+  });
+}
+
+show(0);
+$('fen').value = chess.fen();
+refresh();
+</script>
+</body>
+</html>
