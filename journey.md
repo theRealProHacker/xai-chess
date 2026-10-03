@@ -890,7 +890,17 @@ Problems:
 
 ### DSL
 
-PoC: Just express "This move threatens mate"
+Proof of Concept (PoC): Just express "This move threatens mate"
+
+#### Rust
+
+I chose Rust for the PoC, because
+1. it has an expressive `enum` type
+2. it is a highly efficient, modern, type and memory safe, functional language
+3. it can be compiled to WASM
+4. it has a sufficient chess crate (package) ecosystem
+
+-------
 
 ```rs
 // Simple move
@@ -1019,7 +1029,6 @@ Especially, considering the fact that transformer models can reach ["Grandmaster
 #### Problem I am having with the oracle
 
 Suppose we have functions f, we want the oracle to learn, i.e. to be able to provide their answer from the Leela activations when asked: If these functions are deterministically determinable, then how can the oracle be better than agent that has direct access to functions f? The oracle could only become better than the tool use agent if it had sufficient non-generated (i.e. human) data. 
-
 
 ### Other
 
@@ -1212,4 +1221,264 @@ How do we determine moves that seem reasonable but aren't and moves that are ver
 7. Start with Qwen 3.5 probably
 
 ## Fourth meeting 28.09.
+
+
+### DSL
+First, I applied for the cluster compute, then I decided to continue the DSL by adding more reasons but most importantly judgements, comparisons, "but", "either" and much more 
+
+Reflection: we use concepts to make it easier for us to express more complex or simply lengthy explanations, e.g. a relative pin is nothing else but saying that e.g. the knight can't move because it would allow the bishop to take the queen behind it. 
+
+Realisation: One of the most important things in move commentary is to find creative and insightful ways of describing moves. However, this is not just a language 
+
+I did some work on the basic evaluator to get a feeling for how easy or difficult it is to get it working. Conclusion: most things are very difficult to definitively define. 
+
+The next step was doing a deterministic natural language render of our DSL and the corresponding demo. That actually works quite nicely: [Render demo](xai-chess.netlify.app/render). 
+
+![Render demo example](./image/journey/Screenshot%202026-10-01%20at%2018-15-42%20Reason%20Renderer%20·%20xai-chess.png)
+
+Essentially, now only four things are left to be done on this path:
+1. A generator 
+    - either an AlphaZero-style transformer (this is Googles IMO-gold-medalist AlphaProof setup ported to chess)
+    - or an (evolutionary) optimization algorithm
+2. Optimizing the DSL itself (by hand)
+3. An evaluator, that can accurately assert things
+    - Rule-based utilizing the engine
+4. A renderer, that turns the DSL into interesting human-like commentary
+    - Probably some well-prompted small LLM
+
+The generator is responsible for creativity and relevance, the evaluator for truthfulness and the renderer for the language.
+
+The DSL lies at the heart of it all. It has to meet demands from all sides. 
+
+On top of move reasoning this approach could also be adapted to positional analysis, etc. 
+
+#### GANs
+
+While thinking about the problem, I thought about Generative Adversarial Networks (GANs) as possible models. The advantage is that the discriminator doesn't necessarily need fully-supervised data. For example, the discriminator could just learn what human commentary looks like. The renderer than learns to fool the discriminator when turning the DSL into human commentary. No 1-to-1 DSL->human gold dataset would be needed necessarily.   
+
+Problem: 
+    1. not good for discrete values like text
+    2. mode collapse 
+    3. little data
+    4. could loose relation to DSL content
+Solution: 
+    - build some kind of transformer GAN model??? -> maybe inspired by DiffusionGemma???
+    - some more supervised data
+    - reconstruction loss??
+
+#### How to train the generator in general
+
+- Train for relevance
+- Train for diversity
+- Train for a negative correlation between brevity and position complexity
+
+-> How to do that?
+
+My first instinct was to use the delta between MAIA-3 and Stockfish for some of these. For example, for knowing which alternatives to explain or to show which reasons support the Stockfish move, but not the MAIA move or for determining complexity. 
+
+For diversity, we can essentially do the same as for images, and write a similarity score which we try to maximize cross-sample. 
+
+#### Generator suggestions by Claude
+
+(after I had already told it my ideas)
+
+1. Teach a weak solver. Score an explanation by how much it raises Maia's probability of the played move when Maia is restricted to moves where the explanation holds, minus a cost for the explanation's size. Atoms Maia already believes earn nothing. The rating is a reader-level knob. This is your "engine sees, human doesn't" idea made precise.
+2. Distill the refutation tree. This gives a principled source for the lines inside Threatens/Allows/Instead, which are the expensive part:
+   - A null move after the played move gives its threat: Threatens(line, X).
+   - A null move before it gives the opponent's threat it stops: Removes/Prevents.
+   - The opponent's replies are grouped by how each is refuted, producing one Allows(reply, After(refutation, X)) per group.
+   - The rule is to cover all of the opponent's replies with as few groups as possible.
+3. Contrastive minimal atom set. Choose the fewest atoms that hold for this move and fail for every clearly worse alternative. It's the same move-vs-alternatives comparison as idea 1, with a uniform weak player and so weaker. It also tends to pick geometric accidents.
+4. Minimal intervention on the position. Make small board edits (the Suppose vocabulary) until the move stops being best; the atoms that flip along with that decision are what drive it. Very faithful, but costs 100–500 searches per position.
+5. Counterexample-guided critic (CEGIS/Anchors). Look for positions or moves where the explanation holds but the move is bad, and add conditions to rule them out. Best used as a final check, not as the generator.
+6. Argumentation trees. Claims, rebuttals and counter-rebuttals map onto Threatens/Allows/But. They end in Outweighs/Balances, which the evaluator doesn't check.
+7. Sparse surrogate model. Learn, across the corpus, which atom differences predict that the engine prefers one move over another, and explain a move by its largest contributors. Correlational, and weak on one-off tactics.
+8. E-graph normalisation. Rewrite candidate explanations into canonical, human-like form. It cleans up output but adds no content.
+
+#### Similarity score
+
+I concluded that the next most important thing was building a similarity score (a metric). This is necessary for evaluations and training.
+
+- -1 is max diff, 1 is max closeness
+- `Not` is negation
+    -> negative means contradictory
+- Completely different things with no similarity are 0
+
+### Features
+
+All binary, per player, assuming there are no concrete tactics
+
+0. Context
+    - Game phase
+    - Side to move
+1. Material
+    - total material
+        - which pieces are traded
+    - exactly equal
+    - +1
+    - +2
+    - +3 or more
+    - similar material but not exactly
+        - knight vs bishop
+        - two knights vs bishop
+        - two pieces vs rook
+        - two rooks vs queen
+        - three pieces vs queen
+        - etc.
+    - bishop pair
+    - unlike bishops
+2. Local superiority (really difficult to determine)
+    - Center, Queenside, Kingside x 0-3
+3. King's safety
+    - King uncastled
+    - Kingside castle
+    - Queenside castle
+    - Pawn structure in front of King breached
+    - More defenders
+    - Equal
+    - More attackers
+        - 1
+        - 2
+        - 3
+        - 4
+4. Quality of pieces
+    - For each piece p:
+        Any combo of 
+            - p out of play
+            - p weak
+            - p strong
+        - Judged by
+            - Mobility: 
+                1. how many fields can the piece move to and 
+                2. how little moves does the piece need to cover the entire board
+            - Positioning
+                1. knight in the center 4x4
+                2. other pieces on open lines/diagonals
+                3. the more central and the more squares under control, the better
+            - Role: tiered
+                1. Out of play
+                2. Defensive
+                3. Offensive
+                4. Both offensive and defensive
+            - Stability: Can it be removed from its position easily?
+                - Existence of outposts -> potential
+            - Depends on piece
+                - knights: foreposts
+                - bishops: open diagonals
+                - rooks: open files, behind mobile pawns, not behind blocked pawns, on the 7th rank, 
+    - Development (only for opening)
+        - 0
+        - +1
+        - +2
+        - +3 or more
+    - Grade of coordination
+        - Very good
+        - Good
+        - Solid
+        - Neutral
+        - Not good
+        - Bad
+        - Very bad
+        - Judged by -> difficult to assess
+            1. Sustainment
+            2. Protection
+            3. Limitation
+            4. Attack
+            5. Obstruction
+5. Pawn structure
+    - number of pawn islands
+        - 1
+        - 2
+        - 3
+        - 4
+    - number of doubled pawns
+        - 0
+        - 1
+        - 2
+        - 3+
+    - number of pawns that can be attacked easily, and can't be moved forward or defended well (weak pawns)
+    - weak squares
+    - number of (protected) past pawns
+    - Center type (global)
+        - dynamic: undefined
+        - open: two open files between c and f including
+        - closed: entire center blocked by chains of pawns
+        - static: 2 half-open or one open file
+        - mobile: one player has mobile pawns with no counter
+    - Center control (zero-sum)
+        - 0
+        - +0.5
+        - +1
+        - +1.5
+        - +2
+        - +2.5
+        - +3
+        - +3.5
+        - +4
+    - Mobile pawn majority
+        - Center
+        - Queenside
+        - Kingside
+6. Space
+    - More space on the kingside
+    - More space in the center
+    - More space on the queenside
+7. In the initiative
+    - Opponents moves are forced (i.e. little options for the opponent)
+
+
+
+2. Qualitative value of pieces
+    - Mobility: 
+        1. how many fields can the piece move to and 
+        2. how little moves does the piece need to cover the entire board
+    - Positioning
+        1. knight in the center 4x4
+        2. other pieces on open lines/diagonals
+        3. the more central and the more squares under control, the better
+    - Role: tiered
+        1. Out of play
+        2. Defensive
+        3. Offensive
+        4. Both offensive and defensive
+    - Stability: Can it be removed from its position easily?
+        - Existence of outposts -> potential
+    - Grade of coordination -> difficult to assess
+        1. Sustainment
+        2. Protection
+        3. Limitation
+        4. Attack
+        5. Obstruction
+
+#### Left out
+For PMEs (positions with material equivalence) also:
+1. play-coordinating piece is valued higher
+
+5. Pieces
+    10. Piece-by-piece comparison
+
+### LIME
+
+### Training an SAE
+
+The problem: One layer, one position has 64 squares × 256 = 16,384 numbers.
+
+We have 230 binary features, we should have around 65-130k. 
+
+On the other hand, we could focus on only the pieces and squares and construct the features per square. We would need only 1-2k features per square, of which only a few need to be fixed by us. 
+
+### Features by square
+
+I thought it would be interesting to try to also go for some tactical aspects for this
+
+1. Part of a mate in 1-6 plies
+2. Part of a material winning tactic
+    - which material
+    - 
+
+### Compute
+
+As soon as I got access to the compute cluster, I tried to learn how to get a cluster running, initially just using vllm inference. The next step would then be doing CLIP, fine-tuning and RL, all using LoRA of course. I had applied for 64 GBs and 8 CPU cores, which should even be enough for the highly-praised Qwen3.8-27B. 
+
+
 
