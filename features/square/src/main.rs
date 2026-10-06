@@ -7,7 +7,7 @@
 //!   --engine   run Stockfish for both lines (1 thread, fixed nodes, so runs repeat)
 //!   --nodes    nodes per search, default 1000000
 //!   --indices  bit indices instead of names
-//!   --schema   print the groups (name, offset, size) and the vector length, then exit
+//!   --schema   print the groups (name, offset, size), every bit's label and the vector length, then exit
 
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -56,7 +56,8 @@ fn main() {
     let value = |f: &str| args.iter().position(|a| a == f).and_then(|i| args.get(i + 1)).cloned();
     if flag("--schema") {
         let groups: Vec<_> = schema::groups().into_iter().map(|(n, o, s)| serde_json::json!({ "group": n, "offset": o, "size": s })).collect();
-        println!("{}", serde_json::json!({ "bits_per_square": schema::len(), "groups": groups }));
+        println!("{}", serde_json::json!({ "bits_per_square": schema::len(), "groups": groups,
+            "labels": (0..schema::len()).map(schema::label).collect::<Vec<_>>() }));
         return;
     }
     let nodes = value("--nodes").map(|n| n.parse().unwrap()).unwrap_or(1_000_000);

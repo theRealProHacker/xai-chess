@@ -114,9 +114,11 @@ fn tactics(pos: &Chess, lines: &Lines, o: &mut Out) {
         line_bits(&null, line, "threat.mate", "threat.material_win", o);
         if let Some((m, after)) = play(&null, line).into_iter().next() {
             let from = m.from().unwrap();
-            o.set(from, "threat.move", &[m.to() as usize]);
+            // castling's `to` is the rook's square; the king is the piece that lands
+            let to = m.castling_side().map_or(m.to(), |cs| cs.king_to(pos.turn().other()));
+            o.set(from, "threat.move", &[to as usize]);
             if after.is_check() { o.set(from, "threat.check", &[0]); }
-            xray(after.board(), m.to(), from, "threat.xray", o);
+            xray(after.board(), to, from, "threat.xray", o);
         }
     }
 }
@@ -312,6 +314,11 @@ fn piece(g: &Geo, pos: &Chess, s: Square, p: Piece, o: &mut Out) {
     let own = b.by_color(c);
     let enemy = b.by_color(them);
     o.set(s, "occupant", &[ci(c) * 6 + ti(p.role)]);
+    if p.role == Role::King {
+        for (i, side) in [shakmaty::CastlingSide::KingSide, shakmaty::CastlingSide::QueenSide].into_iter().enumerate() {
+            if pos.castles().has(c, side) { o.set(s, "king.castle", &[i]); }
+        }
+    }
 
     // stability
     for e in sqs(b.pawns() & enemy) {

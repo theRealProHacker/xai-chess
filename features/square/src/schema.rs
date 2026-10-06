@@ -139,6 +139,8 @@ pub const GROUPS: &[(&str, &[Dim])] = &[
     ("pawn.centre", &[Named(&features::centre::KINDS)]),
     ("pawn.rank4_6", &[Named(ON)]),
     ("pawn.rank7", &[Named(ON)]),
+    // king
+    ("king.castle", &[Named(&["kingside", "queenside"])]),
 ];
 
 fn size(dims: &[Dim]) -> usize { dims.iter().map(|d| d.size()).product() }

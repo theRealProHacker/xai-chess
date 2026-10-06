@@ -127,3 +127,16 @@ fn pawns() {
 fn doubled_ranks_are_absolute() {
     has(&on("4k3/4p3/8/4p3/8/8/8/4K3 w - - 0 1", "e7"), &["pawn.doubled_with.rank5"], &["pawn.doubled_with.rank4"]);
 }
+
+#[test]
+fn castling_rights_on_the_king() {
+    has(&on("r3k2r/8/8/8/8/8/8/R3K2R w Kq - 0 1", "e1"), &["king.castle.kingside"], &["king.castle.queenside"]);
+    has(&on("r3k2r/8/8/8/8/8/8/R3K2R w Kq - 0 1", "e8"), &["king.castle.queenside"], &["king.castle.kingside"]);
+    has(&on("r3k2r/8/8/8/8/8/8/R3K2R w Kq - 0 1", "h1"), &[], &["king.castle.kingside"]);
+}
+
+#[test]
+fn threat_castling_lands_the_king() {
+    // white to move passes; Black's threat is O-O
+    has(&at("4k2r/8/8/8/8/8/8/4K3 w k - 0 1", &[], &["e8g8"], "e8"), &["threat.move.g8"], &["threat.move.h8"]);
+}
