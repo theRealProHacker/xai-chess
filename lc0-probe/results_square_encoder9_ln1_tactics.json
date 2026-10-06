@@ -1,0 +1,3056 @@
+{
+ "tap": "/encoder9/ln1",
+ "n": 20000,
+ "nodes": 200000,
+ "min_positives": 20,
+ "bits_probed": 500,
+ "groups": {
+  "mate": {
+   "bits": 3,
+   "mean_auroc": 0.9885901022271694,
+   "min": 0.9805693094594319
+  },
+  "material_win": {
+   "bits": 15,
+   "mean_auroc": 0.8337722386462137,
+   "min": 0.7341854228158701
+  },
+  "xray": {
+   "bits": 385,
+   "mean_auroc": 0.9818000277368216,
+   "min": 0.9158916794813704
+  },
+  "check": {
+   "bits": 1,
+   "mean_auroc": 0.9997770782841965,
+   "min": 0.9997770782841965
+  },
+  "threat.mate": {
+   "bits": 15,
+   "mean_auroc": 0.9003697897144611,
+   "min": 0.7243092440158158
+  },
+  "threat.material_win": {
+   "bits": 15,
+   "mean_auroc": 0.8249734411488082,
+   "min": 0.721921460865037
+  },
+  "threat.xray": {
+   "bits": 10,
+   "mean_auroc": 0.9782807214515776,
+   "min": 0.9458290326259974
+  },
+  "threat.check": {
+   "bits": 1,
+   "mean_auroc": 0.9941247711387277,
+   "min": 0.9941247711387277
+  },
+  "threat.move": {
+   "bits": 55,
+   "mean_auroc": 0.9815639020554985,
+   "min": 0.9462216938426771
+  }
+ },
+ "bits": {
+  "mate.ply1": {
+   "auroc": 0.998231025759062,
+   "group": "mate",
+   "pos_train": 7834,
+   "pos_test": 1980
+  },
+  "mate.ply2": {
+   "auroc": 0.9805693094594319,
+   "group": "mate",
+   "pos_train": 1034,
+   "pos_test": 290
+  },
+  "mate.ply3": {
+   "auroc": 0.9869699714630144,
+   "group": "mate",
+   "pos_train": 1034,
+   "pos_test": 290
+  },
+  "material_win.ply1": {
+   "auroc": 0.9925390309600242,
+   "group": "material_win",
+   "pos_train": 24276,
+   "pos_test": 5962
+  },
+  "material_win.ply2": {
+   "auroc": 0.9426454218076072,
+   "group": "material_win",
+   "pos_train": 20338,
+   "pos_test": 5046
+  },
+  "material_win.ply3": {
+   "auroc": 0.9430453760685875,
+   "group": "material_win",
+   "pos_train": 20244,
+   "pos_test": 5018
+  },
+  "material_win.ply4": {
+   "auroc": 0.8746098348591683,
+   "group": "material_win",
+   "pos_train": 19924,
+   "pos_test": 4930
+  },
+  "material_win.ply5": {
+   "auroc": 0.8717971009855656,
+   "group": "material_win",
+   "pos_train": 19924,
+   "pos_test": 4930
+  },
+  "material_win.ply6": {
+   "auroc": 0.8432498845139256,
+   "group": "material_win",
+   "pos_train": 19918,
+   "pos_test": 4928
+  },
+  "material_win.ply7": {
+   "auroc": 0.8263630493959789,
+   "group": "material_win",
+   "pos_train": 19914,
+   "pos_test": 4928
+  },
+  "material_win.ply8": {
+   "auroc": 0.8159940485678461,
+   "group": "material_win",
+   "pos_train": 19896,
+   "pos_test": 4926
+  },
+  "material_win.ply9": {
+   "auroc": 0.7937340471487847,
+   "group": "material_win",
+   "pos_train": 19868,
+   "pos_test": 4916
+  },
+  "material_win.ply10": {
+   "auroc": 0.795121265324448,
+   "group": "material_win",
+   "pos_train": 19754,
+   "pos_test": 4902
+  },
+  "material_win.ply11": {
+   "auroc": 0.7698785504886736,
+   "group": "material_win",
+   "pos_train": 19580,
+   "pos_test": 4850
+  },
+  "material_win.ply12": {
+   "auroc": 0.7860048459226058,
+   "group": "material_win",
+   "pos_train": 19258,
+   "pos_test": 4760
+  },
+  "material_win.ply13": {
+   "auroc": 0.7460006942842149,
+   "group": "material_win",
+   "pos_train": 18720,
+   "pos_test": 4656
+  },
+  "material_win.ply14": {
+   "auroc": 0.7714150065499072,
+   "group": "material_win",
+   "pos_train": 17838,
+   "pos_test": 4454
+  },
+  "material_win.ply15": {
+   "auroc": 0.7341854228158701,
+   "group": "material_win",
+   "pos_train": 16462,
+   "pos_test": 4106
+  },
+  "xray.pawn.pawn.n.1_1": {
+   "auroc": 0.9920749103107641,
+   "group": "xray",
+   "pos_train": 418,
+   "pos_test": 103
+  },
+  "xray.pawn.pawn.n.1_2": {
+   "auroc": 0.9846072088340447,
+   "group": "xray",
+   "pos_train": 211,
+   "pos_test": 47
+  },
+  "xray.pawn.pawn.n.1_3": {
+   "auroc": 0.9937888428963624,
+   "group": "xray",
+   "pos_train": 356,
+   "pos_test": 82
+  },
+  "xray.pawn.pawn.n.1_4": {
+   "auroc": 0.9933883749410463,
+   "group": "xray",
+   "pos_train": 767,
+   "pos_test": 191
+  },
+  "xray.pawn.pawn.n.1_5": {
+   "auroc": 0.9983939937657035,
+   "group": "xray",
+   "pos_train": 2963,
+   "pos_test": 734
+  },
+  "xray.pawn.pawn.n.2_1": {
+   "auroc": 0.986470547085133,
+   "group": "xray",
+   "pos_train": 324,
+   "pos_test": 69
+  },
+  "xray.pawn.pawn.n.2_2": {
+   "auroc": 0.9938422199642044,
+   "group": "xray",
+   "pos_train": 220,
+   "pos_test": 51
+  },
+  "xray.pawn.pawn.n.2_3": {
+   "auroc": 0.9817276835362575,
+   "group": "xray",
+   "pos_train": 351,
+   "pos_test": 93
+  },
+  "xray.pawn.pawn.n.2_4": {
+   "auroc": 0.9922496257800373,
+   "group": "xray",
+   "pos_train": 511,
+   "pos_test": 146
+  },
+  "xray.pawn.pawn.n.3_1": {
+   "auroc": 0.9923426453757457,
+   "group": "xray",
+   "pos_train": 399,
+   "pos_test": 114
+  },
+  "xray.pawn.pawn.n.3_2": {
+   "auroc": 0.9916090318900272,
+   "group": "xray",
+   "pos_train": 226,
+   "pos_test": 55
+  },
+  "xray.pawn.pawn.n.3_3": {
+   "auroc": 0.992644214830368,
+   "group": "xray",
+   "pos_train": 248,
+   "pos_test": 68
+  },
+  "xray.pawn.pawn.n.4_1": {
+   "auroc": 0.9892518037688875,
+   "group": "xray",
+   "pos_train": 170,
+   "pos_test": 42
+  },
+  "xray.pawn.pawn.n.4_2": {
+   "auroc": 0.9958982932831018,
+   "group": "xray",
+   "pos_train": 148,
+   "pos_test": 36
+  },
+  "xray.pawn.pawn.ne.1_1": {
+   "auroc": 0.9878673354983164,
+   "group": "xray",
+   "pos_train": 628,
+   "pos_test": 169
+  },
+  "xray.pawn.pawn.ne.1_2": {
+   "auroc": 0.9827684957749605,
+   "group": "xray",
+   "pos_train": 279,
+   "pos_test": 66
+  },
+  "xray.pawn.pawn.ne.1_3": {
+   "auroc": 0.9836514315660018,
+   "group": "xray",
+   "pos_train": 135,
+   "pos_test": 39
+  },
+  "xray.pawn.pawn.ne.2_1": {
+   "auroc": 0.9839722968874784,
+   "group": "xray",
+   "pos_train": 364,
+   "pos_test": 87
+  },
+  "xray.pawn.pawn.ne.2_2": {
+   "auroc": 0.986241196719672,
+   "group": "xray",
+   "pos_train": 179,
+   "pos_test": 53
+  },
+  "xray.pawn.pawn.ne.2_3": {
+   "auroc": 0.979957763377118,
+   "group": "xray",
+   "pos_train": 97,
+   "pos_test": 23
+  },
+  "xray.pawn.pawn.ne.3_1": {
+   "auroc": 0.9935361875010938,
+   "group": "xray",
+   "pos_train": 223,
+   "pos_test": 46
+  },
+  "xray.pawn.pawn.ne.3_2": {
+   "auroc": 0.9729160468007024,
+   "group": "xray",
+   "pos_train": 93,
+   "pos_test": 25
+  },
+  "xray.pawn.pawn.ne.4_1": {
+   "auroc": 0.9844293414995151,
+   "group": "xray",
+   "pos_train": 101,
+   "pos_test": 23
+  },
+  "xray.pawn.pawn.e.1_1": {
+   "auroc": 0.9886568301507651,
+   "group": "xray",
+   "pos_train": 1560,
+   "pos_test": 350
+  },
+  "xray.pawn.pawn.e.1_2": {
+   "auroc": 0.9787794873230969,
+   "group": "xray",
+   "pos_train": 386,
+   "pos_test": 106
+  },
+  "xray.pawn.pawn.e.1_3": {
+   "auroc": 0.9790078293949582,
+   "group": "xray",
+   "pos_train": 150,
+   "pos_test": 36
+  },
+  "xray.pawn.pawn.e.1_4": {
+   "auroc": 0.9379169916010777,
+   "group": "xray",
+   "pos_train": 89,
+   "pos_test": 29
+  },
+  "xray.pawn.pawn.e.2_1": {
+   "auroc": 0.983687917487566,
+   "group": "xray",
+   "pos_train": 874,
+   "pos_test": 217
+  },
+  "xray.pawn.pawn.e.2_2": {
+   "auroc": 0.9779680386782933,
+   "group": "xray",
+   "pos_train": 217,
+   "pos_test": 52
+  },
+  "xray.pawn.pawn.e.2_3": {
+   "auroc": 0.9710813471043002,
+   "group": "xray",
+   "pos_train": 122,
+   "pos_test": 23
+  },
+  "xray.pawn.pawn.e.3_1": {
+   "auroc": 0.9832594917854269,
+   "group": "xray",
+   "pos_train": 688,
+   "pos_test": 154
+  },
+  "xray.pawn.pawn.e.3_2": {
+   "auroc": 0.9756645579195098,
+   "group": "xray",
+   "pos_train": 176,
+   "pos_test": 51
+  },
+  "xray.pawn.pawn.e.4_1": {
+   "auroc": 0.9823714425984374,
+   "group": "xray",
+   "pos_train": 296,
+   "pos_test": 69
+  },
+  "xray.pawn.pawn.e.5_1": {
+   "auroc": 0.981419001578532,
+   "group": "xray",
+   "pos_train": 149,
+   "pos_test": 40
+  },
+  "xray.pawn.pawn.se.1_1": {
+   "auroc": 0.9801604169210567,
+   "group": "xray",
+   "pos_train": 652,
+   "pos_test": 164
+  },
+  "xray.pawn.pawn.se.1_2": {
+   "auroc": 0.977220841909473,
+   "group": "xray",
+   "pos_train": 347,
+   "pos_test": 91
+  },
+  "xray.pawn.pawn.se.1_3": {
+   "auroc": 0.9706467068158616,
+   "group": "xray",
+   "pos_train": 179,
+   "pos_test": 39
+  },
+  "xray.pawn.pawn.se.1_4": {
+   "auroc": 0.9848066450950991,
+   "group": "xray",
+   "pos_train": 62,
+   "pos_test": 20
+  },
+  "xray.pawn.pawn.se.2_1": {
+   "auroc": 0.9809858015212938,
+   "group": "xray",
+   "pos_train": 376,
+   "pos_test": 103
+  },
+  "xray.pawn.pawn.se.2_2": {
+   "auroc": 0.9824695359463845,
+   "group": "xray",
+   "pos_train": 226,
+   "pos_test": 67
+  },
+  "xray.pawn.pawn.se.2_3": {
+   "auroc": 0.9831798911106112,
+   "group": "xray",
+   "pos_train": 135,
+   "pos_test": 33
+  },
+  "xray.pawn.pawn.se.3_1": {
+   "auroc": 0.9825346841597169,
+   "group": "xray",
+   "pos_train": 202,
+   "pos_test": 61
+  },
+  "xray.pawn.pawn.se.3_2": {
+   "auroc": 0.9950197709568196,
+   "group": "xray",
+   "pos_train": 135,
+   "pos_test": 38
+  },
+  "xray.pawn.pawn.se.4_1": {
+   "auroc": 0.9837221599608542,
+   "group": "xray",
+   "pos_train": 104,
+   "pos_test": 28
+  },
+  "xray.pawn.pawn.s.1_1": {
+   "auroc": 0.9907798771960538,
+   "group": "xray",
+   "pos_train": 682,
+   "pos_test": 178
+  },
+  "xray.pawn.pawn.s.1_2": {
+   "auroc": 0.9897645665366595,
+   "group": "xray",
+   "pos_train": 396,
+   "pos_test": 89
+  },
+  "xray.pawn.pawn.s.1_3": {
+   "auroc": 0.9842930911524636,
+   "group": "xray",
+   "pos_train": 582,
+   "pos_test": 157
+  },
+  "xray.pawn.pawn.s.1_4": {
+   "auroc": 0.9909727739070298,
+   "group": "xray",
+   "pos_train": 902,
+   "pos_test": 231
+  },
+  "xray.pawn.pawn.s.1_5": {
+   "auroc": 0.9979704677326047,
+   "group": "xray",
+   "pos_train": 4176,
+   "pos_test": 1033
+  },
+  "xray.pawn.pawn.s.2_1": {
+   "auroc": 0.9893571688460693,
+   "group": "xray",
+   "pos_train": 568,
+   "pos_test": 143
+  },
+  "xray.pawn.pawn.s.2_2": {
+   "auroc": 0.9803923890263685,
+   "group": "xray",
+   "pos_train": 369,
+   "pos_test": 69
+  },
+  "xray.pawn.pawn.s.2_3": {
+   "auroc": 0.9900177372962607,
+   "group": "xray",
+   "pos_train": 512,
+   "pos_test": 140
+  },
+  "xray.pawn.pawn.s.2_4": {
+   "auroc": 0.9950257647808479,
+   "group": "xray",
+   "pos_train": 1018,
+   "pos_test": 252
+  },
+  "xray.pawn.pawn.s.3_1": {
+   "auroc": 0.9891232366441726,
+   "group": "xray",
+   "pos_train": 592,
+   "pos_test": 137
+  },
+  "xray.pawn.pawn.s.3_2": {
+   "auroc": 0.9823042148791616,
+   "group": "xray",
+   "pos_train": 239,
+   "pos_test": 71
+  },
+  "xray.pawn.pawn.s.3_3": {
+   "auroc": 0.9904377089855885,
+   "group": "xray",
+   "pos_train": 355,
+   "pos_test": 82
+  },
+  "xray.pawn.pawn.s.4_1": {
+   "auroc": 0.9864839581294204,
+   "group": "xray",
+   "pos_train": 223,
+   "pos_test": 64
+  },
+  "xray.pawn.pawn.s.4_2": {
+   "auroc": 0.9844265176291032,
+   "group": "xray",
+   "pos_train": 115,
+   "pos_test": 26
+  },
+  "xray.pawn.pawn.sw.1_1": {
+   "auroc": 0.9848128105986462,
+   "group": "xray",
+   "pos_train": 1113,
+   "pos_test": 270
+  },
+  "xray.pawn.pawn.sw.1_2": {
+   "auroc": 0.9824614681811327,
+   "group": "xray",
+   "pos_train": 479,
+   "pos_test": 116
+  },
+  "xray.pawn.pawn.sw.1_3": {
+   "auroc": 0.9784327826343074,
+   "group": "xray",
+   "pos_train": 242,
+   "pos_test": 49
+  },
+  "xray.pawn.pawn.sw.2_1": {
+   "auroc": 0.982737114219062,
+   "group": "xray",
+   "pos_train": 513,
+   "pos_test": 127
+  },
+  "xray.pawn.pawn.sw.2_2": {
+   "auroc": 0.9853740342969528,
+   "group": "xray",
+   "pos_train": 250,
+   "pos_test": 51
+  },
+  "xray.pawn.pawn.sw.2_3": {
+   "auroc": 0.9770820613302205,
+   "group": "xray",
+   "pos_train": 76,
+   "pos_test": 22
+  },
+  "xray.pawn.pawn.sw.3_1": {
+   "auroc": 0.9893304890131002,
+   "group": "xray",
+   "pos_train": 244,
+   "pos_test": 62
+  },
+  "xray.pawn.pawn.sw.3_2": {
+   "auroc": 0.9537740310625786,
+   "group": "xray",
+   "pos_train": 67,
+   "pos_test": 26
+  },
+  "xray.pawn.pawn.sw.4_1": {
+   "auroc": 0.9877607890377307,
+   "group": "xray",
+   "pos_train": 96,
+   "pos_test": 22
+  },
+  "xray.pawn.pawn.w.1_1": {
+   "auroc": 0.9841030549659209,
+   "group": "xray",
+   "pos_train": 1318,
+   "pos_test": 330
+  },
+  "xray.pawn.pawn.w.1_2": {
+   "auroc": 0.9841999441400329,
+   "group": "xray",
+   "pos_train": 446,
+   "pos_test": 128
+  },
+  "xray.pawn.pawn.w.1_3": {
+   "auroc": 0.985034356254575,
+   "group": "xray",
+   "pos_train": 295,
+   "pos_test": 83
+  },
+  "xray.pawn.pawn.w.1_4": {
+   "auroc": 0.9839093586237441,
+   "group": "xray",
+   "pos_train": 189,
+   "pos_test": 39
+  },
+  "xray.pawn.pawn.w.2_1": {
+   "auroc": 0.982851400916365,
+   "group": "xray",
+   "pos_train": 1142,
+   "pos_test": 251
+  },
+  "xray.pawn.pawn.w.2_2": {
+   "auroc": 0.9827598258881127,
+   "group": "xray",
+   "pos_train": 351,
+   "pos_test": 76
+  },
+  "xray.pawn.pawn.w.2_3": {
+   "auroc": 0.9798638381845092,
+   "group": "xray",
+   "pos_train": 198,
+   "pos_test": 65
+  },
+  "xray.pawn.pawn.w.2_4": {
+   "auroc": 0.9755078494236552,
+   "group": "xray",
+   "pos_train": 92,
+   "pos_test": 26
+  },
+  "xray.pawn.pawn.w.3_1": {
+   "auroc": 0.9815001722690869,
+   "group": "xray",
+   "pos_train": 776,
+   "pos_test": 178
+  },
+  "xray.pawn.pawn.w.3_2": {
+   "auroc": 0.9815680893600357,
+   "group": "xray",
+   "pos_train": 221,
+   "pos_test": 63
+  },
+  "xray.pawn.pawn.w.3_3": {
+   "auroc": 0.9799977112641319,
+   "group": "xray",
+   "pos_train": 105,
+   "pos_test": 25
+  },
+  "xray.pawn.pawn.w.4_1": {
+   "auroc": 0.9838688112733173,
+   "group": "xray",
+   "pos_train": 402,
+   "pos_test": 87
+  },
+  "xray.pawn.pawn.w.4_2": {
+   "auroc": 0.9865152555481895,
+   "group": "xray",
+   "pos_train": 88,
+   "pos_test": 24
+  },
+  "xray.pawn.pawn.w.5_1": {
+   "auroc": 0.9695563520500777,
+   "group": "xray",
+   "pos_train": 119,
+   "pos_test": 28
+  },
+  "xray.pawn.pawn.nw.1_1": {
+   "auroc": 0.983355070885478,
+   "group": "xray",
+   "pos_train": 757,
+   "pos_test": 172
+  },
+  "xray.pawn.pawn.nw.1_2": {
+   "auroc": 0.9816235842407436,
+   "group": "xray",
+   "pos_train": 314,
+   "pos_test": 71
+  },
+  "xray.pawn.pawn.nw.1_3": {
+   "auroc": 0.9861436685898599,
+   "group": "xray",
+   "pos_train": 151,
+   "pos_test": 42
+  },
+  "xray.pawn.pawn.nw.2_1": {
+   "auroc": 0.9892281145607409,
+   "group": "xray",
+   "pos_train": 500,
+   "pos_test": 133
+  },
+  "xray.pawn.pawn.nw.2_2": {
+   "auroc": 0.9832952188909452,
+   "group": "xray",
+   "pos_train": 182,
+   "pos_test": 46
+  },
+  "xray.pawn.pawn.nw.3_1": {
+   "auroc": 0.9894583333411641,
+   "group": "xray",
+   "pos_train": 240,
+   "pos_test": 63
+  },
+  "xray.pawn.knight.n.1_1": {
+   "auroc": 0.9877046685525075,
+   "group": "xray",
+   "pos_train": 407,
+   "pos_test": 90
+  },
+  "xray.pawn.knight.n.1_2": {
+   "auroc": 0.9832754985889901,
+   "group": "xray",
+   "pos_train": 142,
+   "pos_test": 36
+  },
+  "xray.pawn.knight.n.1_3": {
+   "auroc": 0.9934433894291119,
+   "group": "xray",
+   "pos_train": 105,
+   "pos_test": 29
+  },
+  "xray.pawn.knight.n.1_4": {
+   "auroc": 0.9702436768154741,
+   "group": "xray",
+   "pos_train": 133,
+   "pos_test": 39
+  },
+  "xray.pawn.knight.n.2_1": {
+   "auroc": 0.9815876774134144,
+   "group": "xray",
+   "pos_train": 128,
+   "pos_test": 30
+  },
+  "xray.pawn.knight.n.3_1": {
+   "auroc": 0.9939429932149471,
+   "group": "xray",
+   "pos_train": 75,
+   "pos_test": 22
+  },
+  "xray.pawn.knight.ne.1_1": {
+   "auroc": 0.9820438593135116,
+   "group": "xray",
+   "pos_train": 95,
+   "pos_test": 23
+  },
+  "xray.pawn.knight.e.1_1": {
+   "auroc": 0.9864715058173957,
+   "group": "xray",
+   "pos_train": 100,
+   "pos_test": 27
+  },
+  "xray.pawn.knight.e.1_2": {
+   "auroc": 0.9610508247178596,
+   "group": "xray",
+   "pos_train": 65,
+   "pos_test": 20
+  },
+  "xray.pawn.knight.se.1_1": {
+   "auroc": 0.9803955616067141,
+   "group": "xray",
+   "pos_train": 181,
+   "pos_test": 45
+  },
+  "xray.pawn.knight.s.1_1": {
+   "auroc": 0.9916289763236558,
+   "group": "xray",
+   "pos_train": 677,
+   "pos_test": 166
+  },
+  "xray.pawn.knight.s.1_2": {
+   "auroc": 0.9902476566354218,
+   "group": "xray",
+   "pos_train": 237,
+   "pos_test": 65
+  },
+  "xray.pawn.knight.s.1_3": {
+   "auroc": 0.979731207710513,
+   "group": "xray",
+   "pos_train": 163,
+   "pos_test": 42
+  },
+  "xray.pawn.knight.s.1_4": {
+   "auroc": 0.990984162590168,
+   "group": "xray",
+   "pos_train": 258,
+   "pos_test": 66
+  },
+  "xray.pawn.knight.s.2_1": {
+   "auroc": 0.9880080800586649,
+   "group": "xray",
+   "pos_train": 213,
+   "pos_test": 44
+  },
+  "xray.pawn.knight.sw.1_1": {
+   "auroc": 0.9621543974301296,
+   "group": "xray",
+   "pos_train": 179,
+   "pos_test": 42
+  },
+  "xray.pawn.knight.sw.2_1": {
+   "auroc": 0.9821953065119521,
+   "group": "xray",
+   "pos_train": 91,
+   "pos_test": 21
+  },
+  "xray.pawn.knight.w.1_1": {
+   "auroc": 0.9757340119374996,
+   "group": "xray",
+   "pos_train": 118,
+   "pos_test": 39
+  },
+  "xray.pawn.knight.w.2_1": {
+   "auroc": 0.9666072999327406,
+   "group": "xray",
+   "pos_train": 118,
+   "pos_test": 39
+  },
+  "xray.pawn.knight.nw.1_1": {
+   "auroc": 0.9760631017326744,
+   "group": "xray",
+   "pos_train": 116,
+   "pos_test": 38
+  },
+  "xray.pawn.knight.nw.2_1": {
+   "auroc": 0.9418741614710757,
+   "group": "xray",
+   "pos_train": 68,
+   "pos_test": 20
+  },
+  "xray.pawn.bishop.n.1_1": {
+   "auroc": 0.9834312620526775,
+   "group": "xray",
+   "pos_train": 280,
+   "pos_test": 59
+  },
+  "xray.pawn.bishop.n.1_2": {
+   "auroc": 0.9886043662939561,
+   "group": "xray",
+   "pos_train": 177,
+   "pos_test": 49
+  },
+  "xray.pawn.bishop.n.1_3": {
+   "auroc": 0.9851595297003889,
+   "group": "xray",
+   "pos_train": 79,
+   "pos_test": 21
+  },
+  "xray.pawn.bishop.n.1_4": {
+   "auroc": 0.9859922354284392,
+   "group": "xray",
+   "pos_train": 82,
+   "pos_test": 24
+  },
+  "xray.pawn.bishop.n.2_1": {
+   "auroc": 0.9726158277923564,
+   "group": "xray",
+   "pos_train": 114,
+   "pos_test": 25
+  },
+  "xray.pawn.bishop.n.3_1": {
+   "auroc": 0.9738462501120392,
+   "group": "xray",
+   "pos_train": 98,
+   "pos_test": 21
+  },
+  "xray.pawn.bishop.e.1_1": {
+   "auroc": 0.9793125946270888,
+   "group": "xray",
+   "pos_train": 150,
+   "pos_test": 33
+  },
+  "xray.pawn.bishop.e.2_1": {
+   "auroc": 0.9482664875493549,
+   "group": "xray",
+   "pos_train": 84,
+   "pos_test": 28
+  },
+  "xray.pawn.bishop.s.1_1": {
+   "auroc": 0.9870967923554649,
+   "group": "xray",
+   "pos_train": 418,
+   "pos_test": 122
+  },
+  "xray.pawn.bishop.s.1_2": {
+   "auroc": 0.9813755375632285,
+   "group": "xray",
+   "pos_train": 234,
+   "pos_test": 66
+  },
+  "xray.pawn.bishop.s.1_3": {
+   "auroc": 0.9821754520088989,
+   "group": "xray",
+   "pos_train": 117,
+   "pos_test": 23
+  },
+  "xray.pawn.bishop.s.1_4": {
+   "auroc": 0.9636267252907678,
+   "group": "xray",
+   "pos_train": 129,
+   "pos_test": 33
+  },
+  "xray.pawn.bishop.s.2_1": {
+   "auroc": 0.9772336221135729,
+   "group": "xray",
+   "pos_train": 199,
+   "pos_test": 44
+  },
+  "xray.pawn.bishop.s.2_2": {
+   "auroc": 0.9852564824626794,
+   "group": "xray",
+   "pos_train": 100,
+   "pos_test": 22
+  },
+  "xray.pawn.bishop.s.3_1": {
+   "auroc": 0.9702331566091047,
+   "group": "xray",
+   "pos_train": 115,
+   "pos_test": 32
+  },
+  "xray.pawn.bishop.sw.1_1": {
+   "auroc": 0.9728965712534426,
+   "group": "xray",
+   "pos_train": 103,
+   "pos_test": 21
+  },
+  "xray.pawn.bishop.w.1_1": {
+   "auroc": 0.9839086848870264,
+   "group": "xray",
+   "pos_train": 189,
+   "pos_test": 52
+  },
+  "xray.pawn.bishop.w.1_2": {
+   "auroc": 0.9637244848969305,
+   "group": "xray",
+   "pos_train": 97,
+   "pos_test": 21
+  },
+  "xray.pawn.bishop.w.2_1": {
+   "auroc": 0.9648659891339121,
+   "group": "xray",
+   "pos_train": 143,
+   "pos_test": 29
+  },
+  "xray.pawn.bishop.w.2_2": {
+   "auroc": 0.9820067312431706,
+   "group": "xray",
+   "pos_train": 90,
+   "pos_test": 22
+  },
+  "xray.pawn.bishop.w.3_1": {
+   "auroc": 0.946087612183408,
+   "group": "xray",
+   "pos_train": 66,
+   "pos_test": 26
+  },
+  "xray.pawn.bishop.nw.1_1": {
+   "auroc": 0.9719233066052131,
+   "group": "xray",
+   "pos_train": 145,
+   "pos_test": 24
+  },
+  "xray.pawn.rook.n.1_1": {
+   "auroc": 0.9915879500792758,
+   "group": "xray",
+   "pos_train": 423,
+   "pos_test": 105
+  },
+  "xray.pawn.rook.n.1_2": {
+   "auroc": 0.9718218742107589,
+   "group": "xray",
+   "pos_train": 143,
+   "pos_test": 32
+  },
+  "xray.pawn.rook.n.1_3": {
+   "auroc": 0.9802156499092416,
+   "group": "xray",
+   "pos_train": 86,
+   "pos_test": 20
+  },
+  "xray.pawn.rook.n.1_6": {
+   "auroc": 0.9914472802485651,
+   "group": "xray",
+   "pos_train": 109,
+   "pos_test": 27
+  },
+  "xray.pawn.rook.n.2_1": {
+   "auroc": 0.9836535241991002,
+   "group": "xray",
+   "pos_train": 233,
+   "pos_test": 73
+  },
+  "xray.pawn.rook.n.2_2": {
+   "auroc": 0.9818904774756025,
+   "group": "xray",
+   "pos_train": 85,
+   "pos_test": 23
+  },
+  "xray.pawn.rook.n.3_1": {
+   "auroc": 0.9836472228799958,
+   "group": "xray",
+   "pos_train": 256,
+   "pos_test": 60
+  },
+  "xray.pawn.rook.n.4_1": {
+   "auroc": 0.9884535706197081,
+   "group": "xray",
+   "pos_train": 177,
+   "pos_test": 41
+  },
+  "xray.pawn.rook.n.4_3": {
+   "auroc": 0.9917139869384212,
+   "group": "xray",
+   "pos_train": 79,
+   "pos_test": 25
+  },
+  "xray.pawn.rook.n.5_1": {
+   "auroc": 0.9933413914961896,
+   "group": "xray",
+   "pos_train": 108,
+   "pos_test": 26
+  },
+  "xray.pawn.rook.n.5_2": {
+   "auroc": 0.9953467632144901,
+   "group": "xray",
+   "pos_train": 90,
+   "pos_test": 25
+  },
+  "xray.pawn.rook.n.6_1": {
+   "auroc": 0.9940604171690622,
+   "group": "xray",
+   "pos_train": 190,
+   "pos_test": 37
+  },
+  "xray.pawn.rook.ne.1_1": {
+   "auroc": 0.975034764192759,
+   "group": "xray",
+   "pos_train": 235,
+   "pos_test": 58
+  },
+  "xray.pawn.rook.ne.1_2": {
+   "auroc": 0.973840746179887,
+   "group": "xray",
+   "pos_train": 120,
+   "pos_test": 35
+  },
+  "xray.pawn.rook.ne.2_1": {
+   "auroc": 0.9651559934966536,
+   "group": "xray",
+   "pos_train": 86,
+   "pos_test": 32
+  },
+  "xray.pawn.rook.e.1_1": {
+   "auroc": 0.9740271468214676,
+   "group": "xray",
+   "pos_train": 65,
+   "pos_test": 26
+  },
+  "xray.pawn.rook.se.1_1": {
+   "auroc": 0.9664817161012769,
+   "group": "xray",
+   "pos_train": 300,
+   "pos_test": 75
+  },
+  "xray.pawn.rook.se.1_2": {
+   "auroc": 0.9879197345980818,
+   "group": "xray",
+   "pos_train": 135,
+   "pos_test": 27
+  },
+  "xray.pawn.rook.se.2_1": {
+   "auroc": 0.9703536212515625,
+   "group": "xray",
+   "pos_train": 127,
+   "pos_test": 27
+  },
+  "xray.pawn.rook.s.1_1": {
+   "auroc": 0.9919512950824808,
+   "group": "xray",
+   "pos_train": 221,
+   "pos_test": 49
+  },
+  "xray.pawn.rook.s.1_2": {
+   "auroc": 0.9813725305687075,
+   "group": "xray",
+   "pos_train": 101,
+   "pos_test": 26
+  },
+  "xray.pawn.rook.s.1_3": {
+   "auroc": 0.9742442459033357,
+   "group": "xray",
+   "pos_train": 116,
+   "pos_test": 36
+  },
+  "xray.pawn.rook.s.1_4": {
+   "auroc": 0.9930950595848789,
+   "group": "xray",
+   "pos_train": 110,
+   "pos_test": 20
+  },
+  "xray.pawn.rook.s.1_6": {
+   "auroc": 0.9735558267820852,
+   "group": "xray",
+   "pos_train": 178,
+   "pos_test": 35
+  },
+  "xray.pawn.rook.s.2_1": {
+   "auroc": 0.9777445834484392,
+   "group": "xray",
+   "pos_train": 236,
+   "pos_test": 50
+  },
+  "xray.pawn.rook.s.2_5": {
+   "auroc": 0.9913506012785038,
+   "group": "xray",
+   "pos_train": 108,
+   "pos_test": 33
+  },
+  "xray.pawn.rook.s.3_1": {
+   "auroc": 0.9900390202050117,
+   "group": "xray",
+   "pos_train": 191,
+   "pos_test": 47
+  },
+  "xray.pawn.rook.s.3_4": {
+   "auroc": 0.9644753467632144,
+   "group": "xray",
+   "pos_train": 85,
+   "pos_test": 25
+  },
+  "xray.pawn.rook.s.4_1": {
+   "auroc": 0.9809676617406231,
+   "group": "xray",
+   "pos_train": 139,
+   "pos_test": 25
+  },
+  "xray.pawn.rook.s.4_3": {
+   "auroc": 0.9508743190037805,
+   "group": "xray",
+   "pos_train": 77,
+   "pos_test": 21
+  },
+  "xray.pawn.rook.s.6_1": {
+   "auroc": 0.985816467059961,
+   "group": "xray",
+   "pos_train": 119,
+   "pos_test": 25
+  },
+  "xray.pawn.rook.sw.1_1": {
+   "auroc": 0.9915852408695863,
+   "group": "xray",
+   "pos_train": 407,
+   "pos_test": 89
+  },
+  "xray.pawn.rook.sw.2_1": {
+   "auroc": 0.9858988577283595,
+   "group": "xray",
+   "pos_train": 216,
+   "pos_test": 65
+  },
+  "xray.pawn.rook.sw.2_2": {
+   "auroc": 0.9626218502427468,
+   "group": "xray",
+   "pos_train": 51,
+   "pos_test": 21
+  },
+  "xray.pawn.rook.w.1_1": {
+   "auroc": 0.9823239796958588,
+   "group": "xray",
+   "pos_train": 68,
+   "pos_test": 27
+  },
+  "xray.pawn.rook.nw.1_1": {
+   "auroc": 0.9796144174296728,
+   "group": "xray",
+   "pos_train": 322,
+   "pos_test": 74
+  },
+  "xray.pawn.rook.nw.1_2": {
+   "auroc": 0.94301947398536,
+   "group": "xray",
+   "pos_train": 56,
+   "pos_test": 25
+  },
+  "xray.pawn.rook.nw.2_1": {
+   "auroc": 0.9774837533396298,
+   "group": "xray",
+   "pos_train": 272,
+   "pos_test": 74
+  },
+  "xray.pawn.queen.n.1_1": {
+   "auroc": 0.9836195083530568,
+   "group": "xray",
+   "pos_train": 208,
+   "pos_test": 43
+  },
+  "xray.pawn.queen.n.1_2": {
+   "auroc": 0.9873214736751897,
+   "group": "xray",
+   "pos_train": 229,
+   "pos_test": 56
+  },
+  "xray.pawn.queen.n.1_3": {
+   "auroc": 0.9932562029856767,
+   "group": "xray",
+   "pos_train": 179,
+   "pos_test": 45
+  },
+  "xray.pawn.queen.n.2_1": {
+   "auroc": 0.961796753315937,
+   "group": "xray",
+   "pos_train": 93,
+   "pos_test": 21
+  },
+  "xray.pawn.queen.n.2_2": {
+   "auroc": 0.9625282728641198,
+   "group": "xray",
+   "pos_train": 78,
+   "pos_test": 21
+  },
+  "xray.pawn.queen.n.3_1": {
+   "auroc": 0.9754394487932231,
+   "group": "xray",
+   "pos_train": 73,
+   "pos_test": 27
+  },
+  "xray.pawn.queen.ne.1_1": {
+   "auroc": 0.9868439902542484,
+   "group": "xray",
+   "pos_train": 116,
+   "pos_test": 23
+  },
+  "xray.pawn.queen.e.1_1": {
+   "auroc": 0.9809355811273698,
+   "group": "xray",
+   "pos_train": 130,
+   "pos_test": 36
+  },
+  "xray.pawn.queen.se.1_1": {
+   "auroc": 0.9712687504603761,
+   "group": "xray",
+   "pos_train": 146,
+   "pos_test": 24
+  },
+  "xray.pawn.queen.s.1_1": {
+   "auroc": 0.9904030416304387,
+   "group": "xray",
+   "pos_train": 410,
+   "pos_test": 99
+  },
+  "xray.pawn.queen.s.1_2": {
+   "auroc": 0.9737457641914098,
+   "group": "xray",
+   "pos_train": 225,
+   "pos_test": 68
+  },
+  "xray.pawn.queen.s.1_3": {
+   "auroc": 0.9716269002500147,
+   "group": "xray",
+   "pos_train": 213,
+   "pos_test": 51
+  },
+  "xray.pawn.queen.s.1_4": {
+   "auroc": 0.982297920404659,
+   "group": "xray",
+   "pos_train": 139,
+   "pos_test": 36
+  },
+  "xray.pawn.queen.s.1_5": {
+   "auroc": 0.9804891165562623,
+   "group": "xray",
+   "pos_train": 71,
+   "pos_test": 21
+  },
+  "xray.pawn.queen.s.2_1": {
+   "auroc": 0.9588327305188884,
+   "group": "xray",
+   "pos_train": 136,
+   "pos_test": 38
+  },
+  "xray.pawn.queen.s.2_2": {
+   "auroc": 0.9787866130885854,
+   "group": "xray",
+   "pos_train": 97,
+   "pos_test": 26
+  },
+  "xray.pawn.queen.w.1_1": {
+   "auroc": 0.9884342117502474,
+   "group": "xray",
+   "pos_train": 127,
+   "pos_test": 35
+  },
+  "xray.pawn.king.n.1_1": {
+   "auroc": 0.994553110791794,
+   "group": "xray",
+   "pos_train": 1167,
+   "pos_test": 274
+  },
+  "xray.pawn.king.n.1_2": {
+   "auroc": 0.9965104495579413,
+   "group": "xray",
+   "pos_train": 375,
+   "pos_test": 80
+  },
+  "xray.pawn.king.n.2_1": {
+   "auroc": 0.9956429067899117,
+   "group": "xray",
+   "pos_train": 888,
+   "pos_test": 224
+  },
+  "xray.pawn.king.n.2_2": {
+   "auroc": 0.9940481053229895,
+   "group": "xray",
+   "pos_train": 308,
+   "pos_test": 73
+  },
+  "xray.pawn.king.n.3_1": {
+   "auroc": 0.9946236823964616,
+   "group": "xray",
+   "pos_train": 1039,
+   "pos_test": 259
+  },
+  "xray.pawn.king.n.3_2": {
+   "auroc": 0.9871115397226568,
+   "group": "xray",
+   "pos_train": 308,
+   "pos_test": 81
+  },
+  "xray.pawn.king.n.4_1": {
+   "auroc": 0.9948289478139178,
+   "group": "xray",
+   "pos_train": 1126,
+   "pos_test": 280
+  },
+  "xray.pawn.king.n.4_2": {
+   "auroc": 0.993255885334587,
+   "group": "xray",
+   "pos_train": 169,
+   "pos_test": 49
+  },
+  "xray.pawn.king.n.5_1": {
+   "auroc": 0.9916165229637259,
+   "group": "xray",
+   "pos_train": 470,
+   "pos_test": 104
+  },
+  "xray.pawn.king.n.5_2": {
+   "auroc": 0.9973617746825553,
+   "group": "xray",
+   "pos_train": 362,
+   "pos_test": 87
+  },
+  "xray.pawn.king.n.6_1": {
+   "auroc": 0.9993222368264336,
+   "group": "xray",
+   "pos_train": 661,
+   "pos_test": 142
+  },
+  "xray.pawn.king.ne.1_1": {
+   "auroc": 0.9948724377145268,
+   "group": "xray",
+   "pos_train": 253,
+   "pos_test": 63
+  },
+  "xray.pawn.king.ne.2_1": {
+   "auroc": 0.9898337994590449,
+   "group": "xray",
+   "pos_train": 747,
+   "pos_test": 209
+  },
+  "xray.pawn.king.ne.2_2": {
+   "auroc": 0.9723841069660246,
+   "group": "xray",
+   "pos_train": 178,
+   "pos_test": 33
+  },
+  "xray.pawn.king.ne.2_3": {
+   "auroc": 0.9973242048772788,
+   "group": "xray",
+   "pos_train": 117,
+   "pos_test": 20
+  },
+  "xray.pawn.king.ne.3_1": {
+   "auroc": 0.9965563999300476,
+   "group": "xray",
+   "pos_train": 1595,
+   "pos_test": 359
+  },
+  "xray.pawn.king.ne.3_2": {
+   "auroc": 0.950809225973206,
+   "group": "xray",
+   "pos_train": 73,
+   "pos_test": 25
+  },
+  "xray.pawn.king.ne.4_1": {
+   "auroc": 0.9966749799376295,
+   "group": "xray",
+   "pos_train": 1094,
+   "pos_test": 242
+  },
+  "xray.pawn.king.ne.5_1": {
+   "auroc": 0.9973771567999119,
+   "group": "xray",
+   "pos_train": 396,
+   "pos_test": 95
+  },
+  "xray.pawn.king.e.1_1": {
+   "auroc": 0.9922573514900336,
+   "group": "xray",
+   "pos_train": 379,
+   "pos_test": 90
+  },
+  "xray.pawn.king.e.1_2": {
+   "auroc": 0.9815485423492573,
+   "group": "xray",
+   "pos_train": 60,
+   "pos_test": 23
+  },
+  "xray.pawn.king.e.2_1": {
+   "auroc": 0.9860707589001577,
+   "group": "xray",
+   "pos_train": 187,
+   "pos_test": 43
+  },
+  "xray.pawn.king.e.3_1": {
+   "auroc": 0.9796754679003559,
+   "group": "xray",
+   "pos_train": 154,
+   "pos_test": 31
+  },
+  "xray.pawn.king.e.4_1": {
+   "auroc": 0.9810185670650237,
+   "group": "xray",
+   "pos_train": 133,
+   "pos_test": 42
+  },
+  "xray.pawn.king.e.5_1": {
+   "auroc": 0.9866745785585757,
+   "group": "xray",
+   "pos_train": 84,
+   "pos_test": 24
+  },
+  "xray.pawn.king.se.1_1": {
+   "auroc": 0.9922242559993685,
+   "group": "xray",
+   "pos_train": 349,
+   "pos_test": 80
+  },
+  "xray.pawn.king.se.2_1": {
+   "auroc": 0.987176541949463,
+   "group": "xray",
+   "pos_train": 356,
+   "pos_test": 73
+  },
+  "xray.pawn.king.se.3_1": {
+   "auroc": 0.9887557908294985,
+   "group": "xray",
+   "pos_train": 223,
+   "pos_test": 69
+  },
+  "xray.pawn.king.se.4_1": {
+   "auroc": 0.9863437788355703,
+   "group": "xray",
+   "pos_train": 193,
+   "pos_test": 44
+  },
+  "xray.pawn.king.se.5_1": {
+   "auroc": 0.9895973088154053,
+   "group": "xray",
+   "pos_train": 79,
+   "pos_test": 20
+  },
+  "xray.pawn.king.s.1_1": {
+   "auroc": 0.9942756349126305,
+   "group": "xray",
+   "pos_train": 1107,
+   "pos_test": 258
+  },
+  "xray.pawn.king.s.1_2": {
+   "auroc": 0.984574293854026,
+   "group": "xray",
+   "pos_train": 206,
+   "pos_test": 47
+  },
+  "xray.pawn.king.s.2_1": {
+   "auroc": 0.9929125228062734,
+   "group": "xray",
+   "pos_train": 634,
+   "pos_test": 168
+  },
+  "xray.pawn.king.s.2_2": {
+   "auroc": 0.981542117849476,
+   "group": "xray",
+   "pos_train": 137,
+   "pos_test": 32
+  },
+  "xray.pawn.king.s.3_1": {
+   "auroc": 0.9876683231269631,
+   "group": "xray",
+   "pos_train": 430,
+   "pos_test": 104
+  },
+  "xray.pawn.king.s.3_2": {
+   "auroc": 0.989764126678237,
+   "group": "xray",
+   "pos_train": 91,
+   "pos_test": 22
+  },
+  "xray.pawn.king.s.4_1": {
+   "auroc": 0.988420650873463,
+   "group": "xray",
+   "pos_train": 326,
+   "pos_test": 86
+  },
+  "xray.pawn.king.s.5_1": {
+   "auroc": 0.9871336457066133,
+   "group": "xray",
+   "pos_train": 125,
+   "pos_test": 33
+  },
+  "xray.pawn.king.s.6_1": {
+   "auroc": 0.9764108177326682,
+   "group": "xray",
+   "pos_train": 99,
+   "pos_test": 32
+  },
+  "xray.pawn.king.sw.1_1": {
+   "auroc": 0.9949335095888249,
+   "group": "xray",
+   "pos_train": 82,
+   "pos_test": 20
+  },
+  "xray.pawn.king.sw.2_1": {
+   "auroc": 0.9612758768228563,
+   "group": "xray",
+   "pos_train": 76,
+   "pos_test": 21
+  },
+  "xray.pawn.king.w.1_1": {
+   "auroc": 0.982233993918754,
+   "group": "xray",
+   "pos_train": 148,
+   "pos_test": 33
+  },
+  "xray.pawn.king.nw.2_1": {
+   "auroc": 0.9822682137789635,
+   "group": "xray",
+   "pos_train": 124,
+   "pos_test": 36
+  },
+  "xray.pawn.king.nw.3_1": {
+   "auroc": 0.9790862994238813,
+   "group": "xray",
+   "pos_train": 58,
+   "pos_test": 20
+  },
+  "xray.knight.pawn.n.1_1": {
+   "auroc": 0.9855896790320885,
+   "group": "xray",
+   "pos_train": 127,
+   "pos_test": 39
+  },
+  "xray.knight.pawn.n.1_2": {
+   "auroc": 0.9821673704010628,
+   "group": "xray",
+   "pos_train": 102,
+   "pos_test": 30
+  },
+  "xray.knight.pawn.n.2_1": {
+   "auroc": 0.9837482390545154,
+   "group": "xray",
+   "pos_train": 110,
+   "pos_test": 25
+  },
+  "xray.knight.pawn.n.3_1": {
+   "auroc": 0.9925588903943643,
+   "group": "xray",
+   "pos_train": 191,
+   "pos_test": 49
+  },
+  "xray.knight.pawn.n.4_1": {
+   "auroc": 0.9866964160051892,
+   "group": "xray",
+   "pos_train": 68,
+   "pos_test": 21
+  },
+  "xray.knight.pawn.ne.1_1": {
+   "auroc": 0.9850678153959948,
+   "group": "xray",
+   "pos_train": 191,
+   "pos_test": 42
+  },
+  "xray.knight.pawn.ne.1_2": {
+   "auroc": 0.9707087568196378,
+   "group": "xray",
+   "pos_train": 94,
+   "pos_test": 33
+  },
+  "xray.knight.pawn.ne.2_1": {
+   "auroc": 0.9799028945617716,
+   "group": "xray",
+   "pos_train": 132,
+   "pos_test": 29
+  },
+  "xray.knight.pawn.e.1_1": {
+   "auroc": 0.9838199835042759,
+   "group": "xray",
+   "pos_train": 174,
+   "pos_test": 41
+  },
+  "xray.knight.pawn.e.1_2": {
+   "auroc": 0.9729819883576336,
+   "group": "xray",
+   "pos_train": 159,
+   "pos_test": 36
+  },
+  "xray.knight.pawn.e.2_1": {
+   "auroc": 0.9876864493725831,
+   "group": "xray",
+   "pos_train": 105,
+   "pos_test": 20
+  },
+  "xray.knight.pawn.se.1_1": {
+   "auroc": 0.9869756159198374,
+   "group": "xray",
+   "pos_train": 287,
+   "pos_test": 63
+  },
+  "xray.knight.pawn.se.1_2": {
+   "auroc": 0.9727066850228833,
+   "group": "xray",
+   "pos_train": 137,
+   "pos_test": 42
+  },
+  "xray.knight.pawn.se.2_1": {
+   "auroc": 0.98517311959702,
+   "group": "xray",
+   "pos_train": 147,
+   "pos_test": 55
+  },
+  "xray.knight.pawn.s.1_1": {
+   "auroc": 0.9874801512947048,
+   "group": "xray",
+   "pos_train": 319,
+   "pos_test": 76
+  },
+  "xray.knight.pawn.s.1_2": {
+   "auroc": 0.9905534756519115,
+   "group": "xray",
+   "pos_train": 181,
+   "pos_test": 43
+  },
+  "xray.knight.pawn.s.1_3": {
+   "auroc": 0.9842438687528362,
+   "group": "xray",
+   "pos_train": 126,
+   "pos_test": 25
+  },
+  "xray.knight.pawn.s.2_1": {
+   "auroc": 0.9805985304468521,
+   "group": "xray",
+   "pos_train": 214,
+   "pos_test": 75
+  },
+  "xray.knight.pawn.s.2_2": {
+   "auroc": 0.9712388992176945,
+   "group": "xray",
+   "pos_train": 79,
+   "pos_test": 29
+  },
+  "xray.knight.pawn.s.3_1": {
+   "auroc": 0.9753912663291258,
+   "group": "xray",
+   "pos_train": 177,
+   "pos_test": 47
+  },
+  "xray.knight.pawn.sw.1_1": {
+   "auroc": 0.9903446303199995,
+   "group": "xray",
+   "pos_train": 345,
+   "pos_test": 99
+  },
+  "xray.knight.pawn.sw.1_2": {
+   "auroc": 0.9781843652578824,
+   "group": "xray",
+   "pos_train": 141,
+   "pos_test": 30
+  },
+  "xray.knight.pawn.sw.2_1": {
+   "auroc": 0.9531952930764375,
+   "group": "xray",
+   "pos_train": 138,
+   "pos_test": 29
+  },
+  "xray.knight.pawn.w.1_1": {
+   "auroc": 0.9792572151841945,
+   "group": "xray",
+   "pos_train": 189,
+   "pos_test": 38
+  },
+  "xray.knight.pawn.w.1_2": {
+   "auroc": 0.9807634630107578,
+   "group": "xray",
+   "pos_train": 201,
+   "pos_test": 42
+  },
+  "xray.knight.pawn.w.1_3": {
+   "auroc": 0.9697795315983663,
+   "group": "xray",
+   "pos_train": 89,
+   "pos_test": 25
+  },
+  "xray.knight.pawn.w.2_1": {
+   "auroc": 0.9858378858200582,
+   "group": "xray",
+   "pos_train": 130,
+   "pos_test": 34
+  },
+  "xray.knight.pawn.w.3_2": {
+   "auroc": 0.9158916794813704,
+   "group": "xray",
+   "pos_train": 37,
+   "pos_test": 23
+  },
+  "xray.knight.pawn.nw.1_1": {
+   "auroc": 0.9921201049585365,
+   "group": "xray",
+   "pos_train": 278,
+   "pos_test": 71
+  },
+  "xray.knight.pawn.nw.1_2": {
+   "auroc": 0.9770299545807898,
+   "group": "xray",
+   "pos_train": 92,
+   "pos_test": 23
+  },
+  "xray.knight.pawn.nw.2_1": {
+   "auroc": 0.980999471221006,
+   "group": "xray",
+   "pos_train": 128,
+   "pos_test": 26
+  },
+  "xray.knight.knight.se.1_1": {
+   "auroc": 0.9817950659166196,
+   "group": "xray",
+   "pos_train": 73,
+   "pos_test": 21
+  },
+  "xray.knight.bishop.ne.2_1": {
+   "auroc": 0.9975700816886963,
+   "group": "xray",
+   "pos_train": 55,
+   "pos_test": 23
+  },
+  "xray.knight.bishop.e.1_1": {
+   "auroc": 0.9958499319354828,
+   "group": "xray",
+   "pos_train": 502,
+   "pos_test": 117
+  },
+  "xray.knight.bishop.w.1_1": {
+   "auroc": 0.9842405028600494,
+   "group": "xray",
+   "pos_train": 174,
+   "pos_test": 45
+  },
+  "xray.knight.bishop.nw.1_1": {
+   "auroc": 0.9826177469629068,
+   "group": "xray",
+   "pos_train": 108,
+   "pos_test": 27
+  },
+  "xray.knight.rook.e.1_4": {
+   "auroc": 0.9961829580307404,
+   "group": "xray",
+   "pos_train": 195,
+   "pos_test": 49
+  },
+  "xray.knight.rook.w.2_1": {
+   "auroc": 0.9858080560933014,
+   "group": "xray",
+   "pos_train": 189,
+   "pos_test": 44
+  },
+  "xray.knight.rook.w.4_1": {
+   "auroc": 0.9834235341011368,
+   "group": "xray",
+   "pos_train": 183,
+   "pos_test": 51
+  },
+  "xray.knight.queen.e.1_2": {
+   "auroc": 0.9285279069859218,
+   "group": "xray",
+   "pos_train": 181,
+   "pos_test": 43
+  },
+  "xray.knight.queen.se.1_1": {
+   "auroc": 0.9892728004195573,
+   "group": "xray",
+   "pos_train": 86,
+   "pos_test": 21
+  },
+  "xray.knight.queen.sw.1_2": {
+   "auroc": 0.9750455984988482,
+   "group": "xray",
+   "pos_train": 58,
+   "pos_test": 23
+  },
+  "xray.knight.king.n.1_1": {
+   "auroc": 0.998057531318663,
+   "group": "xray",
+   "pos_train": 166,
+   "pos_test": 49
+  },
+  "xray.knight.king.ne.1_1": {
+   "auroc": 0.9970464870194167,
+   "group": "xray",
+   "pos_train": 89,
+   "pos_test": 26
+  },
+  "xray.knight.king.ne.1_2": {
+   "auroc": 0.9711313706243335,
+   "group": "xray",
+   "pos_train": 117,
+   "pos_test": 38
+  },
+  "xray.knight.king.ne.2_1": {
+   "auroc": 0.9978294726595899,
+   "group": "xray",
+   "pos_train": 124,
+   "pos_test": 30
+  },
+  "xray.knight.king.e.1_1": {
+   "auroc": 0.979003771655752,
+   "group": "xray",
+   "pos_train": 172,
+   "pos_test": 52
+  },
+  "xray.knight.king.e.1_3": {
+   "auroc": 0.9572138264475705,
+   "group": "xray",
+   "pos_train": 151,
+   "pos_test": 26
+  },
+  "xray.knight.king.e.1_5": {
+   "auroc": 0.9950408412911372,
+   "group": "xray",
+   "pos_train": 62,
+   "pos_test": 20
+  },
+  "xray.knight.king.w.1_1": {
+   "auroc": 0.9733782594627016,
+   "group": "xray",
+   "pos_train": 96,
+   "pos_test": 24
+  },
+  "xray.knight.king.w.1_2": {
+   "auroc": 0.9881017830970078,
+   "group": "xray",
+   "pos_train": 184,
+   "pos_test": 52
+  },
+  "xray.bishop.pawn.n.1_1": {
+   "auroc": 0.9854510040280651,
+   "group": "xray",
+   "pos_train": 290,
+   "pos_test": 63
+  },
+  "xray.bishop.pawn.n.1_2": {
+   "auroc": 0.9823172266835033,
+   "group": "xray",
+   "pos_train": 124,
+   "pos_test": 25
+  },
+  "xray.bishop.pawn.n.2_1": {
+   "auroc": 0.9828483483525807,
+   "group": "xray",
+   "pos_train": 156,
+   "pos_test": 35
+  },
+  "xray.bishop.pawn.n.2_2": {
+   "auroc": 0.9889109433568478,
+   "group": "xray",
+   "pos_train": 81,
+   "pos_test": 27
+  },
+  "xray.bishop.pawn.e.1_1": {
+   "auroc": 0.9714664463957609,
+   "group": "xray",
+   "pos_train": 229,
+   "pos_test": 61
+  },
+  "xray.bishop.pawn.e.1_2": {
+   "auroc": 0.9350548904164726,
+   "group": "xray",
+   "pos_train": 135,
+   "pos_test": 26
+  },
+  "xray.bishop.pawn.e.2_1": {
+   "auroc": 0.9897833440437267,
+   "group": "xray",
+   "pos_train": 173,
+   "pos_test": 38
+  },
+  "xray.bishop.pawn.se.1_1": {
+   "auroc": 0.9553558148387163,
+   "group": "xray",
+   "pos_train": 79,
+   "pos_test": 26
+  },
+  "xray.bishop.pawn.s.1_1": {
+   "auroc": 0.9809453537358135,
+   "group": "xray",
+   "pos_train": 350,
+   "pos_test": 92
+  },
+  "xray.bishop.pawn.s.1_2": {
+   "auroc": 0.9681935674822415,
+   "group": "xray",
+   "pos_train": 176,
+   "pos_test": 40
+  },
+  "xray.bishop.pawn.s.1_3": {
+   "auroc": 0.9861484533740659,
+   "group": "xray",
+   "pos_train": 119,
+   "pos_test": 23
+  },
+  "xray.bishop.pawn.s.2_1": {
+   "auroc": 0.9797250784222954,
+   "group": "xray",
+   "pos_train": 175,
+   "pos_test": 46
+  },
+  "xray.bishop.pawn.s.2_2": {
+   "auroc": 0.9837414002295088,
+   "group": "xray",
+   "pos_train": 116,
+   "pos_test": 21
+  },
+  "xray.bishop.pawn.s.3_1": {
+   "auroc": 0.9548626131271823,
+   "group": "xray",
+   "pos_train": 112,
+   "pos_test": 29
+  },
+  "xray.bishop.pawn.sw.1_1": {
+   "auroc": 0.9868975367047677,
+   "group": "xray",
+   "pos_train": 81,
+   "pos_test": 28
+  },
+  "xray.bishop.pawn.w.1_1": {
+   "auroc": 0.9861248090032082,
+   "group": "xray",
+   "pos_train": 286,
+   "pos_test": 70
+  },
+  "xray.bishop.pawn.w.1_2": {
+   "auroc": 0.9746104483867738,
+   "group": "xray",
+   "pos_train": 182,
+   "pos_test": 38
+  },
+  "xray.bishop.pawn.w.1_3": {
+   "auroc": 0.9666918554178834,
+   "group": "xray",
+   "pos_train": 90,
+   "pos_test": 20
+  },
+  "xray.bishop.pawn.w.2_1": {
+   "auroc": 0.9630508059901742,
+   "group": "xray",
+   "pos_train": 174,
+   "pos_test": 25
+  },
+  "xray.bishop.pawn.w.2_2": {
+   "auroc": 0.9538029002206536,
+   "group": "xray",
+   "pos_train": 68,
+   "pos_test": 23
+  },
+  "xray.bishop.pawn.w.3_1": {
+   "auroc": 0.985594588602327,
+   "group": "xray",
+   "pos_train": 118,
+   "pos_test": 27
+  },
+  "xray.bishop.pawn.nw.1_1": {
+   "auroc": 0.954723327124833,
+   "group": "xray",
+   "pos_train": 77,
+   "pos_test": 24
+  },
+  "xray.bishop.knight.se.1_1": {
+   "auroc": 0.9928594332838702,
+   "group": "xray",
+   "pos_train": 89,
+   "pos_test": 31
+  },
+  "xray.bishop.knight.w.1_1": {
+   "auroc": 0.986149494170473,
+   "group": "xray",
+   "pos_train": 170,
+   "pos_test": 42
+  },
+  "xray.bishop.knight.w.2_1": {
+   "auroc": 0.9465523636650619,
+   "group": "xray",
+   "pos_train": 86,
+   "pos_test": 20
+  },
+  "xray.bishop.knight.w.3_1": {
+   "auroc": 0.9741429500282602,
+   "group": "xray",
+   "pos_train": 148,
+   "pos_test": 26
+  },
+  "xray.bishop.rook.e.2_1": {
+   "auroc": 0.9460197576045243,
+   "group": "xray",
+   "pos_train": 99,
+   "pos_test": 21
+  },
+  "xray.bishop.rook.e.2_2": {
+   "auroc": 0.9869974910095718,
+   "group": "xray",
+   "pos_train": 357,
+   "pos_test": 98
+  },
+  "xray.bishop.rook.e.2_3": {
+   "auroc": 0.9940600849314262,
+   "group": "xray",
+   "pos_train": 643,
+   "pos_test": 153
+  },
+  "xray.bishop.rook.w.1_2": {
+   "auroc": 0.9890531438156694,
+   "group": "xray",
+   "pos_train": 670,
+   "pos_test": 172
+  },
+  "xray.bishop.rook.w.2_2": {
+   "auroc": 0.9851442732789047,
+   "group": "xray",
+   "pos_train": 366,
+   "pos_test": 104
+  },
+  "xray.bishop.rook.w.3_2": {
+   "auroc": 0.9959164874091652,
+   "group": "xray",
+   "pos_train": 655,
+   "pos_test": 153
+  },
+  "xray.bishop.queen.e.2_1": {
+   "auroc": 0.9858451368051169,
+   "group": "xray",
+   "pos_train": 592,
+   "pos_test": 160
+  },
+  "xray.bishop.king.n.1_1": {
+   "auroc": 0.9925865361318825,
+   "group": "xray",
+   "pos_train": 190,
+   "pos_test": 51
+  },
+  "xray.bishop.king.n.2_1": {
+   "auroc": 0.9799740051666794,
+   "group": "xray",
+   "pos_train": 74,
+   "pos_test": 33
+  },
+  "xray.bishop.king.n.6_1": {
+   "auroc": 0.9954613254852386,
+   "group": "xray",
+   "pos_train": 70,
+   "pos_test": 22
+  },
+  "xray.bishop.king.ne.2_1": {
+   "auroc": 0.9993800051117326,
+   "group": "xray",
+   "pos_train": 90,
+   "pos_test": 26
+  },
+  "xray.bishop.king.e.1_1": {
+   "auroc": 0.9840502602851099,
+   "group": "xray",
+   "pos_train": 212,
+   "pos_test": 64
+  },
+  "xray.bishop.king.e.2_1": {
+   "auroc": 0.9755221375476102,
+   "group": "xray",
+   "pos_train": 197,
+   "pos_test": 46
+  },
+  "xray.bishop.king.e.2_2": {
+   "auroc": 0.9891389436347693,
+   "group": "xray",
+   "pos_train": 402,
+   "pos_test": 105
+  },
+  "xray.bishop.king.e.2_4": {
+   "auroc": 0.9964394806424879,
+   "group": "xray",
+   "pos_train": 228,
+   "pos_test": 50
+  },
+  "xray.bishop.king.e.3_1": {
+   "auroc": 0.9186527253929727,
+   "group": "xray",
+   "pos_train": 76,
+   "pos_test": 22
+  },
+  "xray.bishop.king.w.1_1": {
+   "auroc": 0.9881664406412545,
+   "group": "xray",
+   "pos_train": 110,
+   "pos_test": 27
+  },
+  "xray.bishop.king.w.2_1": {
+   "auroc": 0.9933752776371029,
+   "group": "xray",
+   "pos_train": 475,
+   "pos_test": 126
+  },
+  "xray.rook.pawn.e.1_1": {
+   "auroc": 0.9850600129715115,
+   "group": "xray",
+   "pos_train": 110,
+   "pos_test": 34
+  },
+  "xray.rook.pawn.se.1_1": {
+   "auroc": 0.9764910030778944,
+   "group": "xray",
+   "pos_train": 100,
+   "pos_test": 20
+  },
+  "xray.rook.pawn.s.1_1": {
+   "auroc": 0.9683690277804704,
+   "group": "xray",
+   "pos_train": 84,
+   "pos_test": 23
+  },
+  "xray.rook.pawn.s.2_1": {
+   "auroc": 0.9922212137952806,
+   "group": "xray",
+   "pos_train": 71,
+   "pos_test": 20
+  },
+  "xray.rook.pawn.sw.1_1": {
+   "auroc": 0.9711551581113196,
+   "group": "xray",
+   "pos_train": 91,
+   "pos_test": 33
+  },
+  "xray.rook.pawn.w.1_1": {
+   "auroc": 0.9554305363912606,
+   "group": "xray",
+   "pos_train": 70,
+   "pos_test": 27
+  },
+  "xray.rook.pawn.w.1_2": {
+   "auroc": 0.9831903221909299,
+   "group": "xray",
+   "pos_train": 77,
+   "pos_test": 26
+  },
+  "xray.rook.king.ne.1_1": {
+   "auroc": 0.9964332366463426,
+   "group": "xray",
+   "pos_train": 151,
+   "pos_test": 45
+  },
+  "xray.rook.king.ne.2_1": {
+   "auroc": 0.9238116096444497,
+   "group": "xray",
+   "pos_train": 116,
+   "pos_test": 30
+  },
+  "xray.rook.king.ne.3_1": {
+   "auroc": 0.9977164805387844,
+   "group": "xray",
+   "pos_train": 142,
+   "pos_test": 30
+  },
+  "xray.rook.king.ne.4_1": {
+   "auroc": 0.9992076598688849,
+   "group": "xray",
+   "pos_train": 119,
+   "pos_test": 24
+  },
+  "xray.rook.king.e.1_1": {
+   "auroc": 0.9853815247456079,
+   "group": "xray",
+   "pos_train": 386,
+   "pos_test": 105
+  },
+  "xray.rook.king.e.1_2": {
+   "auroc": 0.9824787252525531,
+   "group": "xray",
+   "pos_train": 729,
+   "pos_test": 188
+  },
+  "xray.rook.king.e.1_3": {
+   "auroc": 0.984774328287692,
+   "group": "xray",
+   "pos_train": 209,
+   "pos_test": 43
+  },
+  "xray.rook.king.e.1_4": {
+   "auroc": 0.9737259900270566,
+   "group": "xray",
+   "pos_train": 73,
+   "pos_test": 21
+  },
+  "xray.rook.king.e.2_1": {
+   "auroc": 0.991306647099855,
+   "group": "xray",
+   "pos_train": 1261,
+   "pos_test": 322
+  },
+  "xray.rook.king.e.2_2": {
+   "auroc": 0.9868355395203452,
+   "group": "xray",
+   "pos_train": 464,
+   "pos_test": 118
+  },
+  "xray.rook.king.e.3_1": {
+   "auroc": 0.9885559015162473,
+   "group": "xray",
+   "pos_train": 430,
+   "pos_test": 106
+  },
+  "xray.rook.king.e.3_2": {
+   "auroc": 0.9870583208955689,
+   "group": "xray",
+   "pos_train": 194,
+   "pos_test": 38
+  },
+  "xray.rook.king.e.3_3": {
+   "auroc": 0.9790538691838593,
+   "group": "xray",
+   "pos_train": 178,
+   "pos_test": 36
+  },
+  "xray.rook.king.e.4_1": {
+   "auroc": 0.9904337563653592,
+   "group": "xray",
+   "pos_train": 257,
+   "pos_test": 61
+  },
+  "xray.rook.king.e.4_2": {
+   "auroc": 0.9960933344791306,
+   "group": "xray",
+   "pos_train": 694,
+   "pos_test": 170
+  },
+  "xray.rook.king.e.5_1": {
+   "auroc": 0.9969467624421159,
+   "group": "xray",
+   "pos_train": 1379,
+   "pos_test": 348
+  },
+  "xray.rook.king.e.5_2": {
+   "auroc": 0.9956559763110154,
+   "group": "xray",
+   "pos_train": 276,
+   "pos_test": 57
+  },
+  "xray.rook.king.w.1_1": {
+   "auroc": 0.9629357788511117,
+   "group": "xray",
+   "pos_train": 110,
+   "pos_test": 24
+  },
+  "xray.rook.king.w.1_4": {
+   "auroc": 0.9981541956019008,
+   "group": "xray",
+   "pos_train": 61,
+   "pos_test": 21
+  },
+  "xray.rook.king.w.4_1": {
+   "auroc": 0.9954697811235046,
+   "group": "xray",
+   "pos_train": 298,
+   "pos_test": 69
+  },
+  "xray.rook.king.w.4_2": {
+   "auroc": 0.9905403466714972,
+   "group": "xray",
+   "pos_train": 130,
+   "pos_test": 31
+  },
+  "xray.queen.pawn.n.3_1": {
+   "auroc": 0.9876890415258461,
+   "group": "xray",
+   "pos_train": 83,
+   "pos_test": 26
+  },
+  "xray.queen.pawn.n.4_1": {
+   "auroc": 0.9570766660042086,
+   "group": "xray",
+   "pos_train": 75,
+   "pos_test": 22
+  },
+  "xray.queen.pawn.e.1_1": {
+   "auroc": 0.9830499047408593,
+   "group": "xray",
+   "pos_train": 59,
+   "pos_test": 21
+  },
+  "xray.queen.pawn.e.2_1": {
+   "auroc": 0.9734172574381241,
+   "group": "xray",
+   "pos_train": 59,
+   "pos_test": 22
+  },
+  "xray.queen.pawn.s.1_1": {
+   "auroc": 0.9920441182273786,
+   "group": "xray",
+   "pos_train": 119,
+   "pos_test": 30
+  },
+  "xray.queen.pawn.s.1_2": {
+   "auroc": 0.9729626468666827,
+   "group": "xray",
+   "pos_train": 92,
+   "pos_test": 33
+  },
+  "xray.queen.pawn.s.1_4": {
+   "auroc": 0.9427398491333497,
+   "group": "xray",
+   "pos_train": 75,
+   "pos_test": 23
+  },
+  "xray.queen.pawn.s.2_1": {
+   "auroc": 0.9915353957856523,
+   "group": "xray",
+   "pos_train": 74,
+   "pos_test": 20
+  },
+  "xray.queen.pawn.w.1_2": {
+   "auroc": 0.9715137681825262,
+   "group": "xray",
+   "pos_train": 64,
+   "pos_test": 21
+  },
+  "xray.queen.pawn.nw.1_1": {
+   "auroc": 0.9591549402300302,
+   "group": "xray",
+   "pos_train": 52,
+   "pos_test": 24
+  },
+  "xray.queen.bishop.w.1_1": {
+   "auroc": 0.9885511641789061,
+   "group": "xray",
+   "pos_train": 137,
+   "pos_test": 38
+  },
+  "xray.queen.bishop.w.2_1": {
+   "auroc": 0.9981930658083976,
+   "group": "xray",
+   "pos_train": 370,
+   "pos_test": 84
+  },
+  "xray.queen.rook.e.1_2": {
+   "auroc": 0.9859423092100071,
+   "group": "xray",
+   "pos_train": 64,
+   "pos_test": 20
+  },
+  "xray.queen.rook.e.3_1": {
+   "auroc": 0.9940288219315035,
+   "group": "xray",
+   "pos_train": 176,
+   "pos_test": 45
+  },
+  "xray.queen.rook.e.3_2": {
+   "auroc": 0.9989916743974893,
+   "group": "xray",
+   "pos_train": 480,
+   "pos_test": 125
+  },
+  "xray.queen.rook.w.1_3": {
+   "auroc": 0.9955188101142046,
+   "group": "xray",
+   "pos_train": 176,
+   "pos_test": 45
+  },
+  "xray.queen.rook.w.2_1": {
+   "auroc": 0.985703377791808,
+   "group": "xray",
+   "pos_train": 64,
+   "pos_test": 20
+  },
+  "xray.queen.rook.w.2_3": {
+   "auroc": 0.9975468679251336,
+   "group": "xray",
+   "pos_train": 479,
+   "pos_test": 126
+  },
+  "xray.queen.king.e.3_1": {
+   "auroc": 0.988014482286072,
+   "group": "xray",
+   "pos_train": 294,
+   "pos_test": 69
+  },
+  "xray.king.pawn.s.1_1": {
+   "auroc": 0.9739216676663405,
+   "group": "xray",
+   "pos_train": 80,
+   "pos_test": 24
+  },
+  "xray.king.bishop.e.1_1": {
+   "auroc": 0.9688119432779374,
+   "group": "xray",
+   "pos_train": 258,
+   "pos_test": 72
+  },
+  "xray.king.bishop.e.4_1": {
+   "auroc": 0.990670639128981,
+   "group": "xray",
+   "pos_train": 171,
+   "pos_test": 44
+  },
+  "xray.king.bishop.w.3_2": {
+   "auroc": 0.9985289212977582,
+   "group": "xray",
+   "pos_train": 281,
+   "pos_test": 80
+  },
+  "xray.king.rook.e.1_2": {
+   "auroc": 0.984119327995357,
+   "group": "xray",
+   "pos_train": 75,
+   "pos_test": 26
+  },
+  "xray.king.rook.e.1_3": {
+   "auroc": 0.9908217496618555,
+   "group": "xray",
+   "pos_train": 297,
+   "pos_test": 73
+  },
+  "xray.king.rook.e.2_2": {
+   "auroc": 0.9625530424076763,
+   "group": "xray",
+   "pos_train": 81,
+   "pos_test": 23
+  },
+  "xray.king.rook.e.2_3": {
+   "auroc": 0.9914823218372661,
+   "group": "xray",
+   "pos_train": 101,
+   "pos_test": 20
+  },
+  "xray.king.rook.e.4_2": {
+   "auroc": 0.987898183310506,
+   "group": "xray",
+   "pos_train": 69,
+   "pos_test": 22
+  },
+  "xray.king.rook.e.4_3": {
+   "auroc": 0.9988492263994372,
+   "group": "xray",
+   "pos_train": 406,
+   "pos_test": 108
+  },
+  "xray.king.rook.w.2_4": {
+   "auroc": 0.9820051452525734,
+   "group": "xray",
+   "pos_train": 64,
+   "pos_test": 21
+  },
+  "xray.king.rook.w.3_2": {
+   "auroc": 0.9904362323415674,
+   "group": "xray",
+   "pos_train": 94,
+   "pos_test": 20
+  },
+  "xray.king.rook.w.3_4": {
+   "auroc": 0.9984299259469787,
+   "group": "xray",
+   "pos_train": 405,
+   "pos_test": 108
+  },
+  "xray.king.queen.w.3_1": {
+   "auroc": 0.9978246733548373,
+   "group": "xray",
+   "pos_train": 241,
+   "pos_test": 59
+  },
+  "check.on": {
+   "auroc": 0.9997770782841965,
+   "group": "check",
+   "pos_train": 1603,
+   "pos_test": 428
+  },
+  "threat.mate.ply1": {
+   "auroc": 0.9939731639735614,
+   "group": "threat.mate",
+   "pos_train": 2286,
+   "pos_test": 538
+  },
+  "threat.mate.ply2": {
+   "auroc": 0.9753722259416032,
+   "group": "threat.mate",
+   "pos_train": 1368,
+   "pos_test": 314
+  },
+  "threat.mate.ply3": {
+   "auroc": 0.9594492629762544,
+   "group": "threat.mate",
+   "pos_train": 1368,
+   "pos_test": 314
+  },
+  "threat.mate.ply4": {
+   "auroc": 0.9462261705595566,
+   "group": "threat.mate",
+   "pos_train": 916,
+   "pos_test": 220
+  },
+  "threat.mate.ply5": {
+   "auroc": 0.9347727272727273,
+   "group": "threat.mate",
+   "pos_train": 916,
+   "pos_test": 220
+  },
+  "threat.mate.ply6": {
+   "auroc": 0.934127645293746,
+   "group": "threat.mate",
+   "pos_train": 662,
+   "pos_test": 160
+  },
+  "threat.mate.ply7": {
+   "auroc": 0.9154102426168667,
+   "group": "threat.mate",
+   "pos_train": 662,
+   "pos_test": 160
+  },
+  "threat.mate.ply8": {
+   "auroc": 0.9251977613081891,
+   "group": "threat.mate",
+   "pos_train": 506,
+   "pos_test": 128
+  },
+  "threat.mate.ply9": {
+   "auroc": 0.8827817511112778,
+   "group": "threat.mate",
+   "pos_train": 506,
+   "pos_test": 128
+  },
+  "threat.mate.ply10": {
+   "auroc": 0.8913321971079498,
+   "group": "threat.mate",
+   "pos_train": 358,
+   "pos_test": 94
+  },
+  "threat.mate.ply11": {
+   "auroc": 0.8784152057794646,
+   "group": "threat.mate",
+   "pos_train": 358,
+   "pos_test": 94
+  },
+  "threat.mate.ply12": {
+   "auroc": 0.8584262160702848,
+   "group": "threat.mate",
+   "pos_train": 204,
+   "pos_test": 54
+  },
+  "threat.mate.ply13": {
+   "auroc": 0.8522253853073235,
+   "group": "threat.mate",
+   "pos_train": 204,
+   "pos_test": 54
+  },
+  "threat.mate.ply14": {
+   "auroc": 0.7243092440158158,
+   "group": "threat.mate",
+   "pos_train": 68,
+   "pos_test": 22
+  },
+  "threat.mate.ply15": {
+   "auroc": 0.8335276463822976,
+   "group": "threat.mate",
+   "pos_train": 68,
+   "pos_test": 22
+  },
+  "threat.material_win.ply1": {
+   "auroc": 0.9772611658976648,
+   "group": "threat.material_win",
+   "pos_train": 17864,
+   "pos_test": 4396
+  },
+  "threat.material_win.ply2": {
+   "auroc": 0.9275553042369813,
+   "group": "threat.material_win",
+   "pos_train": 16624,
+   "pos_test": 4104
+  },
+  "threat.material_win.ply3": {
+   "auroc": 0.893854633711426,
+   "group": "threat.material_win",
+   "pos_train": 16520,
+   "pos_test": 4074
+  },
+  "threat.material_win.ply4": {
+   "auroc": 0.8806453980011333,
+   "group": "threat.material_win",
+   "pos_train": 16216,
+   "pos_test": 4002
+  },
+  "threat.material_win.ply5": {
+   "auroc": 0.8426547696813641,
+   "group": "threat.material_win",
+   "pos_train": 16214,
+   "pos_test": 4002
+  },
+  "threat.material_win.ply6": {
+   "auroc": 0.8487196484878764,
+   "group": "threat.material_win",
+   "pos_train": 16006,
+   "pos_test": 3952
+  },
+  "threat.material_win.ply7": {
+   "auroc": 0.8155294401233321,
+   "group": "threat.material_win",
+   "pos_train": 15988,
+   "pos_test": 3952
+  },
+  "threat.material_win.ply8": {
+   "auroc": 0.8189689315731101,
+   "group": "threat.material_win",
+   "pos_train": 15826,
+   "pos_test": 3920
+  },
+  "threat.material_win.ply9": {
+   "auroc": 0.7826556971478794,
+   "group": "threat.material_win",
+   "pos_train": 15722,
+   "pos_test": 3882
+  },
+  "threat.material_win.ply10": {
+   "auroc": 0.8032525483285113,
+   "group": "threat.material_win",
+   "pos_train": 15318,
+   "pos_test": 3798
+  },
+  "threat.material_win.ply11": {
+   "auroc": 0.7642089688295141,
+   "group": "threat.material_win",
+   "pos_train": 14920,
+   "pos_test": 3714
+  },
+  "threat.material_win.ply12": {
+   "auroc": 0.7874302962163051,
+   "group": "threat.material_win",
+   "pos_train": 14160,
+   "pos_test": 3524
+  },
+  "threat.material_win.ply13": {
+   "auroc": 0.7491370118780554,
+   "group": "threat.material_win",
+   "pos_train": 13302,
+   "pos_test": 3316
+  },
+  "threat.material_win.ply14": {
+   "auroc": 0.7608063422539323,
+   "group": "threat.material_win",
+   "pos_train": 12026,
+   "pos_test": 2992
+  },
+  "threat.material_win.ply15": {
+   "auroc": 0.721921460865037,
+   "group": "threat.material_win",
+   "pos_train": 10636,
+   "pos_test": 2672
+  },
+  "threat.xray.pawn.pawn.ne.1_1": {
+   "auroc": 0.9862217597092031,
+   "group": "threat.xray",
+   "pos_train": 106,
+   "pos_test": 28
+  },
+  "threat.xray.pawn.pawn.e.1_1": {
+   "auroc": 0.9840770512712419,
+   "group": "threat.xray",
+   "pos_train": 207,
+   "pos_test": 55
+  },
+  "threat.xray.pawn.pawn.e.2_1": {
+   "auroc": 0.9901751819200657,
+   "group": "threat.xray",
+   "pos_train": 123,
+   "pos_test": 32
+  },
+  "threat.xray.pawn.pawn.w.1_1": {
+   "auroc": 0.9926756405854752,
+   "group": "threat.xray",
+   "pos_train": 149,
+   "pos_test": 39
+  },
+  "threat.xray.pawn.pawn.w.2_1": {
+   "auroc": 0.9877194183253346,
+   "group": "threat.xray",
+   "pos_train": 132,
+   "pos_test": 29
+  },
+  "threat.xray.pawn.pawn.w.3_1": {
+   "auroc": 0.9841471104709666,
+   "group": "threat.xray",
+   "pos_train": 97,
+   "pos_test": 25
+  },
+  "threat.xray.pawn.pawn.nw.1_1": {
+   "auroc": 0.9691447619061285,
+   "group": "threat.xray",
+   "pos_train": 110,
+   "pos_test": 22
+  },
+  "threat.xray.pawn.king.n.1_1": {
+   "auroc": 0.9899271937758624,
+   "group": "threat.xray",
+   "pos_train": 109,
+   "pos_test": 41
+  },
+  "threat.xray.pawn.king.ne.2_1": {
+   "auroc": 0.9458290326259974,
+   "group": "threat.xray",
+   "pos_train": 44,
+   "pos_test": 21
+  },
+  "threat.xray.pawn.king.s.3_1": {
+   "auroc": 0.9528900639254991,
+   "group": "threat.xray",
+   "pos_train": 45,
+   "pos_test": 20
+  },
+  "threat.check.on": {
+   "auroc": 0.9941247711387277,
+   "group": "threat.check",
+   "pos_train": 3204,
+   "pos_test": 822
+  },
+  "threat.move.a1": {
+   "auroc": 0.9944490380700397,
+   "group": "threat.move",
+   "pos_train": 152,
+   "pos_test": 34
+  },
+  "threat.move.c1": {
+   "auroc": 0.9883423965946341,
+   "group": "threat.move",
+   "pos_train": 198,
+   "pos_test": 36
+  },
+  "threat.move.d1": {
+   "auroc": 0.9922544945039765,
+   "group": "threat.move",
+   "pos_train": 281,
+   "pos_test": 75
+  },
+  "threat.move.e1": {
+   "auroc": 0.9906682173515672,
+   "group": "threat.move",
+   "pos_train": 326,
+   "pos_test": 91
+  },
+  "threat.move.f1": {
+   "auroc": 0.9913415453673736,
+   "group": "threat.move",
+   "pos_train": 266,
+   "pos_test": 58
+  },
+  "threat.move.g1": {
+   "auroc": 0.98344732674045,
+   "group": "threat.move",
+   "pos_train": 98,
+   "pos_test": 21
+  },
+  "threat.move.h1": {
+   "auroc": 0.9929344270633279,
+   "group": "threat.move",
+   "pos_train": 126,
+   "pos_test": 36
+  },
+  "threat.move.a2": {
+   "auroc": 0.9873467922056398,
+   "group": "threat.move",
+   "pos_train": 80,
+   "pos_test": 26
+  },
+  "threat.move.b2": {
+   "auroc": 0.9936236951494339,
+   "group": "threat.move",
+   "pos_train": 195,
+   "pos_test": 46
+  },
+  "threat.move.c2": {
+   "auroc": 0.9896938610398222,
+   "group": "threat.move",
+   "pos_train": 215,
+   "pos_test": 56
+  },
+  "threat.move.d2": {
+   "auroc": 0.9868329669592879,
+   "group": "threat.move",
+   "pos_train": 264,
+   "pos_test": 79
+  },
+  "threat.move.e2": {
+   "auroc": 0.9876216902397454,
+   "group": "threat.move",
+   "pos_train": 286,
+   "pos_test": 84
+  },
+  "threat.move.f2": {
+   "auroc": 0.9903819941810159,
+   "group": "threat.move",
+   "pos_train": 356,
+   "pos_test": 95
+  },
+  "threat.move.g2": {
+   "auroc": 0.9933791382262211,
+   "group": "threat.move",
+   "pos_train": 287,
+   "pos_test": 71
+  },
+  "threat.move.h2": {
+   "auroc": 0.9938061626323625,
+   "group": "threat.move",
+   "pos_train": 188,
+   "pos_test": 41
+  },
+  "threat.move.b3": {
+   "auroc": 0.9908829126044392,
+   "group": "threat.move",
+   "pos_train": 142,
+   "pos_test": 37
+  },
+  "threat.move.c3": {
+   "auroc": 0.9772405716225177,
+   "group": "threat.move",
+   "pos_train": 263,
+   "pos_test": 56
+  },
+  "threat.move.d3": {
+   "auroc": 0.9810540821427631,
+   "group": "threat.move",
+   "pos_train": 285,
+   "pos_test": 60
+  },
+  "threat.move.e3": {
+   "auroc": 0.9882738494632144,
+   "group": "threat.move",
+   "pos_train": 319,
+   "pos_test": 80
+  },
+  "threat.move.f3": {
+   "auroc": 0.9835492647679666,
+   "group": "threat.move",
+   "pos_train": 441,
+   "pos_test": 92
+  },
+  "threat.move.g3": {
+   "auroc": 0.9886903026934497,
+   "group": "threat.move",
+   "pos_train": 250,
+   "pos_test": 49
+  },
+  "threat.move.h3": {
+   "auroc": 0.9724355274201963,
+   "group": "threat.move",
+   "pos_train": 131,
+   "pos_test": 33
+  },
+  "threat.move.a4": {
+   "auroc": 0.9702388938433734,
+   "group": "threat.move",
+   "pos_train": 71,
+   "pos_test": 22
+  },
+  "threat.move.c4": {
+   "auroc": 0.9821568335585711,
+   "group": "threat.move",
+   "pos_train": 241,
+   "pos_test": 53
+  },
+  "threat.move.d4": {
+   "auroc": 0.9809695227388773,
+   "group": "threat.move",
+   "pos_train": 435,
+   "pos_test": 115
+  },
+  "threat.move.e4": {
+   "auroc": 0.9800317446533416,
+   "group": "threat.move",
+   "pos_train": 383,
+   "pos_test": 99
+  },
+  "threat.move.f4": {
+   "auroc": 0.9826054123002083,
+   "group": "threat.move",
+   "pos_train": 308,
+   "pos_test": 86
+  },
+  "threat.move.g4": {
+   "auroc": 0.9707751523427633,
+   "group": "threat.move",
+   "pos_train": 276,
+   "pos_test": 64
+  },
+  "threat.move.h4": {
+   "auroc": 0.9851547635490336,
+   "group": "threat.move",
+   "pos_train": 195,
+   "pos_test": 35
+  },
+  "threat.move.b5": {
+   "auroc": 0.9690942956438955,
+   "group": "threat.move",
+   "pos_train": 178,
+   "pos_test": 52
+  },
+  "threat.move.c5": {
+   "auroc": 0.9700451899358659,
+   "group": "threat.move",
+   "pos_train": 227,
+   "pos_test": 65
+  },
+  "threat.move.d5": {
+   "auroc": 0.9801037687378794,
+   "group": "threat.move",
+   "pos_train": 403,
+   "pos_test": 98
+  },
+  "threat.move.e5": {
+   "auroc": 0.9817350969213726,
+   "group": "threat.move",
+   "pos_train": 493,
+   "pos_test": 137
+  },
+  "threat.move.f5": {
+   "auroc": 0.9707148558116246,
+   "group": "threat.move",
+   "pos_train": 432,
+   "pos_test": 109
+  },
+  "threat.move.g5": {
+   "auroc": 0.9799557018833001,
+   "group": "threat.move",
+   "pos_train": 397,
+   "pos_test": 104
+  },
+  "threat.move.h5": {
+   "auroc": 0.9806658517791206,
+   "group": "threat.move",
+   "pos_train": 290,
+   "pos_test": 78
+  },
+  "threat.move.b6": {
+   "auroc": 0.9538710387201165,
+   "group": "threat.move",
+   "pos_train": 130,
+   "pos_test": 29
+  },
+  "threat.move.c6": {
+   "auroc": 0.971876584610685,
+   "group": "threat.move",
+   "pos_train": 231,
+   "pos_test": 47
+  },
+  "threat.move.d6": {
+   "auroc": 0.987800310632899,
+   "group": "threat.move",
+   "pos_train": 246,
+   "pos_test": 59
+  },
+  "threat.move.e6": {
+   "auroc": 0.9747327331843763,
+   "group": "threat.move",
+   "pos_train": 301,
+   "pos_test": 76
+  },
+  "threat.move.f6": {
+   "auroc": 0.9750668388131479,
+   "group": "threat.move",
+   "pos_train": 449,
+   "pos_test": 112
+  },
+  "threat.move.g6": {
+   "auroc": 0.970348548536696,
+   "group": "threat.move",
+   "pos_train": 343,
+   "pos_test": 75
+  },
+  "threat.move.h6": {
+   "auroc": 0.9791693827964265,
+   "group": "threat.move",
+   "pos_train": 251,
+   "pos_test": 58
+  },
+  "threat.move.c7": {
+   "auroc": 0.9774088948319056,
+   "group": "threat.move",
+   "pos_train": 129,
+   "pos_test": 28
+  },
+  "threat.move.d7": {
+   "auroc": 0.973686951012789,
+   "group": "threat.move",
+   "pos_train": 235,
+   "pos_test": 49
+  },
+  "threat.move.e7": {
+   "auroc": 0.9813360718272179,
+   "group": "threat.move",
+   "pos_train": 238,
+   "pos_test": 58
+  },
+  "threat.move.f7": {
+   "auroc": 0.9845091549123973,
+   "group": "threat.move",
+   "pos_train": 197,
+   "pos_test": 44
+  },
+  "threat.move.g7": {
+   "auroc": 0.9783415640783452,
+   "group": "threat.move",
+   "pos_train": 182,
+   "pos_test": 54
+  },
+  "threat.move.h7": {
+   "auroc": 0.981261461719744,
+   "group": "threat.move",
+   "pos_train": 112,
+   "pos_test": 29
+  },
+  "threat.move.c8": {
+   "auroc": 0.9462216938426771,
+   "group": "threat.move",
+   "pos_train": 168,
+   "pos_test": 49
+  },
+  "threat.move.d8": {
+   "auroc": 0.9867051748943055,
+   "group": "threat.move",
+   "pos_train": 193,
+   "pos_test": 53
+  },
+  "threat.move.e8": {
+   "auroc": 0.9750323001336385,
+   "group": "threat.move",
+   "pos_train": 247,
+   "pos_test": 53
+  },
+  "threat.move.f8": {
+   "auroc": 0.9865291447965586,
+   "group": "threat.move",
+   "pos_train": 243,
+   "pos_test": 50
+  },
+  "threat.move.g8": {
+   "auroc": 0.9897156198201675,
+   "group": "threat.move",
+   "pos_train": 251,
+   "pos_test": 63
+  },
+  "threat.move.h8": {
+   "auroc": 0.9899038031496478,
+   "group": "threat.move",
+   "pos_train": 145,
+   "pos_test": 36
+  }
+ }
+}

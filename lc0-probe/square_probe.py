@@ -24,6 +24,8 @@ ap.add_argument("--nodes", type=int, default=200000)
 ap.add_argument("--workers", type=int, default=8)
 ap.add_argument("--min", type=int, default=20, help="positive tokens needed in train and in test")
 ap.add_argument("--steps", type=int, default=4000)
+ap.add_argument("--groups", default="", help="comma list of schema groups to probe (default all); each bit's probe is independent, so a subset scores the same")
+ap.add_argument("--tag", default="", help="suffix for the output files")
 a = ap.parse_args()
 rng = np.random.default_rng(0)
 
@@ -70,7 +72,13 @@ te = np.repeat(rng.random(N) < 0.2, 64)                                    # hel
 
 pos_tr = np.bincount(bit[~te[tok]], minlength=L)
 pos_te = np.bincount(bit[te[tok]], minlength=L)
-keep = np.flatnonzero((pos_tr >= a.min) & (pos_te >= a.min))
+ok = (pos_tr >= a.min) & (pos_te >= a.min)
+if a.groups:
+    want = np.zeros(L, bool)
+    for g in schema["groups"]:
+        if g["group"] in a.groups.split(","): want[g["offset"]:g["offset"] + g["size"]] = True
+    ok &= want
+keep = np.flatnonzero(ok)
 col = np.full(L, -1); col[keep] = np.arange(len(keep))
 B = len(keep)
 print(f"{N:,} positions, {L:,} bits per square, {B:,} with >= {a.min} positives in both splits", flush=True)
@@ -119,7 +127,7 @@ for c0 in range(0, B, 256):
 groups = {}
 for v in per_bit.values(): groups.setdefault(v["group"], []).append(v["auroc"])
 summary = {g: {"bits": len(v), "mean_auroc": float(np.mean(v)), "min": float(np.min(v))} for g, v in groups.items()}
-slug = a.tap.strip("/").replace("/", "_")
+slug = a.tap.strip("/").replace("/", "_") + (f"_{a.tag}" if a.tag else "")
 out = ROOT / f"lc0-probe/results_square_{slug}.json"
 json.dump({"tap": a.tap, "n": N, "nodes": a.nodes, "min_positives": a.min, "bits_probed": B,
            "groups": summary, "bits": per_bit}, open(out, "w"), indent=1)

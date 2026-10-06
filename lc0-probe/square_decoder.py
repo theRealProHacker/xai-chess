@@ -3,9 +3,9 @@
 The reverse of square_probe.py: token ~ W @ bits + b[square], ridge least squares, shared W across
 squares. Same positions, labels and held-out split as the probe (run it first: it caches the labels).
 Reported: fraction of variance unexplained (FVU) on held-out positions, against a decoder from the
-square alone.
+square alone and from the features alone (with a global bias).
 
-  python lc0-probe/square_decoder.py --taps /encoder5/ln1,/attn_body/rehape
+  python lc0-probe/square_decoder.py --taps /attn_body/rehape,/encoder0/ln1,...,/encoder9/ln1
 """
 import argparse, json, subprocess, sys
 from pathlib import Path
@@ -41,22 +41,23 @@ col = np.full(L, -1); col[keep] = np.arange(len(keep))
 k = col[bit] >= 0
 F = sp.csr_matrix((np.ones(k.sum(), np.float32), (tok[k], col[bit[k]])), shape=(N * 64, len(keep)))
 Q = sp.csr_matrix((np.ones(N * 64, np.float32), (np.arange(N * 64), np.tile(np.arange(64), N))), shape=(N * 64, 64))
+B = sp.csr_matrix(np.ones((N * 64, 1), np.float32))                       # global bias, no square
 print(f"{N:,} positions, {len(keep):,} bits used", flush=True)
 
 m = onnx.load(ROOT / "vendor/lc0-nets/t1-256x10.onnx")
 taps = a.taps.split(",")
 for t in taps: m.graph.output.append(onnx.ValueInfoProto(name=t))
 sess = ort.InferenceSession(m.SerializeToString(), providers=["CPUExecutionProvider"])
-X = {t: [] for t in taps}
-for s in range(0, N, 256):
-    for t, x in zip(taps, sess.run(taps, {"/input/planes": encode_fens(fens[s:s + 256])})):
-        X[t].append(x.reshape(-1, x.shape[-1]).astype(np.float32))
-X = {t: np.concatenate(v) for t, v in X.items()}                       # (N*64, D), token = pos*64 + sq
 
-def fit(A, Y):
-    """Ridge on sparse A; the square one-hot columns are not penalised."""
+def tokens(t):
+    """(N*64, D), token = pos*64 + sq; one tap at a time to bound memory."""
+    xs = [sess.run([t], {"/input/planes": encode_fens(fens[s:s + 256])})[0] for s in range(0, N, 256)]
+    return np.concatenate([x.reshape(-1, x.shape[-1]).astype(np.float32) for x in xs])
+
+def fit(A, Y, free):
+    """Ridge on sparse A; the last `free` columns (square one-hot or bias) are not penalised."""
     G = (A[~te].T @ A[~te]).toarray().astype(np.float64)
-    pen = np.full(A.shape[1], a.ridge); pen[-64:] = 0
+    pen = np.full(A.shape[1], a.ridge); pen[-free:] = 0
     G[np.diag_indices_from(G)] += pen + 1e-6
     return la.solve(G, np.asarray(A[~te].T @ Y[~te], np.float64), assume_a="pos")
 
@@ -65,10 +66,11 @@ def fvu(Y, Yh):
 
 res = {"n": N, "bits": int(len(keep)), "ridge": a.ridge, "taps": {}}
 for t in taps:
-    Y = X[t]
+    Y = tokens(t)
     r = {}
-    for name, A in [("square only", Q), ("features + square", sp.hstack([F, Q]).tocsr())]:
-        W = fit(A, Y)
+    for name, A, free in [("square only", Q, 64), ("features only", sp.hstack([F, B]).tocsr(), 1),
+                          ("features + square", sp.hstack([F, Q]).tocsr(), 64)]:
+        W = fit(A, Y, free)
         r[name] = {"train": fvu(Y[~te], A[~te] @ W), "test": fvu(Y[te], A[te] @ W)}
         print(f"{t:22} {name:18} FVU train {r[name]['train']:.3f}  test {r[name]['test']:.3f}", flush=True)
     res["taps"][t] = r

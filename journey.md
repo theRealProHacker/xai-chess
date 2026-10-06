@@ -1696,6 +1696,66 @@ In general these were the worst (61 included to show the sudden drop)
 
 Most importantly the encoder is almost perfect (> 90% > 0.95) except for the tactical part
 
+I then also tested the hypothesis that tactical patterns increase at later stages, which turned out to be only partially true, specifically however for the most difficult (`material_win`, `threat.material_win`, `mate` and `threat.mate`):
+
+    ┌─────────────────────┬──────┬───────────┬─────────┬─────────┬─────────┐
+    │       family        │ bits │ embedding │ layer 5 │ layer 8 │ layer 9 │
+    ├─────────────────────┼──────┼───────────┼─────────┼─────────┼─────────┤
+    │ mate                │ 3    │ 0.893     │ 0.987   │ 0.987   │ 0.989   │
+    ├─────────────────────┼──────┼───────────┼─────────┼─────────┼─────────┤
+    │ material_win        │ 15   │ 0.716     │ 0.827   │ 0.832   │ 0.834   │
+    ├─────────────────────┼──────┼───────────┼─────────┼─────────┼─────────┤
+    │ xray                │ 385  │ 0.990     │ 0.992   │ 0.987   │ 0.982   │
+    ├─────────────────────┼──────┼───────────┼─────────┼─────────┼─────────┤
+    │ check               │ 1    │ 0.991     │ 1.000   │ 1.000   │ 1.000   │
+    ├─────────────────────┼──────┼───────────┼─────────┼─────────┼─────────┤
+    │ threat.mate         │ 15   │ 0.727     │ 0.887   │ 0.882   │ 0.900   │
+    ├─────────────────────┼──────┼───────────┼─────────┼─────────┼─────────┤
+    │ threat.material_win │ 15   │ 0.717     │ 0.813   │ 0.822   │ 0.825   │
+    ├─────────────────────┼──────┼───────────┼─────────┼─────────┼─────────┤
+    │ threat.xray         │ 10   │ 0.988     │ 0.988   │ 0.987   │ 0.978   │
+    ├─────────────────────┼──────┼───────────┼─────────┼─────────┼─────────┤
+    │ threat.check        │ 1    │ 0.983     │ 0.994   │ 0.996   │ 0.994   │
+    ├─────────────────────┼──────┼───────────┼─────────┼─────────┼─────────┤
+    │ threat.move         │ 55   │ 0.982     │ 0.985   │ 0.985   │ 0.982   │
+    ├─────────────────────┼──────┼───────────┼─────────┼─────────┼─────────┤
+    │ all                 │ 500  │ 0.964     │ 0.978   │ 0.974   │ 0.970   │
+    └─────────────────────┴──────┴───────────┴─────────┴─────────┴─────────┘
+
+### Building the Decoder
+
+The decoder makes the per-square SAE complete. On layer 5 the FUV (fraction of unexplained variance) is 39%, i.e. we can explain 61% of variance. If we include the square identity, we can almost exactly reconstruct the embedding (the input), which makes sense. Only an error of 0.2% remains. So, I wanted to run the decoder on the whole network: 
+
+    ┌───────────┬─────────────┬───────────────────┬──────────────┐
+    │    tap    │ square only │ features + square │ features add │
+    ├───────────┼─────────────┼───────────────────┼──────────────┤
+    │ embedding │ 0.164       │ 0.002             │ 0.16         │
+    ├───────────┼─────────────┼───────────────────┼──────────────┤
+    │ layer 0   │ 0.575       │ 0.183             │ 0.39         │
+    ├───────────┼─────────────┼───────────────────┼──────────────┤
+    │ layer 1   │ 0.818       │ 0.198             │ 0.62         │
+    ├───────────┼─────────────┼───────────────────┼──────────────┤
+    │ layer 2   │ 0.828       │ 0.195             │ 0.63         │
+    ├───────────┼─────────────┼───────────────────┼──────────────┤
+    │ layer 3   │ 0.832       │ 0.272             │ 0.56         │
+    ├───────────┼─────────────┼───────────────────┼──────────────┤
+    │ layer 4   │ 0.825       │ 0.311             │ 0.51         │
+    ├───────────┼─────────────┼───────────────────┼──────────────┤
+    │ layer 5   │ 0.841       │ 0.392             │ 0.45         │
+    ├───────────┼─────────────┼───────────────────┼──────────────┤
+    │ layer 6   │ 0.849       │ 0.427             │ 0.42         │
+    ├───────────┼─────────────┼───────────────────┼──────────────┤
+    │ layer 7   │ 0.871       │ 0.447             │ 0.42         │
+    ├───────────┼─────────────┼───────────────────┼──────────────┤
+    │ layer 8   │ 0.879       │ 0.549             │ 0.33         │
+    ├───────────┼─────────────┼───────────────────┼──────────────┤
+    │ layer 9   │ 0.897       │ 0.680             │ 0.22         │
+    └───────────┴─────────────┴───────────────────┴──────────────┘
+
+Features only (no square identity, just a global bias) is within 0.01 of features + square from layer 1 on; only the embedding needs the square (0.156 vs 0.002).
+
+- [Chart: decoder per layer](lc0-probe/square_decoder_grid.png)
+
 ### Compute
 
 As soon as I got access to the compute cluster, I tried to learn how to get a cluster running, initially just using vllm inference. The next step would then be doing CLIP, fine-tuning and RL, all using LoRA of course. I had applied for 64 GBs and 8 CPU cores, which should even be enough for the highly-praised Qwen3.8-27B. 
