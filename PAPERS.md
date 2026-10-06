@@ -2,7 +2,7 @@
 
 IEEE references for every work touched by this project — the original research-proposal citations, the office-hours/landscape corpus, and the completeness-verifier additions. **Titles are clickable** (canonical URL). Sorted by relevance to the benchmark (Core → Supporting → Peripheral); within a tier, by centrality.
 
-*116 works · 37 core / 66 supporting / 13 peripheral · compiled 2026-06-27, extended 2026-08-01 and 2026-09-03.*
+*117 works · 37 core / 67 supporting / 13 peripheral · compiled 2026-06-27, extended 2026-08-01, 2026-09-03 and 2026-10-06.*
 
 References [1]–[64] are the original corpus and their numbers are fixed, because the survey and the summaries both cite them as stable tags. The move-explanation and dataset sweep of 2026-08-01 appended [65]–[87], and the activation-oracle / symbolic-learning / circuits sweep of 2026-09-03 appended [88]–[116], rather than renumbering.
 
@@ -289,3 +289,10 @@ References [1]–[64] are the original corpus and their numbers are fixed, becau
 [115] M. Li and Q. Zhang, "[Does a Neural Network Really Encode Symbolic Concepts?](https://arxiv.org/abs/2302.13080)," arXiv:2302.13080, 2023.
 
 [116] W. Zhou, Y. Ou, S. Ding, L. Li, J. Wu, T. Wang, et al., "[Symbolic Learning Enables Self-Evolving Agents](https://arxiv.org/abs/2406.18532)," arXiv:2406.18532, 2024. Listed to disambiguate the keyword: "symbolic learning" here means prompt-and-tool optimisation of language agents, not extraction of symbols from a network.
+
+
+## Additions — 2026-10-06
+
+### Supporting (1)
+
+[117] A. Nieto Juscafresa, "[An Introduction to Explainable Artificial Intelligence with LIME and SHAP](https://diposit.ub.edu/server/api/core/bitstreams/ecc97b2d-832e-4952-afdb-9933d645c002/content)," Bachelor's thesis (Treball final de grau, Mathematics), Universitat de Barcelona, 2022. Supervised by A. Clapés and S. Escalera. Formal derivation of LIME and SHAP; background for `lime/`.

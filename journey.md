@@ -1457,24 +1457,176 @@ For PMEs (positions with material equivalence) also:
 5. Pieces
     10. Piece-by-piece comparison
 
-### LIME
-
 ### Training an SAE
 
 The problem: One layer, one position has 64 squares × 256 = 16,384 numbers.
 
 We have 230 binary features, we should have around 65-130k. 
 
-On the other hand, we could focus on only the pieces and squares and construct the features per square. We would need only 1-2k features per square, of which only a few need to be fixed by us. 
+Approaches:
+1. Raw board: We just reinsert the board as a piece bitmask. This gives us 650 new features for free and helps reconstructing the actual board information
+2. Global features for each square: We just take all ~1k features and copy them for each square
+3. Free variables: the free variables are mostly responsible for capturing the non-strategic aspects, like tactics. Measured 256 via exponential elbow method
+4. Free active variables: 256 trivially allows full reconstruction. So anything reasonable like 32-64 works theoretically
 
-### Features by square
+The problem: We use global features in a local setting and the network just tries to go around our features as much as possible. The next question is how we actually evaluate the importance of each feature. 
 
-I thought it would be interesting to try to also go for some tactical aspects for this
+### LIME
 
-1. Part of a mate in 1-6 plies
-2. Part of a material winning tactic
-    - which material
+The idea for LIME is to make a locally interpretable model, i.e. you train a model for a specific position. You do that by creating synthetic data through pertubation. For chess, perturbation is pretty difficult but can be done by randomly inserting pawns for example. 
+
+My first instinct was to randomly insert an equal amount of pawns for both sides. Here are some learnings:
+1. Also remove pawns to learn more
+2. LIME maxes out at a few thousand samples (3000)
+3. Filter out perturbations where pawns create immediate tactics (e.g. attack a piece, give check our threaten immediate promotion)
+4. A 4-layer MLP doesn't outperform a simple linear model, but the linear model is simpler to read
+5. Doing these pawn perturbations is best for understanding pawn structure features and actually works. For example, it tells us that more pawn islands is bad
+
+    ┌─────────────────┬─────────┬───────────────────────────────┐
+    │ Black's islands │ samples │ Leela's Q for White (average) │
+    ├─────────────────┼─────────┼───────────────────────────────┤
+    │ 1               │ 16      │ +0.14                         │
+    ├─────────────────┼─────────┼───────────────────────────────┤
+    │ 2 (book)        │ 1357    │ +0.25                         │
+    ├─────────────────┼─────────┼───────────────────────────────┤
+    │ 3               │ 410     │ +0.35                         │
+    ├─────────────────┼─────────┼───────────────────────────────┤
+    │ 4+              │ 39      │ +0.57                         │
+    └─────────────────┴─────────┴───────────────────────────────┘
+
+6. Interesting idea: purposefully try to find perturbations that only edit a single feature and changes nothing else (i.e. isolate the feature) -> Problem: very difficult and often impossible to avoid confounding factors -> that's why we train the model
+7. In general, unguided perturbations aren't that valuable because they just confound to much too often (already seen with Shapley from another paper where a bishop and pawns were confounding, making the pawns less valuable due to the presence of the bishop)
+8. This currently doesn't seem to work in general, because we don't consider any tactics at the moment
+
+Idea: learn what a normal chess position looks like. Bias towards those in the perturbation (e.g. don't allow impossible positions, etc.)
+
+### SAE: Features by square
+
+On the other hand, we could focus on only the pieces and squares and construct the features per square. We would need only 1-2k features per square, of which only a few **need** to be fixed by us. 
+
+Goal: get 1k features
+
+Whenever this mentions a square or move, this is a 64 vector referencing the exact one. Piece is square x type
+
+I thought it would be interesting to try to also go for some tactical aspects for this:
+- Part of a mate in 1-15 plies
+    - #plies
+- Part of a material winning tactic
+    - #plies
+- Pinning which piece to which
+    (piece type x piece type x direction x distance x distance)
+- Giving check
+- Threatens any of the above
+    - + move
+
+Positional:
+- Material
+    - Which piece occupies the square
+    - Is a piece responsible for (not necessarily the only one)
+        - +1
+        - +2
+        - +3 or more
+        - similar material but not exactly
+            - knight vs bishop
+            - two knights vs bishop
+            - two pieces vs rook
+            - two rooks vs queen
+            - three pieces vs queen
+            - etc.
+            - is this the play coordinating piece (ICS definition)
+        - bishop pair (includes other bishops position)
+        - unlike bishops (includes other bishops position)
+        <!-- - the entire vector just like the one for this but for one to two comparable pieces -->
+- Stability:
+    - Which pawn(s) could remove it from it's position ever
+    - Which pawn(s) can directly remove it from it's position
+    - Which piece of lesser or equal value can attack it in x moves
+        - ply x piece type x square 
+- Control:
+    - Which squares does the piece reach
+    - Another version with geometry in mind (batteries, bishops/queens behind pawns, etc.)
+- Mobility (relative means for example, that a knight can't go on a square, where a pawn attacks him): 
+    - Which available moves (absolute)
+    - Which available moves (relative)
+    - Which moves to reach square x fastest (absolute)
+    - Which moves to reach square x (relative)
+    - Which pieces are blocking it (seperated by own and opponents)
+- Centralisation
+    - Manhattan distance to edge of the board (one-hot)
+- Weak/Strong square -> TODO: definition
+- On which open file
+- On which half open file
+- On which long diagonal
+- Role
+    - Defensive
+        - the piece is defending which pieces
+        - the piece is needed to defend which pieces
+    - Attacking
+        - Which pieces the piece is attacking
+            - square x piece type
+    - Restricting
+        - How many fields the piece is restricting 
+            - square x piece type
+            - e.g. a knight might be restricting both a rook and a queen from moving to a certain square
+    - Dependent:
+        - Needs to be defended (which defenders)
+    - Blocking
+        - Blocks which line
+        - Blocks which diagonal
+        - Blocking which pawn(s)
+    - Which pawns are blocking attacks on this square
+        pawn x which direction (8)
+    - Probe on qualitative  of piece trained on supervised data (at least 2000 positions by piece type)
+        1. Out of play
+        2. Defensive
+        3. Offensive
+        4. Both offensive and defensive
+- Protected by which pieces
+    - type x squares
+- If it's a King
+    - King Safety -> probes like above
+    - Castling rights
+- If it's a queen
+    - Safe and active (attacking) -> probe like above
+- If it's a rook
+    - Controls which open file
+    - On the 7th rank
+    - On the 8th rank
+    - Battery with which other rook/queen
+    - Behind which passed pawn
+    - Behind which hanging pawns
     - 
+<!-- - If it's a bishop
+- If it's a knight -->
+- If it's a pawn
+    - What is the pawn chain
+    - Is it at the front, base or in the middle of the chain
+    - Which direction is the pawn chain pointing towards
+    - Is it a past pawn
+    - Is it a hanging pawn
+    - Is it an isolated pawn
+    - Is it a doubled/tripled/quadrupled pawn
+        - other pawns rank
+    - is it being blocked
+        - square x piece type
+    - Is part of a center by type
+        - dynamic: undefined
+        - open: two open files between c and f including
+        - closed: entire center blocked by chains of pawns
+        - static: 2 half-open or one open file
+        - mobile: one player has mobile pawns with no counter
+    - pawn on 4th, 5th or 6th rank
+    - pawn on 7th rank
+
+### SAE in conclusion for now: I don't know
+
+The problem is: we don't actually want to reconstruct exact leela activations, we want to look at how well our features can predict the score and/or check relevance for a specific score. 
+
+### Probing on the per-square features
+
+The first step is probing the features in lc0. The idea is that if the features can be constructed from the layers, we can probably find a way through back-propagation or similar to find some kind of attribution???
+
+
 
 ### Compute
 
