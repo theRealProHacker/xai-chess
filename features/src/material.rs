@@ -10,7 +10,7 @@ fn total(g: &Geo, c: Color) -> i32 {
 }
 
 /// Counts of (knights, bishops, rooks, queens) left after cancelling identical pieces.
-type Set = [i32; 4];
+pub type Set = [i32; 4];
 
 fn residue(g: &Geo) -> (Set, Set) {
     let roles = [Role::Knight, Role::Bishop, Role::Rook, Role::Queen];
@@ -51,7 +51,7 @@ const TRADES: [(&str, Set, Set); 16] = [
     ("piece_vs_pawns", [0, 1, 0, 0], [0, 0, 0, 0]),
 ];
 
-const KINDS: [&str; 8] = ["bishop_vs_knight", "exchange", "two_minors_vs_rook", "two_knights_vs_bishop",
+pub const KINDS: [&str; 8] = ["bishop_vs_knight", "exchange", "two_minors_vs_rook", "two_knights_vs_bishop",
     "two_rooks_vs_queen", "three_minors_vs_queen", "queen_vs_rook_minor", "piece_vs_pawns"];
 
 fn sub(a: Set, b: Set) -> Option<Set> {
@@ -60,13 +60,16 @@ fn sub(a: Set, b: Set) -> Option<Set> {
     Some(o)
 }
 
+/// A trade in the split: (white has it, id, what that side gives, what it faces), counts of (N, B, R, Q).
+pub type Trade = (bool, &'static str, Set, Set);
+
 /// Split the two armies into identical pairs and named trades, every piece used once. Among the
 /// splits, keep the one with the most identical pairs, then the fewest trades. Each trade is
 /// (white has it, id). `lone[c]` allows a lone minor piece against pawns for that side.
-fn split(w: Set, b: Set, lone: [bool; 2]) -> Option<(usize, Vec<(bool, &'static str)>)> {
+fn split(w: Set, b: Set, lone: [bool; 2]) -> Option<(usize, Vec<Trade>)> {
     if w == [0; 4] && b == [0; 4] { return Some((0, vec![])); }
-    let mut best: Option<(usize, Vec<(bool, &'static str)>)> = None;
-    let mut keep = |cand: Option<(usize, Vec<(bool, &'static str)>)>| {
+    let mut best: Option<(usize, Vec<Trade>)> = None;
+    let mut keep = |cand: Option<(usize, Vec<Trade>)>| {
         if let Some(c) = cand {
             if best.as_ref().is_none_or(|b| (c.0, std::cmp::Reverse(c.1.len())) > (b.0, std::cmp::Reverse(b.1.len()))) { best = Some(c); }
         }
@@ -85,7 +88,7 @@ fn split(w: Set, b: Set, lone: [bool; 2]) -> Option<(usize, Vec<(bool, &'static 
             if has[i] == 0 && against[i] == 0 { continue; }
             let (Some(m), Some(t)) = (sub(mine, has), sub(theirs, against)) else { continue };
             let (nw, nb) = if white { (m, t) } else { (t, m) };
-            keep(split(nw, nb, lone).map(|(n, mut ts)| { ts.push((white, id)); (n, ts) }));
+            keep(split(nw, nb, lone).map(|(n, mut ts)| { ts.push((white, id, has, against)); (n, ts) }));
         }
     }
     best
@@ -108,7 +111,16 @@ fn count_set(g: &Geo, c: Color) -> Set {
     [Role::Knight, Role::Bishop, Role::Rook, Role::Queen].map(|r| g.count(c, r) as i32)
 }
 
-pub fn run(g: &Geo, o: &mut Out) {
+/// The trades the armies split into; None when no split exists (the imbalance is "other").
+pub fn trades(g: &Geo) -> Option<Vec<Trade>> {
+    // a lone minor piece for pawns: the other side has two or more pawns more
+    let pawns = |c| g.count(c, Role::Pawn) as i32;
+    let lone = [pawns(Color::Black) - pawns(Color::White) >= 2, pawns(Color::White) - pawns(Color::Black) >= 2];
+    let (w, b) = residue(g);
+    if w == [0; 4] && b == [0; 4] { Some(vec![]) } else { split(count_set(g, Color::White), count_set(g, Color::Black), lone).map(|x| x.1) }
+}
+
+pub(crate) fn run(g: &Geo, o: &mut Out) {
     let (tw, tb) = (total(g, Color::White), total(g, Color::Black));
     o.global("material.balance.equal", tw == tb, vec![], format!("{tw} against {tb}"));
     for c in Color::ALL {
@@ -121,11 +133,8 @@ pub fn run(g: &Geo, o: &mut Out) {
         }
     }
 
-    // a lone minor piece for pawns: the other side has two or more pawns more
-    let pawns = |c| g.count(c, Role::Pawn) as i32;
-    let lone = [pawns(Color::Black) - pawns(Color::White) >= 2, pawns(Color::White) - pawns(Color::Black) >= 2];
     let (w, b) = residue(g);
-    let trades = if w == [0; 4] && b == [0; 4] { Some(vec![]) } else { split(count_set(g, Color::White), count_set(g, Color::Black), lone).map(|x| x.1) };
+    let trades = trades(g);
     for c in Color::ALL {
         let mine: Vec<&str> = trades.iter().flatten().filter(|t| t.0 == c.is_white()).map(|t| t.1).collect();
         let why = format!("{}: {}", title(c), mine.iter().map(|id| phrase(id)).collect::<Vec<_>>().join(", "));

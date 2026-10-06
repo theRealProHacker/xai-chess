@@ -21,7 +21,7 @@ fn home(c: Color, s: Square, role: Role) -> bool {
 
 /// A move to `to` loses nothing at once: no enemy pawn or cheaper piece hits the square, and if
 /// anything hits it, an own piece guards it.
-fn safe_square(g: &Geo, c: Color, role: Role, from: Square, to: Square) -> bool {
+pub fn safe_square(g: &Geo, c: Color, role: Role, from: Square, to: Square) -> bool {
     let (f, r) = fr(to);
     if g.pawn_attacked(f, r, c.other()) { return false; }
     let occ = g.b.occupied().without(from);
@@ -79,7 +79,7 @@ fn rook_behind_lever(g: &Geo, c: Color, s: Square) -> bool {
     false
 }
 
-pub fn run(g: &Geo, phase: Phase, o: &mut Out) {
+pub(crate) fn run(g: &Geo, phase: Phase, o: &mut Out) {
     let centre = Bitboard(0x3c3c_3c3c_u64 << 16);
     for c in Color::ALL {
         let them = c.other();

@@ -4,14 +4,14 @@
 //! position (`side` is None). Counts and scores are one-hot: "three pawn islands" is its own
 //! feature, so exactly one of a count family is on per side.
 
-mod centre;
+pub mod centre;
 mod context;
-mod geo;
+pub mod geo;
 mod initiative;
 mod king;
-mod material;
-mod pawns;
-mod pieces;
+pub mod material;
+pub mod pawns;
+pub mod pieces;
 mod space;
 #[cfg(target_arch = "wasm32")]
 mod web;
@@ -70,6 +70,7 @@ pub fn position(fen: &str) -> Result<Chess, String> {
     Fen::from_ascii(fen.trim().as_bytes())
         .map_err(|e| format!("FEN: {e}"))?
         .into_position(CastlingMode::Standard)
+        .or_else(|e| e.ignore_too_much_material()) // LIME adds pawns past eight a side
         .map_err(|e| format!("FEN: {e}"))
 }
 

@@ -60,7 +60,7 @@ pub fn weak(g: &Geo, c: Color) -> Vec<Fr> {
 
 fn sqs(v: &[Fr]) -> Vec<String> { v.iter().map(|&(f, r)| name(f, r)).collect() }
 
-pub fn run(g: &Geo, o: &mut Out) {
+pub(crate) fn run(g: &Geo, o: &mut Out) {
     for c in Color::ALL {
         let ps = g.pawns(c);
         let isl = islands(g, c);

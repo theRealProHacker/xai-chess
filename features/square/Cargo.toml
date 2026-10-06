@@ -1,0 +1,12 @@
+[package]
+name = "square"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+features = { path = ".." }
+shakmaty = "0.30"
+serde_json = "1"
+
+[profile.release]
+opt-level = 3

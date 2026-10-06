@@ -7,7 +7,8 @@ use crate::geo::{Geo, fwd, name, on};
 
 fn file_char(f: i32) -> char { (b'a' + f as u8) as char }
 
-pub fn run(g: &Geo, o: &mut Out) {
+/// The centre type as an index into `KINDS`, the squares that decide it, and why.
+pub fn kind(g: &Geo) -> (usize, Vec<String>, String) {
     let has = |f: i32, c: Color| (0..8).any(|r| g.pawn(f, r, c));
     let (w, b) = (Color::White, Color::Black);
 
@@ -28,7 +29,7 @@ pub fn run(g: &Geo, o: &mut Out) {
     let half: Vec<i32> = (2..=5).filter(|&f| has(f, w) != has(f, b)).collect();
     let files = |v: &[i32]| v.iter().map(|&f| format!("{}-file", file_char(f))).collect::<Vec<_>>().join(", ");
 
-    let (hit, sq, why) = if closed {
+    if closed {
         (1, rams, "pawns locked against each other on the d- and e-files".to_string())
     } else if let Some(c) = mobile {
         let ps = g.pawns(c).into_iter().filter(|p| (2..=5).contains(&p.0)).map(|(f, r)| name(f, r)).collect::<Vec<_>>();
@@ -41,8 +42,14 @@ pub fn run(g: &Geo, o: &mut Out) {
                             if half.is_empty() { String::new() } else { format!("half-open: {}", files(&half)) }))
     } else {
         (4, vec![], "pawns in contact, nothing fixed".to_string())
-    };
-    o.one_hot("centre.type", None, &["open", "closed", "mobile", "static", "dynamic"], hit, sq, &why);
+    }
+}
+
+pub const KINDS: [&str; 5] = ["open", "closed", "mobile", "static", "dynamic"];
+
+pub(crate) fn run(g: &Geo, o: &mut Out) {
+    let (hit, sq, why) = kind(g);
+    o.one_hot("centre.type", None, &KINDS, hit, sq, &why);
 
     // control of d4 e4 d5 e5, in half points
     let mut score = [0i32; 2]; // in half points
