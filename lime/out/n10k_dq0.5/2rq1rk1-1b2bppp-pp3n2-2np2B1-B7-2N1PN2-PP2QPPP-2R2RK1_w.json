@@ -1,0 +1,648 @@
+{
+ "fen": "2rq1rk1/1b2bppp/pp3n2/2np2B1/B7/2N1PN2/PP2QPPP/2R2RK1 w - - 0 14",
+ "q": 0.006945550441741943,
+ "n": 10000,
+ "over8": 0.0643,
+ "fidelity": {
+  "mlp": 0.13061693906836416,
+  "mlp_spread": 0.005591784583358396,
+  "ridge": 0.12287322029466397
+ },
+ "families": [
+  {
+   "id": "pawns.islands",
+   "side": "us",
+   "state": [
+    "pawns.islands.2"
+   ],
+   "squares": [
+    "a2",
+    "b2",
+    "e3",
+    "f2",
+    "g2",
+    "h2"
+   ],
+   "why": "pawns on a–b, e–h",
+   "relevance": 0.11895976215600967,
+   "spread": 0.02198275364935398,
+   "sign_stable": true,
+   "varied": 0.2959
+  },
+  {
+   "id": "pawns.islands",
+   "side": "them",
+   "state": [
+    "pawns.islands.3"
+   ],
+   "squares": [
+    "a6",
+    "b6",
+    "d5",
+    "f7",
+    "g7",
+    "h7"
+   ],
+   "why": "pawns on a–b, d, f–h",
+   "relevance": 0.06922909617424011,
+   "spread": 0.05075661838054657,
+   "sign_stable": true,
+   "varied": 0.4435
+  },
+  {
+   "id": "pieces.coordination",
+   "side": "us",
+   "state": [
+    "pieces.coordination.rooks_connected"
+   ],
+   "squares": [
+    "c1",
+    "f1"
+   ],
+   "why": "the rooks guard each other",
+   "relevance": 0.05454869940876961,
+   "spread": 0.04449860751628876,
+   "sign_stable": false,
+   "varied": 0.0098
+  },
+  {
+   "id": "pieces.rook_file",
+   "side": "us",
+   "state": [
+    "pieces.rook_file.half_open"
+   ],
+   "squares": [
+    "c1"
+   ],
+   "why": "rook on c1 on a half-open file",
+   "relevance": 0.05047832056879997,
+   "spread": 0.017080461606383324,
+   "sign_stable": true,
+   "varied": 0.1724
+  },
+  {
+   "id": "pawns.passed",
+   "side": "us",
+   "state": [],
+   "squares": [],
+   "why": "no passed pawn",
+   "relevance": -0.04979049041867256,
+   "spread": 0.007638633716851473,
+   "sign_stable": true,
+   "varied": 0.0685
+  },
+  {
+   "id": "pieces.out_of_play",
+   "side": "them",
+   "state": [
+    "pieces.out_of_play"
+   ],
+   "squares": [
+    "f8"
+   ],
+   "why": "rook on f8: 2 safe moves, reaches nothing that matters",
+   "relevance": -0.04924147203564644,
+   "spread": 0.0203558299690485,
+   "sign_stable": true,
+   "varied": 0.404
+  },
+  {
+   "id": "king.shield",
+   "side": "them",
+   "state": [],
+   "squares": [],
+   "why": "own pawns on the g- and h-files, and 3 of f7, g7, h7 still home",
+   "relevance": -0.048820722848176956,
+   "spread": 0.019769689068198204,
+   "sign_stable": true,
+   "varied": 0.3073
+  },
+  {
+   "id": "pieces.queen",
+   "side": "us",
+   "state": [],
+   "squares": [],
+   "why": "",
+   "relevance": -0.04520680010318756,
+   "spread": 0.05865725874900818,
+   "sign_stable": false,
+   "varied": 0.1114
+  },
+  {
+   "id": "pawns.weak",
+   "side": "us",
+   "state": [
+    "pawns.weak.0"
+   ],
+   "squares": [],
+   "why": "no weak pawn",
+   "relevance": 0.044093988835811615,
+   "spread": 0.03517918661236763,
+   "sign_stable": true,
+   "varied": 0.1273
+  },
+  {
+   "id": "centre.type",
+   "side": null,
+   "state": [
+    "centre.type.static"
+   ],
+   "squares": [],
+   "why": "open: c-file; half-open: d-file, e-file",
+   "relevance": -0.04183902591466904,
+   "spread": 0.0503680519759655,
+   "sign_stable": false,
+   "varied": 0.236
+  },
+  {
+   "id": "centre.control",
+   "side": null,
+   "state": [
+    "centre.control.plus1.us"
+   ],
+   "squares": [
+    "d4",
+    "d5",
+    "e4",
+    "e5"
+   ],
+   "why": "d4 White, e4 Black ½, d5 Black ½, e5 White",
+   "relevance": -0.040633004158735275,
+   "spread": 0.024508537724614143,
+   "sign_stable": false,
+   "varied": 0.3279
+  },
+  {
+   "id": "pawns.passed",
+   "side": "them",
+   "state": [],
+   "squares": [],
+   "why": "no passed pawn",
+   "relevance": 0.03095928207039833,
+   "spread": 0.031187301501631737,
+   "sign_stable": false,
+   "varied": 0.1541
+  },
+  {
+   "id": "pieces.rook_blocked",
+   "side": "us",
+   "state": [],
+   "squares": [],
+   "why": "",
+   "relevance": -0.02909780666232109,
+   "spread": 0.028883568942546844,
+   "sign_stable": false,
+   "varied": 0.0099
+  },
+  {
+   "id": "pawns.doubled",
+   "side": "them",
+   "state": [
+    "pawns.doubled.0"
+   ],
+   "squares": [],
+   "why": "no two pawns on one file",
+   "relevance": -0.028148602694272995,
+   "spread": 0.03087874874472618,
+   "sign_stable": false,
+   "varied": 0.6918
+  },
+  {
+   "id": "space_pawns",
+   "side": null,
+   "state": [
+    "space_pawns.centre.plus1.them",
+    "space_pawns.kingside.equal",
+    "space_pawns.plus1.them",
+    "space_pawns.queenside.equal"
+   ],
+   "squares": [
+    "d5"
+   ],
+   "why": "centre: White 0, Black 1 (d5) kingside: White 0, Black 0 overall: White 0, Black 1 (d5) queenside: White 0, Black 0",
+   "relevance": -0.025181462988257408,
+   "spread": 0.022109104320406914,
+   "sign_stable": true,
+   "varied": 0.8001
+  },
+  {
+   "id": "pieces.out_of_play",
+   "side": "us",
+   "state": [],
+   "squares": [],
+   "why": "",
+   "relevance": -0.025117825716733932,
+   "spread": 0.023059412837028503,
+   "sign_stable": false,
+   "varied": 0.0305
+  },
+  {
+   "id": "king.shield",
+   "side": "us",
+   "state": [],
+   "squares": [],
+   "why": "own pawns on the g- and h-files, and 3 of f2, g2, h2 still home",
+   "relevance": -0.023775935173034668,
+   "spread": 0.03871231898665428,
+   "sign_stable": false,
+   "varied": 0.2604
+  },
+  {
+   "id": "pieces.rook_behind_passer",
+   "side": "them",
+   "state": [],
+   "squares": [],
+   "why": "",
+   "relevance": 0.021376298740506172,
+   "spread": 0.023004762828350067,
+   "sign_stable": true,
+   "varied": 0.0248
+  },
+  {
+   "id": "space",
+   "side": "us",
+   "state": [],
+   "squares": [],
+   "why": "centre: White holds 1 squares in the opponent's half, Black holds 1",
+   "relevance": -0.020686758682131767,
+   "spread": 0.02865401655435562,
+   "sign_stable": false,
+   "varied": 0.0485
+  },
+  {
+   "id": "pawns.doubled",
+   "side": "us",
+   "state": [
+    "pawns.doubled.0"
+   ],
+   "squares": [],
+   "why": "no two pawns on one file",
+   "relevance": 0.01958615519106388,
+   "spread": 0.020587407052516937,
+   "sign_stable": false,
+   "varied": 0.7298
+  },
+  {
+   "id": "pieces.rook_behind_passer",
+   "side": "us",
+   "state": [],
+   "squares": [],
+   "why": "",
+   "relevance": 0.01469469629228115,
+   "spread": 0.02993178553879261,
+   "sign_stable": false,
+   "varied": 0.0124
+  },
+  {
+   "id": "pawns.majority",
+   "side": "them",
+   "state": [],
+   "squares": [],
+   "why": "1 against 1 pawns",
+   "relevance": -0.011093986220657825,
+   "spread": 0.02431277558207512,
+   "sign_stable": false,
+   "varied": 0.8191
+  },
+  {
+   "id": "pawns.majority",
+   "side": "us",
+   "state": [],
+   "squares": [],
+   "why": "1 against 1 pawns",
+   "relevance": 0.010234429500997066,
+   "spread": 0.031540002673864365,
+   "sign_stable": false,
+   "varied": 0.8214
+  },
+  {
+   "id": "local",
+   "side": null,
+   "state": [
+    "local.centre.equal",
+    "local.kingside.plus1.us",
+    "local.queenside.plus1.us"
+   ],
+   "squares": [
+    "a4",
+    "b7",
+    "c1",
+    "c3",
+    "c5",
+    "c8",
+    "e2",
+    "f3",
+    "f6",
+    "g5"
+   ],
+   "why": "centre: White 2 (c3 e2), Black 2 (d8 e7) kingside: White 2 (f3 g5), Black 1 (f6) queenside: White 4 (a4 c1 c3 e2), Black 3 (b7 c5 c8)",
+   "relevance": -0.009319704957306385,
+   "spread": 0.01856858842074871,
+   "sign_stable": false,
+   "varied": 0.7668
+  },
+  {
+   "id": "pieces.rook_blocked",
+   "side": "them",
+   "state": [],
+   "squares": [],
+   "why": "",
+   "relevance": 0.007965685799717903,
+   "spread": 0.036483634263277054,
+   "sign_stable": false,
+   "varied": 0.019
+  },
+  {
+   "id": "pieces.rook_file",
+   "side": "them",
+   "state": [
+    "pieces.rook_file.half_open"
+   ],
+   "squares": [
+    "c8"
+   ],
+   "why": "rook on c8 on a half-open file",
+   "relevance": 0.0016670494806021452,
+   "spread": 0.0401468463242054,
+   "sign_stable": false,
+   "varied": 0.2124
+  },
+  {
+   "id": "pieces.knight_outpost",
+   "side": "them",
+   "state": [],
+   "squares": [],
+   "why": "",
+   "relevance": -0.0016095265746116638,
+   "spread": 0.044529639184474945,
+   "sign_stable": false,
+   "varied": 0.1812
+  },
+  {
+   "id": "space",
+   "side": "them",
+   "state": [],
+   "squares": [],
+   "why": "centre: Black holds 1 squares in the opponent's half, White holds 1",
+   "relevance": -0.0006196536123752594,
+   "spread": 0.02992977574467659,
+   "sign_stable": false,
+   "varied": 0.0064
+  },
+  {
+   "id": "pawns.weak",
+   "side": "them",
+   "state": [
+    "pawns.weak.1"
+   ],
+   "squares": [
+    "d5"
+   ],
+   "why": "weak: d5",
+   "relevance": 0.0005304828519001603,
+   "spread": 0.031134549528360367,
+   "sign_stable": false,
+   "varied": 0.6576
+  },
+  {
+   "id": "context.phase",
+   "side": null,
+   "state": [
+    "context.phase.middlegame"
+   ],
+   "squares": [],
+   "why": "a back rank has emptied (3 white and 4 black pieces left on them)",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "context.turn",
+   "side": null,
+   "state": [
+    "context.turn.white"
+   ],
+   "squares": [],
+   "why": "White to move",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "king.attack",
+   "side": "us",
+   "state": [
+    "king.attack.more_defenders"
+   ],
+   "squares": [
+    "c1",
+    "e2",
+    "f1",
+    "f3",
+    "f6",
+    "g5"
+   ],
+   "why": "1 attackers (f6) against 5 defenders (c1 e2 f1 f3 g5)",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "king.attack",
+   "side": "them",
+   "state": [
+    "king.attack.more_defenders"
+   ],
+   "squares": [
+    "d8",
+    "e7",
+    "f3",
+    "f6",
+    "f8",
+    "g5"
+   ],
+   "why": "2 attackers (f3 g5) against 4 defenders (d8 e7 f6 f8)",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "king.castled",
+   "side": "us",
+   "state": [
+    "king.castled.kingside"
+   ],
+   "squares": [
+    "g1"
+   ],
+   "why": "White king on g1",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "king.castled",
+   "side": "them",
+   "state": [
+    "king.castled.kingside"
+   ],
+   "squares": [
+    "g8"
+   ],
+   "why": "Black king on g8",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "material.balance",
+   "side": null,
+   "state": [
+    "material.balance.equal"
+   ],
+   "squares": [],
+   "why": "37 against 37",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "material.bishop_pair",
+   "side": "us",
+   "state": [],
+   "squares": [],
+   "why": "both sides have the pair",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "material.bishop_pair",
+   "side": "them",
+   "state": [],
+   "squares": [],
+   "why": "both sides have the pair",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "material.imbalance",
+   "side": null,
+   "state": [],
+   "squares": [],
+   "why": "",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "material.opposite_bishops",
+   "side": null,
+   "state": [],
+   "squares": [],
+   "why": "White has 2, Black 2 bishops",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "material.traded",
+   "side": "us",
+   "state": [],
+   "squares": [],
+   "why": "White has lost 0 queen, 0 rooks and 0 minor pieces",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "material.traded",
+   "side": "them",
+   "state": [],
+   "squares": [],
+   "why": "Black has lost 0 queen, 0 rooks and 0 minor pieces",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "pieces.bad_bishop",
+   "side": "us",
+   "state": [],
+   "squares": [],
+   "why": "",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "pieces.bad_bishop",
+   "side": "them",
+   "state": [],
+   "squares": [],
+   "why": "",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "pieces.bishop_diagonal",
+   "side": "us",
+   "state": [],
+   "squares": [],
+   "why": "",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "pieces.bishop_diagonal",
+   "side": "them",
+   "state": [],
+   "squares": [],
+   "why": "",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "pieces.coordination",
+   "side": "them",
+   "state": [],
+   "squares": [],
+   "why": "",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "pieces.development",
+   "side": null,
+   "state": [],
+   "squares": [],
+   "why": "not the opening",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "pieces.knight_outpost",
+   "side": "us",
+   "state": [],
+   "squares": [],
+   "why": "",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "pieces.queen",
+   "side": "them",
+   "state": [],
+   "squares": [],
+   "why": "",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "pieces.rook_seventh",
+   "side": "us",
+   "state": [],
+   "squares": [],
+   "why": "",
+   "relevance": null,
+   "varied": false
+  },
+  {
+   "id": "pieces.rook_seventh",
+   "side": "them",
+   "state": [],
+   "squares": [],
+   "why": "",
+   "relevance": null,
+   "varied": false
+  }
+ ],
+ "max_dq": 0.5
+}
