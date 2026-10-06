@@ -6,3 +6,4 @@ vendor
 .env
 *.log
 .ipynb_checkpoints
+sae/out/
