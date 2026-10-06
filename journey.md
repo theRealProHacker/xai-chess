@@ -1618,6 +1618,15 @@ Positional:
     - pawn on 4th, 5th or 6th rank
     - pawn on 7th rank
 
+Not done yet:
+- Candidate passer: can become passed through favorable exchanges or a pawn break.
+- Connected passers: adjacent passers that support or advance together.
+- Outside or remote passer: far from the main pawn mass, potentially distracting the enemy king.
+- Rook pawn: has special drawing properties, especially with the wrong-colored bishop.
+- Pawn duo: adjacent pawns on the same rank, often controlling forward squares and retaining flexible advance choices.
+- Majority and minority: numerical superiority on a wing; assess whether it can create a passer or provoke a weakness.
+- Compactness and connectivity: mutually supporting pawns versus scattered targets.
+
 ### SAE in conclusion for now: I don't know
 
 The problem is: we don't actually want to reconstruct exact leela activations, we want to look at how well our features can predict the score and/or check relevance for a specific score. 
@@ -1626,7 +1635,66 @@ The problem is: we don't actually want to reconstruct exact leela activations, w
 
 The first step is probing the features in lc0. The idea is that if the features can be constructed from the layers, we can probably find a way through back-propagation or similar to find some kind of attribution???
 
+I was satisfied with just probes on the embedding layer and layer 5:
 
+    Where layer 5 adds a lot (gain in AUROC over the embedding):
+
+    ┌────────────────────────────────────────┬────────────┬────────────┬────────────────┐
+    │                 Group                  │ Embedding  │  Layer 5   │      Gain      │
+    ├────────────────────────────────────────┼────────────┼────────────┼────────────────┤
+    │ square.control                         │ 0.762      │ 0.943      │ +0.18          │
+    ├────────────────────────────────────────┼────────────┼────────────┼────────────────┤
+    │ threat.mate                            │ 0.727      │ 0.887      │ +0.16          │
+    ├────────────────────────────────────────┼────────────┼────────────┼────────────────┤
+    │ strong / weak                          │ ~0.855     │ 0.96–1.00  │ +0.11 to +0.14 │
+    ├────────────────────────────────────────┼────────────┼────────────┼────────────────┤
+    │ material_win                           │ 0.716      │ 0.827      │ +0.11          │
+    ├────────────────────────────────────────┼────────────┼────────────┼────────────────┤
+    │ threat.material_win                    │ 0.717      │ 0.813      │ +0.10          │
+    ├────────────────────────────────────────┼────────────┼────────────┼────────────────┤
+    │ mate                                   │ 0.893      │ 0.987      │ +0.09          │
+    ├────────────────────────────────────────┼────────────┼────────────┼────────────────┤
+    │ pawn_cover (white/black, now and ever) │ ~0.85–0.92 │ ~0.96–1.00 │ +0.08 to +0.12 │
+    ├────────────────────────────────────────┼────────────┼────────────┼────────────────┤
+    │ pawn.passed, pawn.isolated             │ ~0.96      │ ~0.99      │ +0.03 to +0.04 │
+    └────────────────────────────────────────┴────────────┴────────────┴────────────────┘
+
+    Where layer 5 is worse than the embedding:
+
+    ┌────────────────┬───────────┬─────────┬────────┐
+    │     Group      │ Embedding │ Layer 5 │ Change │
+    ├────────────────┼───────────┼─────────┼────────┤
+    │ long_diagonal  │ 1.000     │ 0.855   │ −0.15  │
+    ├────────────────┼───────────┼─────────┼────────┤
+    │ centralisation │ 1.000     │ 0.966   │ −0.03  │
+    ├────────────────┼───────────┼─────────┼────────┤
+    │ pawn_shield    │ 0.985     │ 0.963   │ −0.02  │
+    ├────────────────┼───────────┼─────────┼────────┤
+    │ control.*      │ ~0.995    │ 0.976   │ −0.02  │
+    ├────────────────┼───────────┼─────────┼────────┤
+    │ mobility.*     │ ~0.99     │ ~0.98   │ −0.01  │
+    ├────────────────┼───────────┼─────────┼────────┤
+    │ route.*        │ ~0.99     │ ~0.98   │ −0.01  │
+    └────────────────┴───────────┴─────────┴────────┘
+
+In general these were the worst (61 included to show the sudden drop)
+
+    ┌─────┬───────────────────────┬──────┬─────────┬───────────┬────────┐
+    │ 61  │ square.control        │ 7    │ 0.943   │ 0.762     │ +0.181 │
+    ├─────┼───────────────────────┼──────┼─────────┼───────────┼────────┤
+    │ 62  │ threat.mate           │ 15   │ 0.887   │ 0.727     │ +0.160 │
+    ├─────┼───────────────────────┼──────┼─────────┼───────────┼────────┤
+    │ 63  │ long_diagonal         │ 2    │ 0.855   │ 1.000     │ −0.145 │
+    ├─────┼───────────────────────┼──────┼─────────┼───────────┼────────┤
+    │ 64  │ material_win          │ 15   │ 0.827   │ 0.716     │ +0.111 │
+    ├─────┼───────────────────────┼──────┼─────────┼───────────┼────────┤
+    │ 65  │ threat.material_win   │ 15   │ 0.813   │ 0.717     │ +0.096 │
+    └─────┴───────────────────────┴──────┴─────────┴───────────┴────────┘
+
+- [Full table](./lc0-probe/results_square_encoder.md)
+- [Chart: score by feature family](lc0-probe/square_families.png)
+
+Most importantly the encoder is almost perfect (> 90% > 0.95) except for the tactical part
 
 ### Compute
 
