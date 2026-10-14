@@ -104,7 +104,7 @@ Main positional evaluation criterias:
 
 ### Objective 1, third pass: Simple Validation on Feng et al. (Minimal Maynard Coding)
 
-TODO -> next week
+To-Do for next week
 
 ### Objective 2: Existing work
 
@@ -432,7 +432,7 @@ So, let's look more at the chess literature. Specifically, literature from the I
 
 Their theses:
 1. For each move think about and evaluate the threats and consequences
-2. Keep a TODO list with goals you want to achieve (over 3-10 moves)
+2. Keep a To-Do list with goals you want to achieve (over 3-10 moves)
 3. Each move should either give you an advantage or remove an advantage from your opponent
 
 #### What are these advantages?
@@ -1263,6 +1263,7 @@ Problem:
     4. could loose relation to DSL content
 Solution: 
     - build some kind of transformer GAN model??? -> maybe inspired by DiffusionGemma???
+        -> language diffusion models can take corrections while they generate!!?
     - some more supervised data
     - reconstruction loss??
 
@@ -1618,6 +1619,8 @@ Positional:
     - pawn on 4th, 5th or 6th rank
     - pawn on 7th rank
 
+**This results in 30k features per square not just 1k**
+
 Not done yet:
 - Candidate passer: can become passed through favorable exchanges or a pawn break.
 - Connected passers: adjacent passers that support or advance together.
@@ -1627,15 +1630,11 @@ Not done yet:
 - Majority and minority: numerical superiority on a wing; assess whether it can create a passer or provoke a weakness.
 - Compactness and connectivity: mutually supporting pawns versus scattered targets.
 
-### SAE in conclusion for now: I don't know
-
-The problem is: we don't actually want to reconstruct exact leela activations, we want to look at how well our features can predict the score and/or check relevance for a specific score. 
-
 ### Probing on the per-square features
 
 The first step is probing the features in lc0. The idea is that if the features can be constructed from the layers, we can probably find a way through back-propagation or similar to find some kind of attribution???
 
-I was satisfied with just probes on the embedding layer and layer 5:
+I was satisfied with just probes on the embedding layer and layer 5 for the beginning
 
     Where layer 5 adds a lot (gain in AUROC over the embedding):
 
@@ -1694,7 +1693,7 @@ In general these were the worst (61 included to show the sudden drop)
 - [Full table](./lc0-probe/results_square_encoder.md)
 - [Chart: score by feature family](lc0-probe/square_families.png)
 
-Most importantly the encoder is almost perfect (> 90% > 0.95) except for the tactical part
+Most importantly the encoder is almost perfect (> 90% of feature families > 0.95 fvu) except for the tactical part
 
 I then also tested the hypothesis that tactical patterns increase at later stages, which turned out to be only partially true, specifically however for the most difficult (`material_win`, `threat.material_win`, `mate` and `threat.mate`):
 
@@ -1724,8 +1723,8 @@ I then also tested the hypothesis that tactical patterns increase at later stage
 
 ### Building the Decoder
 
-The decoder makes the per-square SAE complete. On layer 5 the FUV (fraction of unexplained variance) is 39%, i.e. we can explain 61% of variance. If we include the square identity, we can almost exactly reconstruct the embedding (the input), which makes sense. Only an error of 0.2% remains. So, I wanted to run the decoder on the whole network: 
-
+The decoder makes the per-square SAE complete. On layer 5 the FVU (fraction of unexplained variance) is 39%, i.e. we can explain 61% of variance. If we include the square identity, we can almost exactly reconstruct the embedding (the input), which makes sense. Only an error of 0.2% remains. So, I wanted to run the decoder on the whole network: 
+<!-- 
     ┌───────────┬─────────────┬───────────────────┬──────────────┐
     │    tap    │ square only │ features + square │ features add │
     ├───────────┼─────────────┼───────────────────┼──────────────┤
@@ -1750,15 +1749,260 @@ The decoder makes the per-square SAE complete. On layer 5 the FUV (fraction of u
     │ layer 8   │ 0.879       │ 0.549             │ 0.33         │
     ├───────────┼─────────────┼───────────────────┼──────────────┤
     │ layer 9   │ 0.897       │ 0.680             │ 0.22         │
-    └───────────┴─────────────┴───────────────────┴──────────────┘
+    └───────────┴─────────────┴───────────────────┴──────────────┘ -->
 
-Features only (no square identity, just a global bias) is within 0.01 of features + square from layer 1 on; only the embedding needs the square (0.156 vs 0.002).
+![Chart: decoder per layer](lc0-probe/square_decoder_grid.png)
 
-- [Chart: decoder per layer](lc0-probe/square_decoder_grid.png)
+Note: we only use features that occur at least 20 times in the training set. On average 36.5 bits are on for any given square. 
+
+What we can see here quite clearly is "where in the network" our features "are located". They mainly "live" in the first few layers (see fourth graph, "Features add" peaks at L1 and L2), which absolutely makes sense because the features are simple in nature. The deeper into the network we go, the more attention has happened and the more difficult it is for our features to compete with the model. We already saw how some features are more advanced and appear more clearly later and others are more clear in the beggining. On top of that, there might be some information which is only relevant for the policy head, but not for the value head. The other problem of course is, that features are still not complete and it is difficult to determine when they would be. 
+
+Out of curiosity, I also tried an MLP run (with 10% less data due to early stopping)
+
+![Ridge vs MLP](./lc0-probe/square_decoder_ridge_mlp.png)
+
+But first, just to check, I wanted to look at decoding dense1, dense2 and the final output of the value head. 
+Interestingly this overfits massively. So, I applied scaling laws and just added more data. My conclusion: if you trained this at 1M, 10M or 100M, at some point something should happen.
+However, it's probably not the best approach, especially because at this point we are using per-square to predict a global value. Additionally, of course, the trend continues that the farther we go into the model, the more difficult it is to predict it directly.
+
+    ┌──────────────┬───────┬───────┬───────┬───────┐
+    │              │ 20k   │ 50k   │ 100k  │ 151k  │
+    ├──────────────┼───────┼───────┼───────┼───────┤
+    │ dense1 train │ 0.320 │ 0.333 │ 0.299 │ 0.280 │
+    │ dense1 test  │ 0.709 │ 0.625 │ 0.562 │ 0.525 │
+    │ dense1 gap   │ 0.39  │ 0.29  │ 0.26  │ 0.25  │
+    ├──────────────┼───────┼───────┼───────┼───────┤
+    │ dense2 train │ 0.323 │ 0.426 │ 0.385 │ 0.226 │
+    │ dense2 test  │ 0.738 │ 0.671 │ 0.589 │ 0.546 │
+    │ dense2 gap   │ 0.42  │ 0.25  │ 0.20  │ 0.32  │
+    ├──────────────┼───────┼───────┼───────┼───────┤
+    │ output train │ 0.546 │ 0.368 │ 0.318 │ 0.437 │
+    │ output test  │ 0.815 │ 0.730 │ 0.664 │ 0.622 │
+    │ output gap   │ 0.27  │ 0.36  │ 0.35  │ 0.19  │
+    └──────────────┴───────┴───────┴───────┴───────┘
+
+Possible extrapolation
+
+![Extrapolate direct value decoding](./lc0-probe/value_decoder_scaling.png)
+
+Now, we also want to remove the policy bias in reconstruction, i.e. the information we can't reconstruct because it is not meant for the value head, but for the policy head. For this we could possibly add extra features for the policy, but my idea was to measure not only the reconstruction error on the layer for the layer itself, but also on the win-draw-loss (WDL) output from that layers forward pass. 
+
+    ┌───────────────────────────────┬───────────────┬─────────────┬───────────────┬─────────────┐
+    │             layer             │ ln1 token FVU │ ln1 WDL FVU │ ln2 token FVU │ ln2 WDL FVU │
+    ├───────────────────────────────┼───────────────┼─────────────┼───────────────┼─────────────┤
+    │ embedding (/attn_body/rehape) │ 0.003         │ 0.031       │               │             │
+    ├───────────────────────────────┼───────────────┼─────────────┼───────────────┼─────────────┤
+    │ 0                             │ 0.170         │ 0.092       │ 0.045         │ 0.291       │
+    ├───────────────────────────────┼───────────────┼─────────────┼───────────────┼─────────────┤
+    │ 1                             │ 0.179         │ 0.476       │ 0.110         │ 0.470       │
+    ├───────────────────────────────┼───────────────┼─────────────┼───────────────┼─────────────┤
+    │ 2                             │ 0.175         │ 0.579       │ 0.138         │ 0.485       │
+    ├───────────────────────────────┼───────────────┼─────────────┼───────────────┼─────────────┤
+    │ 3                             │ 0.249         │ 0.631       │ 0.221         │ 0.631       │
+    ├───────────────────────────────┼───────────────┼─────────────┼───────────────┼─────────────┤
+    │ 4                             │ 0.284         │ 0.747       │ 0.240         │ 0.728       │
+    ├───────────────────────────────┼───────────────┼─────────────┼───────────────┼─────────────┤
+    │ 5                             │ 0.365         │ 0.861       │ 0.314         │ 0.825       │
+    ├───────────────────────────────┼───────────────┼─────────────┼───────────────┼─────────────┤
+    │ 6                             │ 0.398         │ 0.868       │ 0.315         │ 0.920       │
+    ├───────────────────────────────┼───────────────┼─────────────┼───────────────┼─────────────┤
+    │ 7                             │ 0.424         │ 1.150       │ 0.459         │ 1.050       │
+    ├───────────────────────────────┼───────────────┼─────────────┼───────────────┼─────────────┤
+    │ 8                             │ 0.524         │ 0.990       │ 0.481         │ 1.134       │
+    ├───────────────────────────────┼───────────────┼─────────────┼───────────────┼─────────────┤
+    │ 9                             │ 0.664         │ 1.043       │ 0.689         │ 0.822       │
+    └───────────────────────────────┴───────────────┴─────────────┴───────────────┴─────────────┘
+
+This is what happens if we just do the forward path on the decoded embedding layer through the whole network
+
+    ┌───────────┬─────────────┬────────────┬─────────────┬────────────┐
+    │   layer   │ ln1 forward │ ln1 direct │ ln2 forward │ ln2 direct │
+    ├───────────┼─────────────┼────────────┼─────────────┼────────────┤
+    │ embedding │ 0.003       │ 0.003      │             │            │
+    ├───────────┼─────────────┼────────────┼─────────────┼────────────┤
+    │ 0         │ 0.008       │ 0.170      │ 0.004       │ 0.045      │
+    ├───────────┼─────────────┼────────────┼─────────────┼────────────┤
+    │ 1         │ 0.004       │ 0.179      │ 0.003       │ 0.110      │
+    ├───────────┼─────────────┼────────────┼─────────────┼────────────┤
+    │ 2         │ 0.004       │ 0.175      │ 0.004       │ 0.138      │
+    ├───────────┼─────────────┼────────────┼─────────────┼────────────┤
+    │ 3         │ 0.005       │ 0.249      │ 0.005       │ 0.221      │
+    ├───────────┼─────────────┼────────────┼─────────────┼────────────┤
+    │ 4         │ 0.005       │ 0.284      │ 0.005       │ 0.240      │
+    ├───────────┼─────────────┼────────────┼─────────────┼────────────┤
+    │ 5         │ 0.007       │ 0.365      │ 0.006       │ 0.314      │
+    ├───────────┼─────────────┼────────────┼─────────────┼────────────┤
+    │ 6         │ 0.007       │ 0.398      │ 0.006       │ 0.315      │
+    ├───────────┼─────────────┼────────────┼─────────────┼────────────┤
+    │ 7         │ 0.007       │ 0.424      │ 0.008       │ 0.459      │
+    ├───────────┼─────────────┼────────────┼─────────────┼────────────┤
+    │ 8         │ 0.009       │ 0.524      │ 0.010       │ 0.481      │
+    ├───────────┼─────────────┼────────────┼─────────────┼────────────┤
+    │ 9         │ 0.015       │ 0.664      │ 0.020       │ 0.689      │
+    ├───────────┼─────────────┼────────────┼─────────────┼────────────┤
+    │ WDL       │ 0.031       │            │             │            │
+    └───────────┴─────────────┴────────────┴─────────────┴────────────┘
+
+I tried training on WDL directly, but it is just extremely difficult to train the decoder through the whole network directly on WDL with so little epochs and data. It is almost like trying to retrain the whole engine. Maybe some hybrid could work, i.e. pretraining on the layer and then optimizing on the WDL. 
+
+I instead trained on layer 5 and wdl simultaneously (20k positions), because the pretraining wouldn't stay by it's own
+
+    ┌────────────────────────┬───────────┬─────────┐
+    │        decoder         │ token FVU │ WDL FVU │
+    ├────────────────────────┼───────────┼─────────┤
+    │ tokens only (epoch 15) │ 0.367     │ 0.758   │
+    ├────────────────────────┼───────────┼─────────┤
+    │ tokens + WDL, epoch 1  │ 0.617     │ 0.519   │
+    ├────────────────────────┼───────────┼─────────┤
+    │ tokens + WDL, epoch 2  │ 0.583     │ 0.524   │
+    ├────────────────────────┼───────────┼─────────┤
+    │ tokens + WDL, epoch 3  │ 0.558     │ 0.532   │
+    ├────────────────────────┼───────────┼─────────┤
+    │ tokens + WDL, epoch 4  │ 0.532     │ 0.478   │
+    ├────────────────────────┼───────────┼─────────┤
+    │ tokens + WDL, 5 epochs │ 0.512     │ 0.510   │
+    ├────────────────────────┼───────────┼─────────┤
+    │ 10 epochs (best of 20) │ 0.499     │ 0.488   │
+    └────────────────────────┴───────────┴─────────┘
+
+This seems to work to some degree, but doesn't get past the fundemental problem. 
+
+Another option was just trying more positions
+
+    ┌───────────┬───────────┬─────────┐
+    │ positions │ token FVU │ WDL FVU │
+    ├───────────┼───────────┼─────────┤
+    │ 20,000    │ 0.365     │ 0.861   │
+    ├───────────┼───────────┼─────────┤
+    │ 50,000    │ 0.352     │ 0.772   │
+    ├───────────┼───────────┼─────────┤
+    │ 100,000   │ 0.344     │ 0.727   │
+    ├───────────┼───────────┼─────────┤
+    │ 151,614   │ 0.341     │ 0.708   │
+    └───────────┴───────────┴─────────┘
+
+This also works on the embedding layer
+
+    ┌──────────────┬───────────┬─────────┐
+    │              │ token FVU │ WDL FVU │
+    ├──────────────┼───────────┼─────────┤
+    │ 20k decoder  │ 0.003     │ 0.031   │
+    ├──────────────┼───────────┼─────────┤
+    │ 100k decoder │ 0.002     │ 0.010   │
+    └──────────────┴───────────┴─────────┘
+
+Now the question still remains: How do we get the relevance/feature attribution from our decoders. 
+
+### Feature attribution
+
+Our features aren't the best there are, but they are a start. 
+
+![Feature map](./image/journey/Feature%20map.png)
+
+My thought process is followingly:
+1. If we start at the very back of the net, we can almost perfectly reconstruct embeddings, but most of it is just from square identity and then we have to fight through "the deep jungle of attention". In the end, your attributions will be very weak and mostly trivial. 
+2. If we start further at the front, we have an increasing reconstruction loss the more we move to the front, but the attribution becomes clearer as well.
+3. Therefore we should use a hybrid approach were we combine the results in some way?
+4. The best would be to have some kind of gold standard for attribution, maybe 500 positions where we clearly define what is relevant. This could let us actually compare different relevance metrics and show where they succeed and where they fail 
+5. I feel like **attributions are currently not able to express/differentiate** between different logical constructs. For example, whether features are seperately important(+) or if they are only important together (AND/x) or if any are important (e.g. one side is up a pawn, then any pawn is relevant, but really it's just important that one side is up a pawn). This is especially critical if we try to compare negatives (i.e. features that are not on, but could be). Of course it would be amazing to manifest a queen somewhere but that's not interesting (however we could use it to find the optimal place for a piece and checking how far away it is from there)
+6. I believe there has to be some comparison to the "normal" relevance of a feature to account for this, i.e. a relative relevance
+7. What I like about some of these methods is the possibility to do impossible edits e.g. manifest half a queen and looking at what the network invents there. Because they are differentiable and mostly linear, you would expect some sensible conclusion, e.g. half a queen is worth half that of a full queen? But is half a queen there and half a queen here also as good as one full queen, or is it even better?
+
+> Currently we have per-square features and global features, maybe we need a bit more clear cross-square features
+
+> Also, still open but interesting: we could go back to SF8's hand-crafted eval function, it would definitely give us some interesting information. Even if it's worse than modern engines, it's still much better than any human and it's an expert model not a learned NN we have to interpret. 
+
+> **Fundamental problem**: feature attribution doesn't really solve our fundamental correlation vs causation problem
+
+#### 1. Just trying stuff: Feature attribution on features through embedding layer and attention
+
+My first try was to use the embedding decoder with a 1% error on the WDL output and just do feature attribution on it. As I said, this discards most of the interesting information which can't be in the embedding layer (e.g. tactics, complex cross-square patterns)
+
+The immediately obvious problem: The occupant feature is way too dominant, which makes sense of course, also simply because it is the most frequent by far; we are still throwing out features that occur less than 20 times, which is also the most distinctive and tactical of course. 
+
+![Demo](./image/journey/Feature%20attribution%20demo.png)
+
+I also wanted to compare the features to their usual relevance. Queens are always somewhat relevant, so probably it shouldn't count if a queen is just relevant, it shuld be more relevant than usual.
+
+![Relative relevance demo](./image/journey/Feature%20attribution%20relative%20to%20usual.png)
+
+Still the demo just doesn't show that the only winning move by far is Queen f6 because it forces mate or Black to sacrifice their queen. 
+
+So, I choose less tactical positions for the demo and added an option to hide certain families, like occupies. 
+
+On top, I also tried training the model with all features, even those that never appear, which slightly decreases reconstruction error:
+
+    ┌─────────────────────────────┬───────────┬───────────┬────────────────────────────────────────┐
+    │  decoder (100k, embedding)  │ bits used │ token FVU │                WDL FVU                 │
+    ├─────────────────────────────┼───────────┼───────────┼────────────────────────────────────────┤
+    │ bits seen at least 20 times │ 17,165    │ 0.002     │ 0.010 (first 2,000 held-out positions) │
+    ├─────────────────────────────┼───────────┼───────────┼────────────────────────────────────────┤
+    │ all bits                    │ 30,839    │ 0.0016    │ 0.0086 (all held-out positions)        │
+    └─────────────────────────────┴───────────┴───────────┴────────────────────────────────────────┘
+
+However, this still doesn't really make the cut, so we should probably move up a layer
+
+### 2. Choosing the best layer
+
+As we discussed, the embedding layer is simply not good, because it reduces some of the more interesting features and mostly just relies on the piece squares. Instead, we want a layer where we still have a very low reconstruction loss but that doesn't rely on the pieces positions anymore. This is were our earlier features add chart comes in handy. It is maximised for Layers L1 and L2, specifically L2. So, let's try that instead. 
+
+    ┌─────────────┬───────────┬─────────┐
+    │   L2 ln1    │ Token FVU │ WDL FVU │
+    ├─────────────┼───────────┼─────────┤
+    │ 20k, min 20 │ 0.175     │ 0.579   │
+    ├─────────────┼───────────┼─────────┤
+    │ 100k, min 1 │ 0.162     │ 0.438   │
+    └─────────────┴───────────┴─────────┘
 
 ### Compute
 
 As soon as I got access to the compute cluster, I tried to learn how to get a cluster running, initially just using vllm inference. The next step would then be doing CLIP, fine-tuning and RL, all using LoRA of course. I had applied for 64 GBs and 8 CPU cores, which should even be enough for the highly-praised Qwen3.8-27B. 
 
+I first tried to run the full model (55 GB), but then I saw that I would probably only get a "small" GPU (2x 1080 Ti = 22 GB), for which I got the quantized "GGUF" version from Unsloth (17 GB). 
 
+1. Install `uv` and latest python, create a venv and install dependencies (e.g. huggingface_hub)
+    - `curl -LsSf https://astral.sh/uv/install.sh | sh`
+    - `uv python install 3.13`
+    - `uv venv --python 3.13 ~/vllm`
+    - `source ~/vllm/bin/activate`
+    - `uv pip install -U vllm -v`
+2. Activate the venv
+3. Set the HF `export HF_HOME=/scratch/$USER/hf`
+4. tmux `tmux new -s dl`
+5. Download the full model `hf download Qwen/Qwen3.8-27B`
+6. Notice that doesn't work 
+7. Create the download folder `mkdir -p /scratch/$USER/gguf`
+8. Download 4-bit GGUF `hf download bartowski/Qwen3.8-27B-GGUF --include "*Q4_K_M*" --local-dir /scratch/$USER/gguf`
+9. Clone llama.cpp source `cd ~ && git clone --depth 1 https://github.com/ggml-org/llama.cpp && cd llama.cpp`
+10. Load toolchain `module load GCC/14.2.0 CMake/3.31.3-GCCcore-14.2.0 CUDA/12.9.1`
+11. Build llama.cpp `cmake -B build -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=61`
+
+For inference
+
+```
+srun --qos=hiprio --partition=gpu --gres=gpu:2 --cpus-per-task=8 --mem=32G --time=3:00:00 --pty bash
+module load GCC/14.2.0 CMake/3.31.3-GCCcore-14.2.0 CUDA/12.9.1
+~/llama.cpp/build/bin/llama-cli -m /scratch/$USER/gguf/Qwen3.8-27B-Q4_K_M.gguf -ngl 99 -c 8192
+```
+
+    > Hello
+
+    [Start thinking]
+
+    The user simply said "Hello". This is a basic greeting, so I should respond warmly and briefly, inviting them to continue the conversation.
+    [End thinking]
+
+    Hello! How can I help you today?
+
+    [ Prompt: 53.5 t/s | Generation: 15.3 t/s ]
+
+### CLIP
+
+The first step to building an oracle is doing "CLIP" essentially, the goal is to bring the leela activations into the same space as the LLM tokens.
+
+The main difference to existing CLIP on chess or LLM oracles is that the first just reads the chess board itself, which leaves all the thinking to the LLM, and that LLM activations are more like other LLMs activations which could mean that it is easier to move them into the right space. 
+
+<!-- The difficult thing about supervised CLIP is having the right activation to text matching -->
+
+The other approach would be simple fine-tuning, where we just put the raw activations into the LLM and train it to read the activations somehow. 
 
