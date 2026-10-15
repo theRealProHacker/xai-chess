@@ -132,13 +132,14 @@ def batch(idx, rng):
     lab = torch.full(mask.shape, -100, dtype=torch.long)
     for k, l in enumerate(labels): lab[k, :len(l)] = torch.tensor(l)
     # logits only where some row predicts an answer token: the 248k-wide output layer dominates memory
-    keep = torch.arange(min(l.index(next(t for t in l if t != -100)) for l in labels) - 1, mask.shape[1] - 1)
-    return x, mask, lab.to(dev), keep                                    # CPU index: valid on any GPU
+    # a slice, not a tensor: accelerate moves tensor arguments to GPU 0, but the hidden states end on the last GPU
+    keep = slice(min(l.index(next(t for t in l if t != -100)) for l in labels) - 1, mask.shape[1] - 1)
+    return x, mask, lab.to(dev), keep
 
 
 def loss_fn(x, mask, lab, keep):
     logits = llm(inputs_embeds=x, attention_mask=mask, logits_to_keep=keep, use_cache=False).logits
-    y = lab[:, keep + 1].flatten().to(logits.device)                  # with 2 GPUs the logits sit on the last one
+    y = lab[:, keep.start + 1:keep.stop + 1].flatten().to(logits.device)                  # with 2 GPUs the logits sit on the last one
     return nn.functional.cross_entropy(logits.float().flatten(0, 1), y, ignore_index=-100)
 
 
