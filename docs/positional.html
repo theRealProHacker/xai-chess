@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Positional &middot; xai-chess</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.base.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.brown.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.cburnett.css">
+<style>
+  :root{
+    --shadow-s:
+      inset 0 1px 2px #ffffff30,
+      0 1px 2px #00000030,
+      0 2px 4px #00000015;
+    --shadow-m:
+      inset 0 1px 2px #ffffff50,
+      0 2px 4px #00000030,
+      0 4px 8px #00000015;
+    /* Blue vs orange: the one hue pair that survives red-green colour blindness. */
+    --good:#0b3d6b; --bad:#a35c00; --quiet:#6b6b6b;
+    --arrow-w:#062f52; --arrow-b:#40190a;
+  }
+  a.back{color:#8a8a8a;text-decoration:none;font-size:.9rem}
+  a.back:hover{color:#0b5fa5}
+  p.intro{margin:0 0 .4rem}
+  details.intro{color:#555;font-size:.9rem;margin:0 0 1.2rem}
+  details.intro summary{cursor:pointer;color:#8a8a8a}
+  details.intro summary:hover{color:#0b5fa5}
+  details.intro p{margin:.4rem 0 0}
+
+  #board{width:100%;aspect-ratio:1/1;margin:1rem 0 .6rem;
+         box-shadow:var(--shadow-s);border-radius:4px}
+  /* Pieces: chessground ships shapes at z-index 2, the same layer as the pieces, with the layer
+     carrying its own opacity: arrowheads landed under pieces and every ring rendered paler
+     than its legend swatch. Above the pieces, fully opaque. */
+  #board .cg-shapes{z-index:3;opacity:1}
+  /* Space colour-codes squares, so the board carries no colour of its own, and tints and
+     arrows go UNDER the pieces: squares < tints < arrows < pieces. */
+  #board.space cg-board{background-color:#e8e6e1}
+  #board.space .cg-custom-svgs{z-index:0}
+  #board.space .cg-shapes{z-index:1}
+  #board coords.files{text-transform:lowercase}
+  #board coords coord{color:#2b2b2b !important;
+      text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff;font-weight:600}
+
+  button{font:inherit;font-size:.9rem;padding:.5rem .9rem;border:1px solid #e4e4e4;border-radius:8px;
+      background:#fff;color:#1a1a1a;cursor:pointer;box-shadow:var(--shadow-s);
+      transition:border-color .12s,background .12s,box-shadow .12s}
+  button:hover{border-color:#0b5fa5;background:#fafafa;box-shadow:var(--shadow-m)}
+  button.on{background:#0b5fa5;border-color:#0b5fa5;color:#fff}
+  button.on:hover{background:#0a5390;border-color:#0a5390}
+  /* The view switch, as on the attribution page. */
+  .view{display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 .6rem}
+  .view button.on{background:#1a1a1a;border-color:#1a1a1a;color:#fff}
+  .view button.on:hover{background:#333;border-color:#333}
+  .btns{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin:0 0 .35rem}
+  #mode,#spaceLayers{display:inline-flex;flex-wrap:wrap;gap:.4rem}
+  #spaceLayers{margin-left:.5rem}
+
+  /* Two legend lines reserved so the board does not move between modes. */
+  #legends{min-height:3.6rem;display:flow-root;margin-top:.7rem}
+  .legend{display:flex;flex-wrap:wrap;gap:.45rem 1.1rem;color:#555;font-size:.82rem}
+  .lgroup{display:flex;flex-wrap:wrap;gap:.45rem 1.1rem}
+  .legend span{display:inline-flex;align-items:center;gap:.4rem}
+  .legend i{width:.85rem;height:.85rem;border-radius:3px;display:inline-block;border:1px solid #00000018}
+  .legend.rings i{width:.9rem;height:.9rem;border-radius:50%;border:2.5px solid}
+  .legend i.good{border-color:var(--good)}
+  .legend i.bad{border-color:var(--bad)}
+  .legend i.quiet{border-color:var(--quiet)}
+  .legend i.hatch{background:#b3b1ac;background-image:repeating-linear-gradient(45deg,
+      #5f5c56 0 2px,transparent 2px 6px)}
+  .legend svg{flex:none}
+
+  .readout{border:1px solid #e4e4e4;border-radius:10px;padding:.9rem 1.05rem;
+      margin:1.1rem 0;box-shadow:var(--shadow-s)}
+  .readout .verdict{font-size:1.15rem;font-weight:600;letter-spacing:-.01em;margin-bottom:.4rem}
+  .readout .verdict.w{color:var(--arrow-w)}
+  .readout .verdict.b{color:var(--arrow-b)}
+  .readout .verdict.even{color:#555}
+  .readout .body,.readout .counts{font-size:.85rem;line-height:1.6;color:#333;font-variant-numeric:tabular-nums}
+  /* Piece quality emits one paragraph per piece. Uncapped it grew the page by ~900px on a
+     mode switch, moving the button just clicked out from under the cursor. */
+  .readout .body{white-space:pre-wrap;height:16em;overflow-y:auto}
+  .readout .counts{min-height:3em}
+
+  .gallery{display:flex;flex-wrap:wrap;gap:.4rem;margin:1.25rem 0 .5rem}
+  .gcap{color:#555;font-size:.9rem;min-height:1.2em;margin:0 0 .75rem}
+
+  .fenrow{display:flex;align-items:center;gap:.4rem;margin:.75rem 0}
+  /* 12px: at 13px the longest gallery FENs overrun the field and stop mid-token. */
+  .fenrow input{flex:1;min-width:0;box-sizing:border-box;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      padding:.5rem .6rem;border:1px solid #e4e4e4;border-radius:8px;color:#1a1a1a}
+  .fenrow input:focus{outline:none;border-color:#0b5fa5}
+  .err{color:#b00020;font-size:.85rem;min-height:1.1em;margin:.1rem 0 .4rem}
+  /* At phone width the buttons squeeze the FEN field down to a few characters. */
+  @media (max-width:430px){
+    .fenrow{flex-wrap:wrap}
+    .fenrow input{flex:1 0 100%;order:-1}
+    #spaceLayers{margin-left:0}
+  }
+  [hidden]{display:none !important}
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; xai-chess</a>
+  <h1>Positional</h1>
+  <p class="intro">What each piece is doing, and who holds each square. No engine.</p>
+  <details class="intro"><summary>How it is read</summary>
+    <p id="about"></p><p id="caption"></p></details>
+
+  <div class="view" id="view" role="group" aria-label="Analysis">
+    <button data-view="pieces">Pieces</button>
+    <button data-view="space">Space</button>
+  </div>
+  <div class="btns">
+    <span id="mode" role="group" aria-label="What to show">
+      <button data-mode="king" data-view="pieces">King safety</button>
+      <button data-mode="quality" data-view="pieces">Piece quality</button>
+      <button data-mode="space" data-view="space">Control</button>
+      <button data-mode="pawns" data-view="space">Pawns</button>
+      <button data-mode="files" data-view="space">Files</button>
+      <button data-mode="holes" data-view="space">Holes</button>
+    </span>
+    <span id="spaceLayers">
+      <button id="tControl" class="on">&#10003; Shading</button>
+      <button id="tArrows" class="on">&#10003; Arrows</button>
+    </span>
+  </div>
+
+  <div id="legends">
+    <div class="legend rings" id="legend-king">
+      <span><i class="good"></i>Shield pawn</span>
+      <span><i class="quiet"></i>Flight square</span>
+      <span><svg width="26" height="10" aria-hidden="true"><path d="M1 5h16" stroke="var(--bad)"
+        stroke-width="3"/><path d="M16 1l8 4-8 4z" fill="var(--bad)"/></svg>Enemy piece bearing on the zone</span>
+    </div>
+    <div class="legend rings" id="legend-quality" hidden>
+      <span><i class="good"></i>Attacking something</span>
+      <span><i class="bad"></i>Tied down, or out of play</span>
+      <span>Unmarked: free</span>
+    </div>
+    <!-- Six keys never fit one line, so they are grouped to make the wrap land between
+         the shading keys and the arrow keys rather than splitting a pair. -->
+    <div class="legend" id="legend-space" hidden>
+      <div class="lgroup">
+        <span><i style="background:#bcd0e0"></i>White controls</span>
+        <span><i style="background:#8d7c66"></i>Black controls</span>
+        <span><i class="hatch"></i>Contested</span>
+        <span><i style="background:#dcdad5"></i>Neither</span>
+      </div>
+      <div class="lgroup">
+        <span><svg width="26" height="10" aria-hidden="true"><path d="M1 5h16" stroke="var(--arrow-w)"
+          stroke-width="3"/><path d="M16 1l8 4-8 4z" fill="var(--arrow-w)"/></svg>White chain</span>
+        <span><svg width="26" height="10" aria-hidden="true"><path d="M1 5h16" stroke="var(--arrow-b)"
+          stroke-width="3"/><path d="M16 1l8 4-8 4z" fill="var(--arrow-b)"/></svg>Black chain</span>
+      </div>
+    </div>
+    <div class="legend" id="legend-pawns" hidden>
+      <span><i style="background:#8fbf8f"></i>Passed</span>
+      <span><i style="background:#e0a86a"></i>Isolated</span>
+      <span><i style="background:#c9a0d0"></i>Backward</span>
+      <span><i style="background:#c9c46a"></i>Doubled</span>
+      <span><i style="background:#dcdad5"></i>Plain pawn</span>
+    </div>
+    <div class="legend" id="legend-files" hidden>
+      <span><i style="background:#8fbf8f"></i>Open</span>
+      <span><i style="background:#bcd0e0"></i>Half-open for White</span>
+      <span><i style="background:#8d7c66"></i>Half-open for Black</span>
+      <span><i style="background:#dcdad5"></i>Closed</span>
+    </div>
+    <div class="legend" id="legend-holes" hidden>
+      <span><i style="background:#bcd0e0"></i>Hole in White’s camp</span>
+      <span><i style="background:#8d7c66"></i>Hole in Black’s camp</span>
+      <span><i style="background:#dcdad5"></i>Not a hole</span>
+    </div>
+  </div>
+
+  <div id="board"></div>
+
+  <div class="readout">
+    <div class="verdict" id="verdict">&nbsp;</div>
+    <div class="body" id="body">&nbsp;</div>
+    <div class="counts" id="counts" hidden>&nbsp;</div>
+  </div>
+
+  <div class="gallery" id="gallery"></div>
+  <p class="gcap" id="gcap"></p>
+
+  <div class="fenrow">
+    <input id="fen" spellcheck="false" aria-label="FEN">
+    <button id="loadBtn">Load</button>
+    <button id="flipBtn">Flip board</button>
+  </div>
+  <p class="err" id="err"></p>
+
+<script type="module">
+import { Chess } from './vendor/chess.js';
+import { Chessground } from './vendor/chessground/chessground.min.js';
+
+// One gallery per mode, chosen so that every key in that mode's legend turns up somewhere.
+const GALLERIES = {
+  // Pieces view.
+  king: [
+    {name:'Intact', cap:'Both kings castled behind three pawns. Two of them have already advanced.',
+     fen:'r4rk1/pp2ppbp/2n3p1/q7/2BPP3/2N1BP2/PP4PP/R2Q1RK1 b - - 0 13'},
+    {name:'Shield broken', cap:'The g-pawn is gone, the queen is on g7, and the king has nowhere to step.',
+     fen:'r1b2rk1/pp1n1pQp/2pbp3/3p4/3P1B2/2NBP3/PPP2PPP/2KR3R b - - 0 13'},
+    {name:'Still in the centre', cap:'Neither king has castled; both can still do it.',
+     fen:'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 6 4'},
+    {name:'Opposite wings', cap:'White went long, Black short. Each shield is a different shape.',
+     fen:'r1b2rk1/pp1n1ppp/2pbpq2/3p4/3P1B2/2NBPN2/PPPQ1PPP/2KR3R w - - 6 11'},
+  ],
+  quality: [
+    {name:'Out of play', cap:'Three white pieces have not moved and cannot do anything yet.',
+     fen:'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 6 4'},
+    {name:'Tied down', cap:'The a1 rook cannot leave: a2 falls the moment it does.',
+     fen:'r4rk1/pp3p1p/2n1p1p1/q7/3P4/2P1BN2/P4PPP/R2Q1RK1 w - - 0 16'},
+    {name:'Two jobs', cap:'The bishop hits the rook on g7 and is the only thing holding a3.',
+     fen:'r5k1/6rp/8/8/8/P7/1B3PPP/6K1 w - - 0 1'},
+    {name:'Bishops and pawns', cap:'Each bishop counts the pawns standing on its own colour.',
+     fen:'r4rk1/pp2bppp/2p1pn2/3p4/3P1B2/2NBP3/PP3PPP/2R2RK1 b - - 4 14'},
+  ],
+  // Space view. Textbook space structures first: a symmetric control map is a dead first
+  // impression.
+  space: [
+    // f5 goes to Black 3-1 (Qa5 along the empty fifth, Be6, g6), so the caption claims d5 only.
+    {name:'Maróczy', cap:'c4 and e4 clamp d5; Black holds f5.',
+     fen:'r4rk1/pp2ppbp/3pbnp1/q7/2P1P3/2N1B3/PP1QBPPP/R4RK1 w - - 6 12'},
+    {name:'French Advance', cap:'Opposite chains: White points at the kingside, Black at the queenside.',
+     fen:'r1b1kb1r/pp2nppp/1qn1p3/2ppP3/3P4/2P2N2/PP2BPPP/R1BQK2R w KQkq - 2 7'},
+    {name:'King’s Indian', cap:'Locked centre. White plays the queenside, Black the kingside.',
+     fen:'r1bq1rk1/ppp1npbp/3p1np1/3Pp3/2P1P3/2N2P2/PPQBB1PP/R3NRK1 w - - 0 11'},
+    // c7-d6-e5-f4 and e7-d6-c5-b4: both batteries, and the reason this reads even.
+    {name:'Hedgehog', cap:'Cramped behind a6-b6-d6-e6, but Qc7 and Be7 bear straight through d6.',
+     fen:'r4rk1/1bqnbppp/pp1ppn2/8/2P1P3/1PN2N2/PB2QPPP/R4RK1 w - - 4 14'},
+    // The only position here where Black leads, and so the only one that paints a brown verdict.
+    {name:'Scandinavian', cap:'White has the only centre pawn; Black’s c6 and e6 take more board.',
+     fen:'r4rk1/ppqn1ppp/2pbpn2/5b2/2BP4/2N1BN1P/PPPQ1PP1/3RR1K1 w - - 9 13'},
+  ],
+  // Between them these four hit every label: passed, isolated, backward, doubled and plain.
+  pawns: [
+    {name:'Isolated', cap:'d4 has no pawn on c or e to defend it.',
+     fen:'r1bq1rk1/pp2bppp/2n1pn2/8/2BP4/2N1BN2/PP3PPP/R2Q1RK1 w - - 0 11'},
+    {name:'Doubled', cap:'c2 and c3 are doubled; c3 is backward as well, and a3 is isolated.',
+     fen:'r1bq1rk1/pp3ppp/2n1pn2/2pp4/3P4/P1P1PN2/2P1BPPP/R1BQ1RK1 w - - 0 10'},
+    {name:'Backward', cap:'d6 has no pawn beside it to advance with, and e4 covers d5.',
+     fen:'r1bqkb1r/pp3ppp/2np1n2/4p3/4P3/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 0 7'},
+    {name:'Passed', cap:'Nothing black stands in front of b5 or beside its path. Isolated too.',
+     fen:'6k1/5ppp/8/1P6/8/8/5PPP/6K1 w - - 0 1'},
+  ],
+  files: [
+    {name:'One open', cap:'Only c is open; the other seven files have pawns of both colours.',
+     fen:'r1bq1rk1/pp3ppp/2n1pn2/3p4/3P4/2NBPN2/PP3PPP/R1BQ1RK1 w - - 0 11'},
+    {name:'Half-open', cap:'c is half-open for Black, d half-open for White. One trade each.',
+     fen:'r1bqkb1r/pp3ppp/2np1n2/4p3/4P3/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 0 7'},
+    {name:'All three', cap:'c open, d half-open for Black, e half-open for White.',
+     fen:'r1bq1rk1/pp2bppp/2n1pn2/8/2BP4/2N1BN2/PP3PPP/R2Q1RK1 w - - 0 11'},
+    {name:'Closed', cap:'Every file carries a pawn of each colour. Nothing for a rook.',
+     fen:'r1bq1rk1/ppp1npbp/3p1np1/3Pp3/2P1P3/2N2P2/PPQBB1PP/R3NRK1 w - - 0 11'},
+  ],
+  holes: [
+    {name:'Both camps', cap:'d3, e3 and d4 for White; f6 for Black. The locked centre made them.',
+     fen:'r1bq1rk1/ppp1npbp/3p1np1/3Pp3/2P1P3/2N2P2/PPQBB1PP/R3NRK1 w - - 0 11'},
+    {name:'Stonewall', cap:'f4 and d4 left e4 behind for good. d6 is Black’s.',
+     fen:'r1bq1rk1/pp2nppp/2p1pn2/3p4/2PP1P2/2N1PN2/PP4PP/R1BQ1RK1 w - - 0 10'},
+    {name:'One-sided', cap:'...e5 gave up d5 forever. White’s camp has no hole at all.',
+     fen:'r1bqkb1r/pp3ppp/2np1n2/4p3/4P3/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 0 7'},
+    {name:'None', cap:'Both pawn masses still guard every central square in their own camp.',
+     fen:'r1bqkb1r/1p3ppp/p1nppn2/8/3NP3/2N1B3/PPP2PPP/R2QKB1R w KQkq - 0 9'},
+  ],
+};
+
+// --- geometry, shared by both analyses ------------------------------------------
+const FILES = 'abcdefgh';
+const sqName  = (f, r) => FILES[f] + (r + 1);          // file,rank 0-based
+const onBoard = (f, r) => f >= 0 && f < 8 && r >= 0 && r < 8;
+const KNIGHT = [[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]];
+const KING   = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+const ROOK   = [[1,0],[-1,0],[0,1],[0,-1]];
+const BISHOP = [[1,1],[1,-1],[-1,1],[-1,-1]];
+
+// ================================================================================
+// Pieces: a port of commentary_gen/positional.py, king_safety() and piece_quality().
+// Same arithmetic, same wording.
+// ================================================================================
+const Pieces = (() => {
+const VAL  = {p:1, n:3, b:3, r:5, q:9, k:0};
+const NAME = {p:'pawn', n:'knight', b:'bishop', r:'rook', q:'queen', k:'king'};
+const coords = sq => [FILES.indexOf(sq[0]), parseInt(sq[1], 10) - 1];
+const sqIdx = sq => FILES.indexOf(sq[0]) + (parseInt(sq[1], 10) - 1) * 8;
+const byIndex = (a, b) => sqIdx(a) - sqIdx(b);
+const ALL = [];
+for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) ALL.push(sqName(f, r));
+const side = c => (c === 'w' ? 'White' : 'Black');
+const other = c => (c === 'w' ? 'b' : 'w');
+
+// Squares the piece on `sq` attacks, blockers respected. python-chess attacks(), which is where
+// both the blocker list and the attack/defend lists in piece_quality come from.
+function attacksFrom(game, sq) {
+  const pc = game.get(sq);
+  if (!pc) return [];
+  const [f0, r0] = coords(sq), out = [];
+  if (pc.type === 'p') {
+    const dr = pc.color === 'w' ? 1 : -1;
+    for (const df of [-1, 1]) if (onBoard(f0 + df, r0 + dr)) out.push(sqName(f0 + df, r0 + dr));
+    return out.sort(byIndex);
+  }
+  if (pc.type === 'n' || pc.type === 'k') {
+    for (const [df, dr] of (pc.type === 'n' ? KNIGHT : KING))
+      if (onBoard(f0 + df, r0 + dr)) out.push(sqName(f0 + df, r0 + dr));
+    return out.sort(byIndex);
+  }
+  const dirs = pc.type === 'r' ? ROOK : pc.type === 'b' ? BISHOP : [...ROOK, ...BISHOP];
+  for (const [df, dr] of dirs) {
+    let f = f0 + df, r = r0 + dr;
+    while (onBoard(f, r)) {
+      out.push(sqName(f, r));
+      if (game.get(sqName(f, r))) break;
+      f += df; r += dr;
+    }
+  }
+  return out.sort(byIndex);
+}
+function attackersOf(game, c, sq) {
+  const [tf, tr] = coords(sq), out = [];
+  const pawnRank = c === 'w' ? tr - 1 : tr + 1;
+  for (const df of [-1, 1]) {
+    if (!onBoard(tf + df, pawnRank)) continue;
+    const pc = game.get(sqName(tf + df, pawnRank));
+    if (pc && pc.type === 'p' && pc.color === c) out.push(sqName(tf + df, pawnRank));
+  }
+  for (const [ds, t] of [[KNIGHT, 'n'], [KING, 'k']])
+    for (const [df, dr] of ds) {
+      if (!onBoard(tf + df, tr + dr)) continue;
+      const pc = game.get(sqName(tf + df, tr + dr));
+      if (pc && pc.type === t && pc.color === c) out.push(sqName(tf + df, tr + dr));
+    }
+  for (const [dirs, kind] of [[ROOK, 'r'], [BISHOP, 'b']])
+    for (const [df, dr] of dirs) {
+      let f = tf + df, r = tr + dr;
+      while (onBoard(f, r)) {
+        const pc = game.get(sqName(f, r));
+        if (pc) {
+          if (pc.color === c && (pc.type === 'q' || pc.type === kind)) out.push(sqName(f, r));
+          break;
+        }
+        f += df; r += dr;
+      }
+    }
+  return out.sort(byIndex);
+}
+
+// --- static exchange (same port as tactics.html) ------------------------------
+function asMover(fen, color) {
+  const p = fen.split(' ');
+  if (p[1] === color) return fen;
+  p[1] = color; p[3] = '-';
+  return p.join(' ');
+}
+const isCapture = m => m.flags.includes('c') || m.flags.includes('e');
+const epVictim = m => m.to[0] + (m.color === 'w' ? +m.to[1] - 1 : +m.to[1] + 1);
+const pyMoveOrder = ms => [...ms].sort((a, b) =>
+  (a.piece === 'p' ? 1 : 0) - (b.piece === 'p' ? 1 : 0) || sqIdx(b.from) - sqIdx(a.from));
+function capturesOn(game, sq) {
+  const out = [];
+  for (const m of game.moves({verbose: true})) {
+    if (m.to === sq && isCapture(m)) out.push(m);
+    else if (m.flags.includes('e') && epVictim(m) === sq) out.push(m);
+  }
+  return pyMoveOrder(out.filter(m => !m.promotion || m.promotion === 'q'));
+}
+function gainOf(m) {
+  let g = m.flags.includes('e') ? 1 : m.captured ? VAL[m.captured] : 0;
+  if (m.promotion) g += VAL[m.promotion] - 1;
+  return g;
+}
+const played = (fen, m) => {
+  const g = new Chess(fen);
+  g.move({from: m.from, to: m.to, promotion: m.promotion || 'q'});
+  return g;
+};
+const seeCache = new Map();
+function seeSquare(fen, sq) {
+  const key = fen + '|' + sq;
+  if (seeCache.has(key)) return seeCache.get(key);
+  const game = new Chess(fen);
+  let best = 0;
+  for (const m of capturesOn(game, sq)) best = Math.max(best, gainOf(m) - seeSquare(played(fen, m).fen(), sq));
+  seeCache.set(key, best);
+  return best;
+}
+const see = (fen, m) => gainOf(m) - seeSquare(played(fen, m).fen(), m.to);
+
+function wouldHang(fen, sq) {
+  const g0 = new Chess(fen);
+  const p = g0.get(sq);
+  if (!p) return false;
+  const f = asMover(fen, other(p.color));
+  const g = new Chess(f);
+  return capturesOn(g, sq).some(m => see(f, m) > 0);
+}
+
+// --- king safety --------------------------------------------------------------
+const zoneOf = (game, c) => {
+  const k = ALL.find(s => { const p = game.get(s); return p && p.type === 'k' && p.color === c; });
+  if (!k) return {king: null, zone: []};
+  const [kf, kr] = coords(k);
+  return {king: k, zone: ALL.filter(s => {
+    const [f, r] = coords(s);
+    return Math.max(Math.abs(f - kf), Math.abs(r - kr)) <= 1;
+  })};
+};
+const CASTLED = new Set(['g1','c1','b1','g8','c8','b8']);
+
+function kingSafetyData(fen) {
+  const game = new Chess(fen), d = {};
+  for (const c of ['w', 'b']) {
+    const {king, zone} = zoneOf(game, c);
+    if (!king) continue;
+    const [kf, kr] = coords(king);
+    const shield = [], missing = [];
+    for (const ff of [kf - 1, kf, kf + 1]) {
+      if (ff < 0 || ff > 7) continue;
+      const own = ALL.filter(s => { const p = game.get(s); return p && p.type === 'p' && p.color === c && coords(s)[0] === ff; });
+      if (!own.length) { missing.push(FILES[ff] + '-file'); continue; }
+      let pick = own[0];
+      for (const s of own) if (Math.abs(coords(s)[1] - kr) < Math.abs(coords(pick)[1] - kr)) pick = s;
+      const home = c === 'w' ? 1 : 6;
+      shield.push(pick + (coords(pick)[1] === home ? '' : ' (advanced)'));
+    }
+    const flight = zone.filter(s => s !== king && !game.get(s) && !attackersOf(game, other(c), s).length);
+    const seen = new Set();
+    for (const s of zone) for (const a of attackersOf(game, other(c), s))
+      if (game.get(a).type !== 'p') seen.add(a);
+    d[side(c)] = {king, castled: CASTLED.has(king),
+                  rights: fen.split(' ')[2].includes(c === 'w' ? 'K' : 'k')
+                       || fen.split(' ')[2].includes(c === 'w' ? 'Q' : 'q'),
+                  shield, missing, flight: flight.sort(byIndex),
+                  attackers: [...seen].sort(), zone};
+  }
+  return d;
+}
+function kingSafetyText(fen) {
+  const d = kingSafetyData(fen), out = [];
+  for (const s of ['White', 'Black']) {
+    const k = d[s];
+    if (!k) continue;
+    const bits = [`king on ${k.king}` + (k.castled ? ', castled' : k.rights ? ', can still castle' : ', has not castled')];
+    bits.push('shield ' + (k.shield.length ? k.shield.join(' ') : 'gone'));
+    if (k.missing.length) bits.push('no pawn left on the ' + k.missing.join(', '));
+    bits.push(k.flight.length ? 'flight squares ' + k.flight.join(' ') : 'no flight square');
+    if (k.attackers.length) bits.push('enemy pieces bearing on the king zone from ' + k.attackers.join(' '));
+    out.push(`${s}: ${bits.join('; ')}.`);
+  }
+  return out.join('\n\n');
+}
+
+// --- piece quality ------------------------------------------------------------
+function isPinned(game, c, sq) {
+  const {king} = zoneOf(game, c);
+  if (!king || king === sq) return false;
+  const [kf, kr] = coords(king), [sf, sr] = coords(sq);
+  const df = Math.sign(sf - kf), dr = Math.sign(sr - kr);
+  if (!(sf === kf || sr === kr || Math.abs(sf - kf) === Math.abs(sr - kr))) return false;
+  const kind = (df === 0 || dr === 0) ? 'r' : 'b';
+  let f = kf + df, r = kr + dr;
+  while (onBoard(f, r) && sqName(f, r) !== sq) {          // nothing may stand between king and sq
+    if (game.get(sqName(f, r))) return false;
+    f += df; r += dr;
+  }
+  f += df; r += dr;
+  while (onBoard(f, r)) {                                 // first piece beyond it decides
+    const pc = game.get(sqName(f, r));
+    if (pc) return pc.color !== c && (pc.type === 'q' || pc.type === kind);
+    f += df; r += dr;
+  }
+  return false;
+}
+function drivenOffBy(fen, sq) {
+  const game = new Chess(fen), p = game.get(sq);
+  if (!p || p.type === 'p') return [];
+  const out = [];
+  for (const a of attackersOf(game, other(p.color), sq))
+    if (VAL[game.get(a).type] < VAL[p.type])
+      out.push(`already attacked by the ${NAME[game.get(a).type]} on ${a}`);
+  const ef = asMover(fen, other(p.color));
+  const eg = new Chess(ef);
+  for (const m of eg.moves({verbose: true})) {
+    if (m.piece !== 'p' || isCapture(m)) continue;
+    const after = played(ef, m);
+    if (attacksFrom(after, m.to).includes(sq) && see(ef, m) >= 0) out.push(`${m.san} drives it off`);
+  }
+  return out.slice(0, 3);
+}
+// a1 is DARK: file 0 + rank 0 is even. sq[1] is the 1-based rank, hence the -1.
+const LIGHT = sq => (FILES.indexOf(sq[0]) + parseInt(sq[1], 10) - 1) % 2 === 1;
+
+function pieceQualityData(fen) {
+  const game = new Chess(fen), out = [];
+  for (const c of ['w', 'b']) {
+    const mover = asMover(fen, c), mg = new Chess(mover);
+    const legal = mg.moves({verbose: true});
+    for (const pt of ['q', 'r', 'b', 'n']) {
+      for (const sq of ALL.filter(s => { const p = game.get(s); return p && p.type === pt && p.color === c; })) {
+        const moves = legal.filter(m => m.from === sq);
+        const safe = moves.filter(m => see(mover, m) >= 0);
+        const blocked = {};
+        if ('qrb'.includes(pt))
+          for (const s of attacksFrom(game, sq)) {
+            const q = game.get(s);
+            if (q && q.color === c) blocked[s] = `${side(q.color)} ${NAME[q.type]}`;
+          }
+        const reach = attacksFrom(game, sq);
+        const attacks = reach.filter(s => { const q = game.get(s); return q && q.color !== c; });
+        const defends = reach.filter(s => { const q = game.get(s); return q && q.color === c; });
+        const tied = [];
+        for (const s of defends) {
+          const g2 = new Chess(fen);
+          g2.remove(sq);
+          if (wouldHang(g2.fen(), s) && !wouldHang(fen, s)) tied.push(s);
+        }
+        const row = {square: sq, side: side(c), piece: NAME[pt], moves: moves.length,
+                     safe: safe.length, blocked, attacks, defends, tied,
+                     pinned: isPinned(game, c, sq), driven: drivenOffBy(fen, sq)};
+        if (pt === 'b') {
+          row.samePawns = ALL.filter(s => { const q = game.get(s); return q && q.type === 'p' && q.color === c && LIGHT(s) === LIGHT(sq); });
+          row.colour = LIGHT(sq) ? 'light' : 'dark';
+        }
+        row.role = attacks.length && tied.length ? 'attacking and defending'
+                 : attacks.length ? 'attacking'
+                 : tied.length ? 'tied to defence'
+                 : safe.length <= 1 ? 'out of play' : 'free';
+        out.push(row);
+      }
+    }
+  }
+  return out;
+}
+function pieceQualityText(fen) {
+  const rows = pieceQualityData(fen);
+  if (!rows.length) return 'No pieces besides kings and pawns.';
+  return rows.map(r => {
+    const bits = [`${r.moves} legal move${r.moves === 1 ? '' : 's'} (${r.safe} without losing material)`];
+    const bl = Object.entries(r.blocked);
+    if (bl.length) bits.push('own ' + bl.map(([k, v]) => `${v.split(' ')[1]} on ${k}`).join(', ') + ' in its way');
+    if (r.attacks.length) bits.push('attacks ' + r.attacks.map(s => {
+      const q = new Chess(fen).get(s);
+      return `${side(q.color)} ${NAME[q.type]} on ${s}`;
+    }).join(', '));
+    if (r.tied.length) bits.push('must stay to defend ' + r.tied.join(' '));
+    else if (r.defends.length) bits.push('defends ' + r.defends.join(' '));
+    if (r.pinned) bits.push('pinned to its king');
+    if (r.driven.length) bits.push(r.driven[0]);
+    if (r.samePawns && r.samePawns.length)
+      bits.push(`${r.samePawns.length} own pawns on its ${r.colour} squares (${r.samePawns.join(' ')})`);
+    return `${r.side} ${r.piece} on ${r.square}: ${bits.join('; ')}. Role: ${r.role}.`;
+  }).join('\n\n');
+}
+
+return {kingSafetyData, kingSafetyText, pieceQualityData, pieceQualityText};
+})();
+
+// ================================================================================
+// Space: control map, pawn chains, and commentary_gen/board_tools.pawn_structure_data.
+// ================================================================================
+const Space = (() => {
+// --- control engine (pure, no DOM) --------------------------------------------
+// Turn-independent by construction: space is a property of a colour, so both sides are
+// computed every frame regardless of whose move it is. Deliberately unlike the
+// side-to-move logic in intervention.html (Pin, Prophylaxis).
+//
+//   attackersOf(f,r) ── pawns ── knights ── king ── slider rays (stop at 1st occupant)
+//        │
+//        └──> controlMap ── W / B / C / '.' ──> verdict ── opponent-half counts
+//
+// Rays see through a friendly piece attacking along the same line, because a battery really
+// does bear on the square: on f8-g7-h6 the pawn captures onto h6 and stays on the diagonal,
+// so the bishop behind it is a second defender. Same colour, same direction only — a rook
+// behind its own pawn does not see down the file, and nothing sees through a knight. A pawn
+// carries the line only from the square next to the target, the one square it actually
+// attacks; further out it blocks like any other piece.
+function attackersOf(game, f, r) {
+  const n = {w: 0, b: 0};
+  // A white pawn on (f±1, r-1) attacks (f,r); a black pawn on (f±1, r+1) does.
+  for (const df of [-1, 1]) {
+    if (onBoard(f + df, r - 1)) {
+      const pc = game.get(sqName(f + df, r - 1));
+      if (pc && pc.type === 'p' && pc.color === 'w') n.w++;
+    }
+    if (onBoard(f + df, r + 1)) {
+      const pc = game.get(sqName(f + df, r + 1));
+      if (pc && pc.type === 'p' && pc.color === 'b') n.b++;
+    }
+  }
+  for (const [df, dr] of KNIGHT) {
+    if (!onBoard(f + df, r + dr)) continue;
+    const pc = game.get(sqName(f + df, r + dr));
+    if (pc && pc.type === 'n') n[pc.color]++;
+  }
+  for (const [df, dr] of KING) {
+    if (!onBoard(f + df, r + dr)) continue;
+    const pc = game.get(sqName(f + df, r + dr));
+    if (pc && pc.type === 'k') n[pc.color]++;
+  }
+  for (const [dirs, straight] of [[ROOK, true], [BISHOP, false]]) {
+    for (const [df, dr] of dirs) {
+      let ff = f + df, rr = r + dr, line = null, step = 1;  // colour of the battery walked, if any
+      while (onBoard(ff, rr)) {
+        const pc = game.get(sqName(ff, rr));
+        if (pc) {
+          if (line && pc.color !== line) break;   // a battery is one colour
+          if (pc.type === 'q' || pc.type === (straight ? 'r' : 'b')) {
+            n[pc.color]++; line = pc.color;       // bears on the square, and may carry a battery
+          } else if (!straight && step === 1 && pc.type === 'p' &&
+                     dr === (pc.color === 'w' ? -1 : 1)) {
+            line = pc.color;                      // pawn attacks back along this diagonal…
+          } else {                                // …counted by the pawn pass, but it carries
+            break;                                // knight, king, wrong-way slider: dead end
+          }
+        }
+        ff += df; rr += dr; step++;
+      }
+    }
+  }
+  return n;
+}
+
+// 'W' white holds it, 'B' black holds it, 'C' contested (equal and non-zero), '.' neither.
+function controlMap(game) {
+  const map = new Map();
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const {w, b} = attackersOf(game, f, r);
+    map.set(sqName(f, r), w > b ? 'W' : b > w ? 'B' : w > 0 ? 'C' : '.');
+  }
+  return map;
+}
+
+// Who has more control: squares held outright, over the whole board. Contested squares
+// (equal attackers) belong to neither side and are counted on their own.
+function verdict(map) {
+  let white = 0, black = 0, contested = 0, neither = 0;
+  for (const state of map.values()) {
+    if (state === 'W') white++;
+    else if (state === 'B') black++;
+    else if (state === 'C') contested++;
+    else neither++;
+  }
+  return {white, black, contested, neither, winner: Math.sign(white - black)};
+}
+
+// --- directionality (pure, no DOM) --------------------------------------------
+// A chain is a maximal diagonal run of same-colour pawns, each defending the next. The base
+// is the rearmost; the arrow runs base -> one square past the tip, where the chain points.
+//
+//        .  .  .  e5 <- tip        arrow: c3 ──> f6
+//        .  .  d4 .
+//        .  c3 .  .
+//        ^ base
+//
+// Nothing is drawn where there is no direction to show. A pawn belongs to at most one chain:
+//
+//   lone pawn       its two capture diagonals are symmetric
+//   f7-g6 + h7-g6   the fianchetto — equal chains through one pawn, pointing opposite ways,
+//                   so both go. Where lengths differ the longer wins: g2-f3-e4-d5 beats
+//                   c4-d5 on their shared d5 tip
+//   g2-h3           the extension leaves the board at i4, so the arrow spans one square and
+//                   marks a defended h-pawn. f2-g3-h4 still draws f2->h4
+function pawnChains(game, color) {
+  const fwd = color === 'w' ? 1 : -1;
+  const pawnAt = (f, r) => {
+    if (!onBoard(f, r)) return false;
+    const pc = game.get(sqName(f, r));
+    return !!pc && pc.type === 'p' && pc.color === color;
+  };
+  const found = [];
+  for (const df of [-1, 1]) {
+    for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+      if (!pawnAt(f, r)) continue;
+      if (pawnAt(f - df, r - fwd)) continue;       // defended in-chain, so not the base
+      let ff = f, rr = r, len = 1;
+      const members = [sqName(f, r)];
+      while (pawnAt(ff + df, rr + fwd)) { ff += df; rr += fwd; len++; members.push(sqName(ff, rr)); }
+      if (len < 2) continue;
+      const pf = ff + df, pr = rr + fwd;
+      const orig = sqName(f, r), dest = onBoard(pf, pr) ? sqName(pf, pr) : sqName(ff, rr);
+      if (Math.max(Math.abs(dest.charCodeAt(0) - orig.charCodeAt(0)),
+                   Math.abs(+dest[1] - +orig[1])) < 2) continue;   // edge pair, points nowhere
+      found.push({orig, dest, len, members});
+    }
+  }
+  // Drop a chain that shares a pawn with a longer one, and drop BOTH sides of a tie — each
+  // sees an equal-length rival, so the test is symmetric and needs no tie-break.
+  const out = found.filter(c => !found.some(o =>
+    o !== c && o.len >= c.len && o.members.some(m => c.members.includes(m))));
+  return out.map(({orig, dest}) => ({orig, dest}));
+}
+
+// Long-range pieces get no arrow: one ray each put up to eight crossing lines on the board
+// and buried the control map.
+
+// --- pawn structure (pure, no DOM) ---------------------------------------------
+// Same definitions as commentary_gen/board_tools.pawn_structure_data, so the demo and the
+// commentary tool never disagree:
+//   isolated  no own pawn on either adjacent file
+//   doubled   another own pawn on the same file
+//   passed    no enemy pawn ahead on this file or the two next to it, and no own pawn ahead
+//   backward  not isolated, no own pawn beside or behind it on the adjacent files, and its
+//             stop square is attacked by an enemy pawn
+//   files     open (no pawns), closed (both sides), else half-open for the side without a pawn
+//   holes     c-f squares on ranks 3-4 (White) / 5-6 (Black) that no own pawn can ever guard
+function pawnStructure(game) {
+  const pawns = {w: [], b: []};
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const pc = game.get(sqName(f, r));
+    if (pc && pc.type === 'p') pawns[pc.color].push([f, r]);
+  }
+  const has = (color, f, r) => pawns[color].some(([pf, pr]) => pf === f && pr === r);
+  const filesOf = color => new Set(pawns[color].map(([f]) => f));
+  const labels = new Map();                       // square -> Set of labels
+  for (const color of ['w', 'b']) {
+    const enemy = color === 'w' ? 'b' : 'w', fwd = color === 'w' ? 1 : -1;
+    const own = filesOf(color);
+    for (const [f, r] of pawns[color]) {
+      const set = new Set();
+      const iso = !own.has(f - 1) && !own.has(f + 1);
+      if (iso) set.add('isolated');
+      if (pawns[color].filter(([pf]) => pf === f).length > 1) set.add('doubled');
+      let passed = true;
+      for (let rr = r + fwd; onBoard(0, rr); rr += fwd) {
+        if (has(color, f, rr)) passed = false;
+        for (const ff of [f - 1, f, f + 1]) if (onBoard(ff, rr) && has(enemy, ff, rr)) passed = false;
+      }
+      if (passed) set.add('passed');
+      if (!iso) {
+        let support = false;
+        for (let rr = r; onBoard(0, rr); rr -= fwd)
+          for (const ff of [f - 1, f + 1]) if (onBoard(ff, rr) && has(color, ff, rr)) support = true;
+        const sr = r + fwd;
+        const stopAttacked = onBoard(f, sr) &&
+          [f - 1, f + 1].some(ff => onBoard(ff, sr + fwd) && has(enemy, ff, sr + fwd));
+        if (!support && stopAttacked) set.add('backward');
+      }
+      labels.set(sqName(f, r), set);
+    }
+  }
+  const files = [];
+  for (let f = 0; f < 8; f++) {
+    const w = filesOf('w').has(f), b = filesOf('b').has(f);
+    files.push(!(w || b) ? 'open' : (w && b) ? 'closed' : w ? 'halfB' : 'halfW');
+  }
+  const holes = {w: [], b: []};
+  for (const color of ['w', 'b']) {
+    const camp = color === 'w' ? [2, 3] : [4, 5];
+    for (const r of camp) for (let f = 2; f < 6; f++) {
+      if (has(color, f, r)) continue;
+      let guard = false;
+      for (let rr = r - (color === 'w' ? 1 : -1); onBoard(0, rr); rr -= (color === 'w' ? 1 : -1))
+        for (const ff of [f - 1, f + 1]) if (onBoard(ff, rr) && has(color, ff, rr)) guard = true;
+      if (!guard) holes[color].push(sqName(f, r));
+    }
+  }
+  return {labels, files, holes};
+}
+
+// --- shapes -------------------------------------------------------------------
+// chessground drops customSvg.html into a fixed viewBox="0 0 100 100" sized to one
+// square, so a 100x100 rect fills it exactly. customSvg must be an OBJECT ({html},
+// optional {center}), never a bare string.
+//
+// Opaque, and every square painted including "neither", so the checkerboard is gone. It
+// had to go: square parity spread one category across ~30 RGB while the gap between two
+// different categories was ~12, so the loudest signal on the board was the thing that
+// carried no information. Nothing here is translucent, which the CSS allows by dropping
+// these under the pieces (z-index 0) instead of chessground's default 9, above them.
+//
+// States separate by TONE first so they survive greyscale, a projector and a red-green
+// colour-blind reader: White light, contested mid, Black dark. Contested also carries a
+// hatch, a second channel, because it is the one a reader most needs to spot.
+const TINT = {W:'#bcd0e0', B:'#8d7c66', C:'#b3b1ac', '.':'#dcdad5'};
+
+// Hatch, not a dot. A dot is small enough to hide under a piece, which made contested
+// and "neither" render identically on every occupied square. A full-square pattern
+// survives having a rook sat on it.
+const HATCH = '<defs><pattern id="cx" width="13" height="13" patternUnits="userSpaceOnUse"'
+  + ' patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="13" stroke="#5f5c56"'
+  + ' stroke-width="5"/></pattern></defs>'
+  + '<rect width="100" height="100" fill="url(#cx)"/>';
+
+// Flat fill erased the checkerboard, and with it any way to find a square by eye — which
+// matters because every caption is written in square names. A faint grid puts the square
+// boundaries back without a parity signal, so locating d5 works again and nothing competes
+// with the fill for attention.
+const GRID = '<path d="M0 0V100M0 0H100" stroke="#00000026" stroke-width="1.5" fill="none"/>';
+
+function tintShapes(map) {
+  const out = [];
+  for (const [sq, state] of map) {
+    out.push({orig: sq, customSvg: {html:
+      `<rect width="100" height="100" fill="${TINT[state]}"/>`
+      + (state === 'C' ? HATCH : '') + GRID}});
+  }
+  return out;
+}
+
+function arrowShapes(game) {
+  const out = [];
+  for (const color of ['w', 'b']) {
+    const brush = color === 'w' ? 'spaceW' : 'spaceB';
+    for (const s of pawnChains(game, color)) out.push({...s, brush});
+  }
+  return out;
+}
+
+// One square, one flat fill, same grid as the control map.
+const fill = (sq, color) => ({orig: sq, customSvg: {html:
+  `<rect width="100" height="100" fill="${color}"/>` + GRID}});
+const PAWN_TINT = {passed:'#8fbf8f', isolated:'#e0a86a', backward:'#c9a0d0', doubled:'#c9c46a'};
+const FILE_TINT = {open:'#8fbf8f', halfW:'#bcd0e0', halfB:'#8d7c66', closed:'#dcdad5'};
+const PAWN_ORDER = ['passed', 'isolated', 'backward', 'doubled'];   // a pawn shows its first label
+
+function pawnShapes(ps) {
+  const out = [];
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const sq = sqName(f, r), set = labelsOf(ps, sq);
+    const lab = PAWN_ORDER.find(l => set.has(l));
+    out.push(fill(sq, lab ? PAWN_TINT[lab] : TINT['.']));
+  }
+  return out;
+}
+const labelsOf = (ps, sq) => ps.labels.get(sq) || new Set();
+
+function fileShapes(ps) {
+  const out = [];
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) out.push(fill(sqName(f, r), FILE_TINT[ps.files[f]]));
+  return out;
+}
+
+function holeShapes(ps) {
+  const out = [];
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const sq = sqName(f, r);
+    out.push(fill(sq, ps.holes.w.includes(sq) ? TINT.W : ps.holes.b.includes(sq) ? TINT.B : TINT['.']));
+  }
+  return out;
+}
+
+return {controlMap, verdict, pawnStructure, tintShapes, arrowShapes,
+        pawnShapes, fileShapes, holeShapes, PAWN_ORDER};
+})();
+
+// ================================================================================
+// Page: one board, one position, two views.
+// ================================================================================
+const VIEW_OF = {king:'pieces', quality:'pieces', space:'space', pawns:'space', files:'space', holes:'space'};
+const lastMode = {pieces:'king', space:'space'};
+let view = 'pieces', mode = 'king';
+let chess = new Chess(GALLERIES.king[0].fen);
+let showControl = true, showArrows = true;
+
+const boardEl   = document.getElementById('board');
+const verdictEl = document.getElementById('verdict');
+const bodyEl    = document.getElementById('body');
+const countsEl  = document.getElementById('counts');
+const fenInput  = document.getElementById('fen');
+const errEl     = document.getElementById('err');
+const gcapEl    = document.getElementById('gcap');
+const galleryEl = document.getElementById('gallery');
+
+const colorOf = () => (chess.turn() === 'w' ? 'white' : 'black');
+function dests() {
+  const map = new Map();
+  chess.moves({verbose: true}).forEach(m => {
+    if (!map.has(m.from)) map.set(m.from, []);
+    map.get(m.from).push(m.to);
+  });
+  return map;
+}
+// Each custom brush needs its OWN key: the defs builder skips appending a marker whose
+// cgKey already exists from an earlier render, so two brushes sharing a key collapse to
+// one colour permanently.
+const ground = Chessground(boardEl, {
+  fen: chess.fen(), turnColor: colorOf(), coordinates: true,
+  movable: {free: false, color: colorOf(), dests: dests(), showDests: true, events: {after: onMove}},
+  draggable: {showGhost: true},
+  drawable: {enabled: false, visible: true, brushes: {
+    good:   {key: 'pgd', color: '#0b3d6b', opacity: 1, lineWidth: 6},
+    bad:    {key: 'pbd', color: '#a35c00', opacity: 1, lineWidth: 6},
+    quiet:  {key: 'pqt', color: '#6b6b6b', opacity: 1, lineWidth: 6},
+    hit:    {key: 'pht', color: '#a35c00', opacity: 1, lineWidth: 7},
+    spaceW: {key: 'spw', color: '#062f52', opacity: 1, lineWidth: 6},
+    spaceB: {key: 'spb', color: '#6b2a00', opacity: 1, lineWidth: 6},
+  }},
+  check: chess.in_check() ? colorOf() : false,
+});
+// ground.set({fen}) wipes drawable.shapes, so every position change redraws.
+function applyBoard() {
+  ground.set({fen: chess.fen(), turnColor: colorOf(), lastMove: null,
+    check: chess.in_check() ? colorOf() : false,
+    movable: {color: colorOf(), dests: dests()}});
+  render();
+}
+function onMove(orig, dest) {
+  chess.move({from: orig, to: dest, promotion: 'q'});
+  fenInput.value = chess.fen();
+  gcapEl.textContent = '';
+  clearPreset();
+  applyBoard();
+}
+
+function render() {
+  boardEl.classList.toggle('space', view === 'space');
+  bodyEl.hidden = view !== 'pieces';
+  countsEl.hidden = view !== 'space';
+  if (view === 'pieces') renderPieces(); else renderSpace();
+}
+
+function renderPieces() {
+  const fen = chess.fen();
+  verdictEl.className = 'verdict';
+  if (mode === 'king') {
+    const d = Pieces.kingSafetyData(fen);
+    const shapes = [];
+    for (const s of ['White', 'Black']) {
+      const k = d[s];
+      if (!k) continue;
+      for (const sh of k.shield) shapes.push({orig: sh.split(' ')[0], brush: 'good'});
+      for (const f of k.flight) shapes.push({orig: f, brush: 'quiet'});
+      for (const a of k.attackers) shapes.push({orig: a, dest: k.king, brush: 'hit'});
+    }
+    ground.setShapes(shapes);
+    const n = ['White', 'Black'].filter(s => d[s] && !d[s].flight.length).length;
+    verdictEl.textContent = n ? `${n} king with no flight square` : 'Both kings have somewhere to step';
+    bodyEl.textContent = Pieces.kingSafetyText(fen);
+    return;
+  }
+  const rows = Pieces.pieceQualityData(fen);
+  ground.setShapes(rows.filter(r => r.role !== 'free').map(r => ({
+    orig: r.square, brush: r.role.startsWith('attacking') ? 'good' : 'bad',
+  })));
+  const stuck = rows.filter(r => r.role === 'out of play' || r.role === 'tied to defence').length;
+  verdictEl.textContent = stuck
+    ? `${rows.length} pieces · ${stuck} stuck or tied down`
+    : `${rows.length} pieces · every one has something to do`;
+  bodyEl.textContent = Pieces.pieceQualityText(fen);
+}
+
+// setShapes REPLACES drawable.shapes wholesale, so the tints and the arrows must go out
+// in ONE combined call. Two sequential calls would silently drop the tints.
+function renderSpace() {
+  if (mode === 'space') {
+    const map = Space.controlMap(chess);
+    const shapes = [];
+    if (showControl) shapes.push(...Space.tintShapes(map));
+    if (showArrows)  shapes.push(...Space.arrowShapes(chess));
+    ground.setShapes(shapes);
+    paintVerdict(Space.verdict(map));
+    return;
+  }
+  const ps = Space.pawnStructure(chess);
+  ground.setShapes(mode === 'pawns' ? Space.pawnShapes(ps) : mode === 'files' ? Space.fileShapes(ps) : Space.holeShapes(ps));
+  paintStructure(ps);
+}
+// Readout for the three structure modes, in the words the commentary tool uses.
+function paintStructure(ps) {
+  verdictEl.className = 'verdict even';
+  if (mode === 'pawns') {
+    const side = color => {
+      const parts = Space.PAWN_ORDER.map(l => {
+        const sqs = [...ps.labels].filter(([sq, set]) => set.has(l) && chess.get(sq).color === color).map(([sq]) => sq);
+        return sqs.length ? `${l} ${sqs.join(' ')}` : '';
+      }).filter(Boolean);
+      return parts.length ? parts.join('; ') : 'no isolated, doubled, passed or backward pawns';
+    };
+    verdictEl.textContent = 'Pawn labels';
+    countsEl.innerHTML = `White: ${side('w')}<br>Black: ${side('b')}`;
+  } else if (mode === 'files') {
+    const word = {open:'open', closed:'closed', halfW:'half-open for White', halfB:'half-open for Black'};
+    const n = k => ps.files.filter(x => x === k).length;
+    verdictEl.textContent = `${n('open')} open · ${n('halfW') + n('halfB')} half-open · ${n('closed')} closed`;
+    countsEl.textContent = ps.files.map((s, f) => `${FILES[f]} ${word[s]}`).join(', ');
+  } else {
+    verdictEl.textContent = `Holes: ${ps.holes.w.length} in White’s camp · ${ps.holes.b.length} in Black’s`;
+    countsEl.textContent = `White’s camp: ${ps.holes.w.join(' ') || 'none'} · Black’s camp: ${ps.holes.b.join(' ') || 'none'}`;
+  }
+}
+function paintVerdict(v) {
+  const d = Math.abs(v.white - v.black);
+  verdictEl.textContent =
+      v.winner > 0 ? `More control: White, by ${d} square${d === 1 ? '' : 's'}`
+    : v.winner < 0 ? `More control: Black, by ${d} square${d === 1 ? '' : 's'}`
+    : 'Control: even.';
+  verdictEl.className = 'verdict ' + (v.winner > 0 ? 'w' : v.winner < 0 ? 'b' : 'even');
+  countsEl.textContent = `White ${v.white} · Black ${v.black} · `
+                       + `${v.contested} contested · ${v.neither} neither`;
+}
+
+// --- FEN loading --------------------------------------------------------------
+// chess.js validate_fen is syntactic only — it accepts kingless boards, pawns on the back
+// rank, and a side-not-to-move-in-check position.
+function legalityError(game) {
+  let wk = 0, bk = 0;
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const pc = game.get(sqName(f, r));
+    if (!pc) continue;
+    if (pc.type === 'p' && (r === 0 || r === 7)) return 'A pawn can’t sit on the back rank.';
+    if (pc.type === 'k') { pc.color === 'w' ? wk++ : bk++; }
+  }
+  if (wk !== 1 || bk !== 1) return 'Each side needs exactly one king.';
+  const parts = game.fen().split(' ');
+  parts[1] = parts[1] === 'w' ? 'b' : 'w';
+  parts[3] = '-';
+  const probe = new Chess();
+  if (probe.load(parts.join(' ')) && probe.in_check()) {
+    const stm = game.turn() === 'w' ? 'White' : 'Black';
+    return `${stm === 'White' ? 'Black' : 'White'} is in check, but it’s ${stm} to move.`;
+  }
+  return '';
+}
+function loadFen(fen, caption) {
+  const test = new Chess();
+  if (!test.load(fen)) { errEl.textContent = 'Invalid FEN.'; return false; }
+  const bad = legalityError(test);
+  if (bad) { errEl.textContent = bad; return false; }
+  errEl.textContent = '';
+  chess = test;
+  fenInput.value = chess.fen();
+  gcapEl.textContent = caption || '';
+  clearPreset();
+  applyBoard();
+  return true;
+}
+// The board no longer shows a preset once it has been moved or hand-edited.
+function clearPreset() {
+  galleryEl.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+}
+
+// --- controls -----------------------------------------------------------------
+// The preset row follows the mode. Switching mode keeps the position on the board, and marks
+// the preset if this mode's row has it.
+function buildGallery(m, loadFirst) {
+  galleryEl.replaceChildren();
+  let match = null;
+  GALLERIES[m].forEach(g => {
+    const b = document.createElement('button');
+    b.textContent = g.name;
+    b.addEventListener('click', () => {
+      if (!loadFen(g.fen, g.cap)) return;
+      galleryEl.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    });
+    galleryEl.appendChild(b);
+    if (!match && new Chess(g.fen).fen() === chess.fen()) match = [b, g];
+  });
+  if (loadFirst) { galleryEl.firstChild.click(); return; }
+  if (match) match[0].classList.add('on');
+  gcapEl.textContent = match ? match[1].cap : '';
+  render();
+}
+
+function toggle(btn, label, get, set) {
+  const paint = () => {
+    btn.classList.toggle('on', get());
+    btn.textContent = (get() ? '✓ ' : '   ') + label;   // width holds steady
+  };
+  btn.addEventListener('click', () => { set(!get()); paint(); render(); });
+  paint();
+}
+toggle(document.getElementById('tControl'), 'Shading', () => showControl, v => showControl = v);
+toggle(document.getElementById('tArrows'),  'Arrows',  () => showArrows,  v => showArrows  = v);
+
+const ABOUT = {
+  king:    ['Where each king stands, the pawns still in front of it, the squares it could step to, '
+          + 'and which enemy pieces already bear on that corner of the board.',
+            'The zone is the king and the eight squares around it. Pawn attackers are left out.'],
+  quality: ['Per piece: how many moves it has, how many keep the material, what it hits, and what it cannot leave.',
+            'Out of play means one safe move or fewer. Tied means the piece it defends would hang the moment it left.'],
+  space:   ['Every square goes to whoever attacks it more often, and arrows follow the pawn chains.',
+            'Attacker count. Pieces behind a friendly pawn or slider count too.'],
+  pawns:   ['Each pawn is labelled the way the commentary tool labels it.',
+            'A pawn with several labels shows the first of: passed, isolated, backward, doubled.'],
+  files:   ['Each file by its pawns: open, half-open for the side with no pawn on it, or closed.',
+            'Half-open for White means White has no pawn there and Black does.'],
+  holes:   ['Central squares in each camp that no pawn of that side can ever guard again.',
+            'Files c to f, ranks 3-4 for White and 5-6 for Black.'],
+};
+const viewBtns = [...document.querySelectorAll('#view button')];
+const modeBtns = [...document.querySelectorAll('#mode button')];
+function setMode(m, loadFirst) {
+  mode = m; view = VIEW_OF[m]; lastMode[view] = m;
+  viewBtns.forEach(b => b.classList.toggle('on', b.dataset.view === view));
+  modeBtns.forEach(b => { b.classList.toggle('on', b.dataset.mode === m); b.hidden = b.dataset.view !== view; });
+  document.getElementById('spaceLayers').hidden = m !== 'space';
+  for (const k of Object.keys(ABOUT)) document.getElementById('legend-' + k).hidden = k !== m;
+  document.getElementById('about').textContent = ABOUT[m][0];
+  document.getElementById('caption').textContent = ABOUT[m][1];
+  buildGallery(m, loadFirst);
+}
+// Hash values are not element ids: setting location.hash to an id scrolls to it.
+const setView = (v, loadFirst) => setMode(lastMode[v], loadFirst);
+const hashView = () => (location.hash === '#space' ? 'space' : 'pieces');
+viewBtns.forEach(b => b.addEventListener('click', () => {
+  history.replaceState(null, '', '#' + b.dataset.view);
+  setView(b.dataset.view);
+}));
+modeBtns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+window.addEventListener('hashchange', () => setView(hashView()));
+
+document.getElementById('loadBtn').addEventListener('click', () => loadFen(fenInput.value.trim()));
+fenInput.addEventListener('keydown', e => { if (e.key === 'Enter') loadFen(fenInput.value.trim()); });
+// Shapes are placed by square key, so flipping needs no recompute.
+document.getElementById('flipBtn').addEventListener('click', () => ground.toggleOrientation());
+
+setView(hashView(), true);
+</script>
+</body>
+</html>
