@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tactical Tools &middot; xai-chess</title>
+<title>Tactics &middot; xai-chess</title>
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
@@ -87,7 +87,7 @@
 </head>
 <body>
   <a class="back" href="index.html">&larr; xai-chess</a>
-  <h1>Tactical Tools</h1>
+  <h1>Tactics</h1>
   <p class="intro" id="intro">What the commentary tools see before a word is written. No engine:
   every line below is static exchange arithmetic on the position in front of you.</p>
 
@@ -210,7 +210,7 @@ const ROOK   = [[1,0],[-1,0],[0,1],[0,-1]];
 const BISHOP = [[1,1],[1,-1],[-1,1],[-1,-1]];
 
 // Squares of colour `c` that attack `sq`. Blockers stop a ray — deliberately unlike the
-// battery-aware count in space.html, because this mirrors python-chess's attackers(), which
+// battery-aware count in positional.html (Space), because this mirrors python-chess's attackers(), which
 // is what board_tools uses to list defenders.
 function attackersOf(game, c, sq) {
   const [tf, tr] = coords(sq), out = [];
