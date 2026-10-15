@@ -1,0 +1,135 @@
+{
+ "n": 20000,
+ "bits": 14565,
+ "hidden": 2048,
+ "lr": 0.001,
+ "batch": 4096,
+ "taps": {
+  "/attn_body/rehape": {
+   "token test": 0.0030363112932519664,
+   "wdl test": 0.03054231032729149,
+   "wdl square only": 4.319653511047363,
+   "epochs": 30
+  },
+  "/encoder0/ln1": {
+   "token test": 0.16978655581225355,
+   "wdl test": 0.09209786355495453,
+   "wdl square only": 4.320013046264648,
+   "epochs": 20
+  },
+  "/encoder1/ln1": {
+   "token test": 0.17898079266818612,
+   "wdl test": 0.4756898283958435,
+   "wdl square only": 4.004007339477539,
+   "epochs": 21
+  },
+  "/encoder2/ln1": {
+   "token test": 0.17545708472679777,
+   "wdl test": 0.5789075493812561,
+   "wdl square only": 3.9519853591918945,
+   "epochs": 21
+  },
+  "/encoder3/ln1": {
+   "token test": 0.24880897715921726,
+   "wdl test": 0.6307123899459839,
+   "wdl square only": 2.0916335582733154,
+   "epochs": 17
+  },
+  "/encoder4/ln1": {
+   "token test": 0.2844416769772681,
+   "wdl test": 0.7467854619026184,
+   "wdl square only": 1.5788893699645996,
+   "epochs": 16
+  },
+  "/encoder5/ln1": {
+   "token test": 0.3648053072318419,
+   "wdl test": 0.8614695072174072,
+   "wdl square only": 1.8143274784088135,
+   "epochs": 16
+  },
+  "/encoder6/ln1": {
+   "token test": 0.3979493166647063,
+   "wdl test": 0.8675476312637329,
+   "wdl square only": 1.5256931781768799,
+   "epochs": 15
+  },
+  "/encoder7/ln1": {
+   "token test": 0.42395497396329573,
+   "wdl test": 1.1500072479248047,
+   "wdl square only": 2.51798415184021,
+   "epochs": 14
+  },
+  "/encoder8/ln1": {
+   "token test": 0.5241460289249585,
+   "wdl test": 0.9899784326553345,
+   "wdl square only": 2.2036828994750977,
+   "epochs": 12
+  },
+  "/encoder9/ln1": {
+   "token test": 0.6642475995741608,
+   "wdl test": 1.0427616834640503,
+   "wdl square only": 1.7998515367507935,
+   "epochs": 9
+  },
+  "/encoder0/ln2": {
+   "token test": 0.04530620350366519,
+   "wdl test": 0.2910468876361847,
+   "wdl square only": 4.319927215576172,
+   "epochs": 30
+  },
+  "/encoder1/ln2": {
+   "token test": 0.110288647051198,
+   "wdl test": 0.47031185030937195,
+   "wdl square only": 3.57942795753479,
+   "epochs": 30
+  },
+  "/encoder2/ln2": {
+   "token test": 0.1384985794199114,
+   "wdl test": 0.4847313165664673,
+   "wdl square only": 2.9916000366210938,
+   "epochs": 24
+  },
+  "/encoder3/ln2": {
+   "token test": 0.22099594237856532,
+   "wdl test": 0.6308454871177673,
+   "wdl square only": 1.5448390245437622,
+   "epochs": 20
+  },
+  "/encoder4/ln2": {
+   "token test": 0.23992068849220177,
+   "wdl test": 0.728213369846344,
+   "wdl square only": 1.6793309450149536,
+   "epochs": 19
+  },
+  "/encoder5/ln2": {
+   "token test": 0.3141620281063973,
+   "wdl test": 0.8247932195663452,
+   "wdl square only": 2.873986005783081,
+   "epochs": 17
+  },
+  "/encoder6/ln2": {
+   "token test": 0.31491487645425625,
+   "wdl test": 0.9202509522438049,
+   "wdl square only": 1.5523830652236938,
+   "epochs": 16
+  },
+  "/encoder7/ln2": {
+   "token test": 0.4590459686143141,
+   "wdl test": 1.0499624013900757,
+   "wdl square only": 2.18798565864563,
+   "epochs": 14
+  },
+  "/encoder8/ln2": {
+   "token test": 0.4809167887864692,
+   "wdl test": 1.1338485479354858,
+   "wdl square only": 2.3583147525787354,
+   "epochs": 13
+  },
+  "/encoder9/ln2": {
+   "token test": 0.6889753194288966,
+   "wdl test": 0.8217331171035767,
+   "wdl square only": 1.6895514726638794,
+   "epochs": 8
+  }
+ }
+}

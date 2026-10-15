@@ -1,0 +1,11 @@
+{
+ "n": 20000,
+ "tap": "/attn_body/rehape",
+ "epochs": 5,
+ "hidden": 2048,
+ "lr": 0.001,
+ "batch": 64,
+ "wdl test": 0.7368035912513733,
+ "token test": 75.99028015136719,
+ "wdl val": 0.7044668197631836
+}

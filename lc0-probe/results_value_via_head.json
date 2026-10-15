@@ -1,0 +1,15 @@
+{
+ "n": 20000,
+ "test positions": 3960,
+ "token FVU": 0.6889660358428955,
+ "taps": {
+  "/value/dense1/mish": {
+   "decoded from features + square": 0.8777561443098064,
+   "square only": 1.3432969481774502
+  },
+  "/value/dense2/add": {
+   "decoded from features + square": 0.8149610301854968,
+   "square only": 1.5353691089430022
+  }
+ }
+}

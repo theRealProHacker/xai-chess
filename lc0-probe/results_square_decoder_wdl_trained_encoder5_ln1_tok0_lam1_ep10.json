@@ -1,0 +1,18 @@
+{
+ "n": 20000,
+ "tap": "/encoder5/ln1",
+ "tok": 0.0,
+ "lam": 1.0,
+ "epochs": 10,
+ "hidden": 2048,
+ "lr": 0.001,
+ "batch": 64,
+ "tokens only": {
+  "token test": 0.3673900067806244,
+  "wdl test": 0.8963989615440369
+ },
+ "tokens + wdl": {
+  "token test": 1.5605210065841675,
+  "wdl test": 0.45721039175987244
+ }
+}
