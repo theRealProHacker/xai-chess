@@ -133,7 +133,7 @@ def batch(idx, rng):
     for k, l in enumerate(labels): lab[k, :len(l)] = torch.tensor(l)
     # logits only where some row predicts an answer token: the 248k-wide output layer dominates memory
     keep = torch.arange(min(l.index(next(t for t in l if t != -100)) for l in labels) - 1, mask.shape[1] - 1)
-    return x, mask, lab.to(dev), keep.to(dev)
+    return x, mask, lab.to(dev), keep                                    # CPU index: valid on any GPU
 
 
 def loss_fn(x, mask, lab, keep):
