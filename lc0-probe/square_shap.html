@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Family Shapley</title>
+<link rel="stylesheet" href="../docs/vendor/chessground/chessground.cburnett.css">
+<style>
+:root{
+  --shadow-s: inset 0 1px 2px #ffffff30, 0 1px 2px #00000030, 0 2px 4px #00000015;
+  --shadow-m: inset 0 1px 2px #ffffff50, 0 2px 4px #00000030, 0 4px 8px #00000015;
+  --pos:#2e8b57; --neg:#c0392b; --ink:#1a1a1a; --muted:#6b6b6b; --line:#e4e4e4; --accent:#0b5fa5;
+}
+*{box-sizing:border-box}
+body{
+  max-width:1040px; margin:2.5rem auto 4rem; padding:0 1.5rem; background:#fff; color:var(--ink);
+  font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+}
+h1{font-size:1.6rem;font-weight:600;letter-spacing:-.01em;margin:0 0 .4rem}
+h2{font-size:1.05rem;font-weight:600;margin:0 0 .6rem}
+p.intro{color:var(--muted);margin:0 0 .4rem}
+details.intro{color:var(--muted);margin:0 0 1.2rem;max-width:68ch;font-size:.9rem}
+details.intro summary{cursor:pointer}
+main{display:grid;grid-template-columns:440px 1fr;gap:2rem;align-items:start}
+@media (max-width:860px){main{grid-template-columns:1fr}}
+#board{
+  display:grid;grid-template-columns:repeat(8,1fr);width:100%;aspect-ratio:1;
+  border-radius:6px;overflow:hidden;box-shadow:var(--shadow-m);
+}
+.sq{position:relative}
+.sq.light{background:#f0d9b5}.sq.dark{background:#b58863}
+.sq .heat{position:absolute;inset:0}
+.sq piece{position:absolute;inset:0;background-size:cover}
+.sq.hi{outline:3px solid #1a1a1a;outline-offset:-3px;z-index:1}
+.nav{display:flex;align-items:center;gap:.6rem;margin-top:1rem}
+.nav span{flex:1;text-align:center;color:var(--muted);font-variant-numeric:tabular-nums}
+button{
+  font:inherit;padding:.4rem .9rem;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);
+  cursor:pointer;box-shadow:var(--shadow-s);transition:background .12s ease,box-shadow .12s ease;
+}
+button:hover{background:#f4f4f4;box-shadow:var(--shadow-m)}
+.mode{display:flex;gap:.4rem;margin:0 0 1rem}
+.mode button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.mode button.on:hover{background:#333}
+dl{display:grid;grid-template-columns:auto 1fr;gap:.15rem 1rem;margin:1rem 0 0;font-variant-numeric:tabular-nums}
+dt{color:var(--muted)}dd{margin:0}
+#fen{font:13px ui-monospace,Menlo,Consolas,monospace;color:var(--muted);margin-top:.8rem;word-break:break-all}
+.row{display:grid;grid-template-columns:9.5rem 1fr 4.6rem;gap:.6rem;align-items:center;padding:.22rem .3rem;border-radius:5px}
+.row:hover{background:#f6f6f6}
+.row.t{grid-template-columns:2.2rem 1fr 150px 4.6rem}
+.row .s{color:var(--muted)}
+.row .l{font:13px ui-monospace,Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .v{font:13px ui-monospace,Menlo,Consolas,monospace;text-align:right}
+.bar{position:relative;height:10px;background:linear-gradient(var(--line),var(--line)) 50% 0/1px 100% no-repeat}
+.bar i{position:absolute;top:0;bottom:0;border-radius:2px}
+#heldbox{margin-top:2rem}
+#tip{position:fixed;z-index:5;padding:.55rem .75rem;border-radius:8px;background:#1a1a1a;color:#fff;font-size:.9rem;line-height:1.4;box-shadow:var(--shadow-m);pointer-events:none}
+</style>
+</head>
+<body>
+<h1>Family Shapley</h1>
+<p class="intro">Green helps White, red hurts. White is always to move.</p>
+<details class="intro"><summary>How it is computed</summary>
+Each feature family is switched on or off on all squares at once; its Shapley value is its average effect on
+the decoded win − loss over random orders, through the layer-0 decoder and the rest of Leela. The values add
+up to the decoded value minus the value with all features off. <em>Pieces held</em>: features whose removal
+alone moves the value by more than <span id="tau"></span> (mostly whole pieces) stay on throughout, and the
+families split only the rest.</details>
+<div class="mode"><button id="all">All features</button><button id="hold">Pieces held</button></div>
+<main>
+  <section>
+    <div id="board" class="cg-wrap"></div>
+    <div class="nav"><button id="prev">Previous</button><span id="count"></span><button id="next">Next</button></div>
+    <dl id="vals"></dl>
+    <div id="fen"></div>
+  </section>
+  <section>
+    <h2>Families</h2>
+    <div id="list"></div>
+    <div id="heldbox"><h2>Held</h2><div id="tlist"></div></div>
+  </section>
+</main>
+<div id="tip" hidden></div>
+<script>
+const q = new URLSearchParams(location.search), tap = q.get("tap") || "encoder0_ln2";
+const script = document.createElement("script");
+script.src = `square_shap_${tap}.js`;
+script.onload = start;
+document.head.append(script);
+
+const ROLE = {p: "pawn", n: "knight", b: "bishop", r: "rook", q: "queen", k: "king"};
+const $ = id => document.getElementById(id);
+const fmt = v => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(3);
+const FAM = {
+  occupant: "Which piece stands on each square.",
+  control: "The squares each piece attacks.",
+  mobility: "Where each piece can move.",
+  route: "Each piece's quickest way to other squares.",
+  role: "Who defends, attacks, restricts or needs whom.",
+  blocks: "Pieces standing on a line they can block.",
+  blocked_by: "Pieces standing in another piece's way.",
+  pawn: "Pawn structure: chains, passed, isolated and doubled pawns.",
+  pawn_cover: "Which pawns guard each square.",
+  pawn_shield: "Pawns closing a line into a square.",
+  weak: "Squares no pawn of a side can ever guard.",
+  strong: "Pawn-guarded squares no enemy pawn can ever challenge.",
+  square: "Which side controls each square more often.",
+  centralisation: "How far each square is from the edge.",
+  long_diagonal: "Squares on the two long diagonals.",
+  open_file: "Squares on files without pawns.",
+  half_open_file: "Pieces on files with only an enemy pawn.",
+  rook: "Rooks on open files, the seventh rank, in batteries or behind passers.",
+  king: "Castling rights.",
+  material: "Material balance and imbalances.",
+  bishop_pair: "A bishop pair the other side lacks.",
+  unlike_bishops: "Opposite-coloured bishops.",
+  stability: "Enemy pieces and pawns that can attack a piece.",
+  check: "A piece attacking the enemy king.",
+  xray: "Sliders bearing through other pieces.",
+  threat: "Black's best reply if White passed.",
+  material_win: "Squares the engine's best line, which wins material, touches.",
+};
+let pos = 0, held = location.hash === "#held";
+
+function pieces(fen) {
+  const at = {};
+  fen.split(" ")[0].split("/").forEach((row, r) => {
+    let f = 0;
+    for (const c of row) {
+      if (c >= "1" && c <= "8") { f += +c; continue; }
+      at["abcdefgh"[f++] + (8 - r)] = (c === c.toUpperCase() ? "white " : "black ") + ROLE[c.toLowerCase()];
+    }
+  });
+  return at;
+}
+
+function bar(v, max) {
+  return `<span class="bar"><i style="background:var(--${v >= 0 ? "pos" : "neg"});width:${50 * Math.abs(v) / max}%;${v >= 0 ? "left:50%" : "right:50%"}"></i></span>`;
+}
+
+function draw() {
+  const S = window.SHAP, p = S.positions[pos], at = pieces(p.fen);
+  const own = {};                                   // a held feature's own share: minus its removal effect
+  if (held) for (const [sq, , d] of p.targets) own[sq] = (own[sq] || 0) - d;
+  const tmax = Math.max(...Object.values(own).map(Math.abs), 1e-9);
+  let html = "";
+  for (let r = 8; r >= 1; r--) for (let f = 0; f < 8; f++) {
+    const sq = "abcdefgh"[f] + r, s = own[sq];
+    html += `<div class="sq ${(f + r) % 2 ? "dark" : "light"}" data-sq="${sq}">
+      ${s === undefined ? "" : `<div class="heat" style="background:var(--${s >= 0 ? "pos" : "neg"});opacity:${.85 * Math.abs(s) / tmax}"></div>`}
+      ${at[sq] ? `<piece class="${at[sq]}"></piece>` : ""}</div>`;
+  }
+  $("board").innerHTML = html;
+  $("count").textContent = `Position ${pos + 1} of ${S.positions.length}`;
+  $("vals").innerHTML = `<dt>Leela, win − loss</dt><dd>${fmt(p.y)}</dd><dt>From decoded features</dt><dd>${fmt(p["y decoded"])}</dd>
+    <dt>All features off</dt><dd>${fmt(p["v none"])}</dd>` + (held ? `<dt>Only the held ones on</dt><dd>${fmt(p["v targets"])}</dd>` : "");
+  $("fen").textContent = p.fen;
+  $("all").classList.toggle("on", !held); $("hold").classList.toggle("on", held);
+  const phi = p[held ? "phi targets held" : "phi"], max = Math.max(...phi.map(Math.abs), 1e-9);
+  $("list").innerHTML = S.families.map((f, i) => [f, phi[i]]).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+    .map(([f, v]) => `<div class="row" data-tip="${FAM[f] || f}"><span class="l">${f}</span>${bar(v, max)}<span class="v">${fmt(v)}</span></div>`).join("");
+  $("heldbox").hidden = !held;
+  const dmax = Math.max(...p.targets.map(t => Math.abs(t[2])), 1e-9);
+  $("tlist").innerHTML = p.targets.slice().sort((a, b) => Math.abs(b[2]) - Math.abs(a[2]))
+    .map(([sq, l, d]) => `<div class="row t" data-sq="${sq}" data-tip="Switched off alone, the value moves by ${fmt(d)}."><span class="s">${sq}</span><span class="l">${l}</span>${bar(-d, dmax)}<span class="v">${fmt(-d)}</span></div>`).join("");
+}
+
+function start() {
+  const S = window.SHAP;
+  $("tau").textContent = S.tau;
+  const step = d => { pos = (pos + d + S.positions.length) % S.positions.length; draw(); };
+  $("prev").onclick = () => step(-1); $("next").onclick = () => step(1);
+  $("all").onclick = () => { held = false; location.hash = ""; draw(); };
+  $("hold").onclick = () => { held = true; location.hash = "held"; draw(); };
+  document.onkeydown = e => { if (e.key === "ArrowLeft") step(-1); if (e.key === "ArrowRight") step(1); };
+  for (const id of ["list", "tlist"]) {
+    $(id).onmouseover = e => {
+      const r = e.target.closest(".row"), tip = $("tip");
+      document.querySelectorAll(".sq.hi").forEach(x => x.classList.remove("hi"));
+      tip.hidden = !r;
+      if (!r) return;
+      if (r.dataset.sq) document.querySelector(`.sq[data-sq="${r.dataset.sq}"]`).classList.add("hi");
+      tip.textContent = r.dataset.tip;
+      const b = r.getBoundingClientRect();
+      tip.style.left = b.left + "px"; tip.style.width = b.width + "px"; tip.style.top = b.bottom + 4 + "px";
+    };
+    $(id).onmouseleave = () => { document.querySelectorAll(".sq.hi").forEach(x => x.classList.remove("hi")); $("tip").hidden = true; };
+  }
+  draw();
+}
+</script>
+</body>
+</html>
