@@ -1946,13 +1946,58 @@ However, this still doesn't really make the cut, so we should probably move up a
 
 As we discussed, the embedding layer is simply not good, because it reduces some of the more interesting features and mostly just relies on the piece squares. Instead, we want a layer where we still have a very low reconstruction loss but that doesn't rely on the pieces positions anymore. This is were our earlier features add chart comes in handy. It is maximised for Layers L1 and L2, specifically L2. So, let's try that instead. 
 
-    ┌─────────────┬───────────┬─────────┐
-    │   L2 ln1    │ Token FVU │ WDL FVU │
-    ├─────────────┼───────────┼─────────┤
-    │ 20k, min 20 │ 0.175     │ 0.579   │
-    ├─────────────┼───────────┼─────────┤
-    │ 100k, min 1 │ 0.162     │ 0.438   │
-    └─────────────┴───────────┴─────────┘
+    ┌─────┬─────────────────────┬───────────┬─────────┐
+    │ Tap │ Positions, features │ Token FVU │ WDL FVU │
+    ├─────┼─────────────────────┼───────────┼─────────┤
+    │ ln1 │ 20k, min 20         │ 0.175     │ 0.579   │
+    ├─────┼─────────────────────┼───────────┼─────────┤
+    │ ln1 │ 100k, min 1         │ 0.162     │ 0.438   │
+    ├─────┼─────────────────────┼───────────┼─────────┤
+    │ ln2 │ 20k, min 20         │ 0.138     │ 0.485   │
+    ├─────┼─────────────────────┼───────────┼─────────┤
+    │ ln2 │ 100k, min 1         │ 0.125     │ 0.400   │
+    └─────┴─────────────────────┴───────────┴─────────┘
+
+**Problems**: 
+1. The elephant in the room: a 40% error is really bad
+    - I tried solving this by filtering for positions where our error is minimal. However, that mostly just filters for totally lost or won positions. 
+2. This still attributes the piece positions mostly 
+    - We could add a small training loss for using those?
+    - But: some things are becoming more interesting when looking at relative relevances
+        - e.g. in the endgame the king is worse at its castled position then normally
+3. Problem I found: our training dataset is a set of tactical positions, which most importantly effects the relative scores and the performance on non-tactical positions
+
+**Solutions:**
+1. Use L0 ln2, it's maybe the sweet spot?
+2. Do L1 regularization (Lasso) on that feature family
+3. New dataset of 100k random positions
+
+    ┌─────────────────────────┬───────────┬─────────┐
+    │ ln2 decoder             │ Token FVU │ WDL FVU │
+    ├─────────────────────────┼───────────┼─────────┤
+    │ L0, 20k, min 20         │ 0.045     │ 0.291   │
+    ├─────────────────────────┼───────────┼─────────┤
+    │ L0, 100k, min 1         │ 0.039     │ 0.077   │
+    ├─────────────────────────┼───────────┼─────────┤
+    │ L0, 100k, min 1, Lasso  │ 0.043     │ 0.371   │
+    ├─────────────────────────┼───────────┼─────────┤
+    │ L2, 100k, min 1         │ 0.125     │ 0.400   │
+    └─────────────────────────┴───────────┴─────────┘
+
+Without regularization L0 ln2 has <8% loss on the WDL output, with regularization the loss explodes, so it seems like we can't just leave those out. The 8% is also partially misleading because  
+
+The next step is using integrated gradients instead. It is the theoretically most sound feature attribution method, and it performs quite well. Firstly, it can correctly sort the value of the pieces, but also just in general it actually seems to work, whereas the simple, minimal feature attribution method didn't work at all and seemed almost random.
+
+![L0 integrated gradients feature attribution](./image/journey/L0_ig_feature_attribution_screenshot.png)
+
+What I noticed:
+1. Material win seems quite arbitrary
+2. Still some bugs in the feature definitions, features missing and partially bad features, that are abused
+3. For example, that Black is blocked by its own piece is considered bad for White, even if that makes no sense
+
+**Open Questions**:
+1. 
+
 
 ### Compute
 
@@ -1979,6 +2024,8 @@ I first tried to run the full model (55 GB), but then I saw that I would probabl
 
 For inference
 
+How to list ressources `sinfo -N -O NodeList,Partition,Gres:30,GresUsed:30,StateCompact`
+
 ```
 srun --qos=hiprio --partition=gpu --gres=gpu:2 --cpus-per-task=8 --mem=32G --time=3:00:00 --pty bash
 module load GCC/14.2.0 CMake/3.31.3-GCCcore-14.2.0 CUDA/12.9.1
@@ -1996,13 +2043,31 @@ module load GCC/14.2.0 CMake/3.31.3-GCCcore-14.2.0 CUDA/12.9.1
 
     [ Prompt: 53.5 t/s | Generation: 15.3 t/s ]
 
-### CLIP
+### LLaVA
 
-The first step to building an oracle is doing "CLIP" essentially, the goal is to bring the leela activations into the same space as the LLM tokens.
+The first step to building an oracle is doing LLaVA, the goal is to bring the leela activations into the same space as the LLM tokens and then fine-tune the LLM on it. 
 
 The main difference to existing CLIP on chess or LLM oracles is that the first just reads the chess board itself, which leaves all the thinking to the LLM, and that LLM activations are more like other LLMs activations which could mean that it is easier to move them into the right space. 
 
-<!-- The difficult thing about supervised CLIP is having the right activation to text matching -->
+To do the fine-tuning quickly and reliably on the 1080s, I chose to start with the 0.8B model. It's fast for fine-tuning and we don't need lots of general knowledge which is what most of the parameters are used for in most models. 
 
-The other approach would be simple fine-tuning, where we just put the raw activations into the LLM and train it to read the activations somehow. 
+0. Get the code on the server  
+    `rsync -av --exclude runs [local dir] [name]@[host]:[remote dir]`
+1. Setup venv 
+    ```
+    export UV_CACHE_DIR=/tmp/$USER-uv HF_HOME=/scratch/$USER/hf
+    uv venv --python 3.13 ~/oracle && source ~/oracle/bin/activate
+    uv pip install torch --index-url https://download.pytorch.org/whl/cu126
+    uv pip install transformers accelerate numpy torchvision pillow
+    ```
+2. Install model  
+    `hf download Qwen/Qwen3.5-0.8B`  
+    `rm -rf /tmp/$USER-uv`
+3. Get a GPU:  
+    `srun --qos=hiprio --partition=gpu --gres=gpu:1 --cpus-per-task=8 --mem=32G --time=3:00:00 --pty bash`
+4. Training  
 
+        source ~/oracle/bin/activate
+        export HF_HOME=/scratch/$USER/hf HF_HUB_OFFLINE=1
+        nvidia-smi
+        cd ~/xai-chess && python oracle/train.py --out oracle/runs/q08b
