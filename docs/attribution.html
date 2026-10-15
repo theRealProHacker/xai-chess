@@ -58,6 +58,7 @@ dt{color:var(--muted)}dd{margin:0}
 .bar{position:relative;height:10px;background:linear-gradient(var(--line),var(--line)) 50% 0/1px 100% no-repeat}
 .bar i{position:absolute;top:0;bottom:0;border-radius:2px}
 .mode{display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 1rem}
+@media (max-width:480px){.mode button{padding:.4rem .5rem}}
 .mode button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 #tip{position:fixed;z-index:5;padding:.55rem .75rem;border-radius:8px;background:#1a1a1a;color:#fff;font-size:.9rem;line-height:1.4;box-shadow:var(--shadow-m);pointer-events:none}
 #tip small{display:block;margin-top:.25rem;color:#bbb;font:12px ui-monospace,Menlo,Consolas,monospace}
@@ -87,12 +88,12 @@ a.back:hover{color:var(--accent)}
 <p class="intro">Green helps White, red hurts. White is always to move.</p>
 <details class="intro"><summary>How it is computed</summary>
 <span id="method">Gradient × input</span> on each square's features, through the decoder for <span id="tap"></span> and the rest of Leela.
-<em>Relative to usual</em> multiplies each attribution by how far it is from the feature's mean over the
+<em>Relative</em> multiplies each attribution by how far it is from the feature's mean over the
 <span id="npos"></span> positions, in units of its spread.
-<span id="shapnote"><em>Family Shapley</em> switches each feature family on or off on all squares at once and averages its
+<span id="shapnote"><em>Families</em>: Shapley values. Each feature family is switched on or off on all squares at once; its value is its average
 effect on the decoded win − loss over random orders. <em>Pieces held</em> keeps the features that alone move the value by more
 than <span id="tau"></span> (mostly whole pieces) on throughout; the families split the rest.</span></details>
-<div class="mode"><button id="raw">Raw</button><button id="rel">Relative to usual</button><button id="shapall" hidden>Family Shapley</button><button id="shapheld" hidden>Family Shapley, pieces held</button></div>
+<div class="mode"><button id="raw">Raw</button><button id="rel">Relative</button><button id="shapall" hidden>Families</button><button id="shapheld" hidden>Pieces held</button></div>
 <details class="fam"><summary>Feature families <span id="famcount"></span></summary>
 <div class="famtools"><button id="famall">All</button><button id="famnone">None</button></div>
 <div id="fams"></div></details>
