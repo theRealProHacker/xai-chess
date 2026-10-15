@@ -29,7 +29,8 @@ ap.add_argument("--train-n", type=int, default=0, help="use only the first n tra
 ap.add_argument("--eval-n", type=int, default=300)
 ap.add_argument("--eval-batch", type=int, default=32)
 ap.add_argument("--max-new", type=int, default=24)
-ap.add_argument("--no-cache", action="store_true", help="generate without KV cache (slow; for checking the cached path)")
+ap.add_argument("--grad-ckpt", action="store_true", help="recompute LLM activations in backward: less memory, ~30%% slower")
+ap.add_argument("--no-cache",action="store_true", help="generate without KV cache (slow; for checking the cached path)")
 ap.add_argument("--log-every", type=int, default=50)
 ap.add_argument("--seed", type=int, default=0)
 a = ap.parse_args()
@@ -62,6 +63,9 @@ except ValueError:                                                              
     from transformers import AutoModelForImageTextToText
     llm = AutoModelForImageTextToText.from_pretrained(a.model, **kw)
 llm.requires_grad_(False).eval()
+if a.grad_ckpt:                                   # HF only checkpoints in train mode; the LLM has no dropout
+    llm.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+    llm.train()
 emb = llm.get_input_embeddings()
 dev = emb.weight.device
 END = "<|im_end|>" if "<|im_end|>" in tok.get_vocab() else tok.eos_token
@@ -127,7 +131,14 @@ def batch(idx, rng):
     x, mask = embed(ids, proj(acts[idx].to(dev)))
     lab = torch.full(mask.shape, -100, dtype=torch.long)
     for k, l in enumerate(labels): lab[k, :len(l)] = torch.tensor(l)
-    return x, mask, lab.to(dev)
+    # logits only where some row predicts an answer token: the 248k-wide output layer dominates memory
+    keep = torch.arange(min(l.index(next(t for t in l if t != -100)) for l in labels) - 1, mask.shape[1] - 1)
+    return x, mask, lab.to(dev), keep.to(dev)
+
+
+def loss_fn(x, mask, lab, keep):
+    logits = llm(inputs_embeds=x, attention_mask=mask, logits_to_keep=keep, use_cache=False).logits
+    return nn.functional.cross_entropy(logits.float().flatten(0, 1), lab[:, keep + 1].flatten(), ignore_index=-100)
 
 
 @torch.no_grad()
@@ -142,16 +153,17 @@ def generate(rows, idx):
             kk = ks[s:s + a.eval_batch]
             x, _ = embed([prompt_ids(rows[k]["question"]) for k in kk], proj(acts[[idx[k] for k in kk]].to(dev)))
             gen = torch.zeros((len(kk), 0), dtype=torch.long, device=dev)
-            o = llm(inputs_embeds=x, use_cache=not a.no_cache)
+            o = llm(inputs_embeds=x, use_cache=not a.no_cache, logits_to_keep=1)
             for _ in range(a.max_new):
                 nxt = o.logits[:, -1].argmax(-1)
                 gen = torch.cat([gen, nxt[:, None]], 1)
                 if (gen == end_id).any(1).all() or gen.shape[1] == a.max_new: break
                 if a.no_cache:
                     x = torch.cat([x, emb(nxt)[:, None]], 1)
-                    o = llm(inputs_embeds=x, use_cache=False)
+                    o = llm(inputs_embeds=x, use_cache=False, logits_to_keep=1)
                 else:
-                    o = llm(inputs_embeds=emb(nxt)[:, None], past_key_values=o.past_key_values, use_cache=True)
+                    o = llm(inputs_embeds=emb(nxt)[:, None], past_key_values=o.past_key_values, use_cache=True,
+                            logits_to_keep=1)
             for k, g in zip(kk, gen.tolist()):
                 outs[k] = tok.decode(g[:g.index(end_id)] if end_id in g else g, skip_special_tokens=True).strip()
     proj.train()
@@ -200,8 +212,7 @@ for ep in range(start, a.epochs):
     order = rng.permutation(tr)
     t0, run, n = time.time(), 0.0, 0
     for s in range(steps_per_epoch):
-        x, mask, lab = batch(order[s * a.batch:(s + 1) * a.batch], rng)
-        loss = llm(inputs_embeds=x, attention_mask=mask, labels=lab, use_cache=False).loss
+        loss = loss_fn(*batch(order[s * a.batch:(s + 1) * a.batch], rng))
         opt.zero_grad(set_to_none=True); loss.backward()
         torch.nn.utils.clip_grad_norm_(proj.parameters(), 1.0)
         opt.step(); sched.step()
