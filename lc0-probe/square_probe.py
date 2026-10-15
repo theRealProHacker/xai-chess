@@ -26,6 +26,7 @@ ap.add_argument("--min", type=int, default=20, help="positive tokens needed in t
 ap.add_argument("--steps", type=int, default=4000)
 ap.add_argument("--groups", default="", help="comma list of schema groups to probe (default all); each bit's probe is independent, so a subset scores the same")
 ap.add_argument("--tag", default="", help="suffix for the output files")
+ap.add_argument("--labels-only", action="store_true", help="build the label cache and exit")
 a = ap.parse_args()
 rng = np.random.default_rng(0)
 
@@ -38,18 +39,24 @@ cache = ROOT / f"lc0-probe/data/square_bits_n{N}_nodes{a.nodes}.jsonl"
 binary = ROOT / "features/square/target/release/square"
 subprocess.run(["cargo", "build", "--release", "-q"], cwd=ROOT / "features/square", check=True)
 if not cache.exists():
+    # reuse the largest smaller cache at the same nodes as a prefix; the engine only runs on the rest
+    prev = max((p for p in cache.parent.glob(f"square_bits_n*_nodes{a.nodes}.jsonl")
+                if int(p.name.split("_n")[1].split("_")[0]) < N), key=lambda p: int(p.name.split("_n")[1].split("_")[0]), default=None)
+    done = prev.read_text().splitlines() if prev else []
+    todo = stm[len(done):]
     tmp = cache.with_suffix(".parts"); tmp.mkdir(exist_ok=True)
     procs = []
     for w in range(a.workers):                       # files, not pipes: a full pipe deadlocks the workers
-        (tmp / f"{w}.in").write_text("\n".join(stm[w::a.workers]) + "\n")
+        (tmp / f"{w}.in").write_text("\n".join(todo[w::a.workers]) + "\n")
         procs.append(subprocess.Popen([binary, "--indices", "--engine", ROOT / "vendor/stockfish/stockfish-ubuntu-x86-64-avx2",
                                        "--nodes", str(a.nodes)], stdin=open(tmp / f"{w}.in"), stdout=open(tmp / f"{w}.out", "w")))
     assert all(p.wait() == 0 for p in procs), "square extractor failed"
     outs = [(tmp / f"{w}.out").read_text().splitlines() for w in range(a.workers)]
-    rows = [outs[i % a.workers][i // a.workers] for i in range(N)]
+    rows = done + [outs[i % a.workers][i // a.workers] for i in range(len(todo))]
     cache.write_text("\n".join(rows) + "\n")
     for f in tmp.iterdir(): f.unlink()
     tmp.rmdir()
+if a.labels_only: sys.exit()
 rows = [json.loads(l) for l in cache.read_text().splitlines()]
 assert len(rows) == N and all(r["fen"] == f for r, f in zip(rows, stm))
 
