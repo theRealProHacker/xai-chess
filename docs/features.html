@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Positional Features &middot; xai-chess</title>
+<title>Features &middot; xai-chess</title>
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
@@ -23,38 +23,47 @@
       inset 0 1px 2px #ffffff50,
       0 2px 4px #00000030,
       0 4px 8px #00000015;
+    --shadow-l:
+      inset 0 1px 2px #ffffff70,
+      0 4px 6px #00000030,
+      0 6px 10px #00000015;
     --yes:#0b7a2f; --no:#b00020;
+    --pos:#2e8b57; --neg:#c0392b; --ink:#1a1a1a; --muted:#6b6b6b; --line:#e4e4e4; --accent:#0b5fa5;
     --mono:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   }
+  body.wide{max-width:1040px;box-sizing:border-box}
+  [hidden]{display:none !important}
   a.back{color:#8a8a8a;text-decoration:none;font-size:.9rem}
-  a.back:hover{color:#0b5fa5}
+  a.back:hover{color:var(--accent)}
 
-  .pick{display:flex;gap:.4rem;margin:0 0 .8rem}
-  .pick select{flex:1;min-width:0;font:inherit;font-size:.9rem;padding:.5rem .6rem;border:1px solid #e4e4e4;
-      border-radius:8px;background:#fff;color:#1a1a1a;cursor:pointer;box-shadow:var(--shadow-s)}
-  .pick button{font-size:1.1rem;padding:.35rem .8rem}
-  .pick select:focus{outline:none;border-color:#0b5fa5}
-
-  button{font:inherit;font-size:.9rem;padding:.5rem .9rem;border:1px solid #e4e4e4;border-radius:8px;
-      background:#fff;color:#1a1a1a;cursor:pointer;box-shadow:var(--shadow-s);
+  button{font:inherit;font-size:.9rem;padding:.5rem .9rem;border:1px solid var(--line);border-radius:8px;
+      background:#fff;color:var(--ink);cursor:pointer;box-shadow:var(--shadow-s);
       transition:border-color .12s,background .12s,box-shadow .12s}
-  button:hover:not(:disabled){border-color:#0b5fa5;background:#fafafa;box-shadow:var(--shadow-m)}
+  button:hover:not(:disabled){border-color:var(--accent);background:#fafafa;box-shadow:var(--shadow-m)}
+  button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.on:hover:not(:disabled){background:#0a5390;border-color:#0a5390}
+  .mode{display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 1rem}
+  @media (max-width:480px){.mode button{padding:.4rem .5rem}}
+  .views{margin:0 0 1.2rem}
 
-  h2{font-size:1.1rem;font-weight:600;margin:1.8rem 0 .5rem}
-  h2#famTitle{margin-top:1.1rem;font-size:1.25rem}
+  /* Features view */
+  #view-feat .pick{display:flex;gap:.4rem;margin:0 0 .8rem}
+  #view-feat .pick select{flex:1;min-width:0;font:inherit;font-size:.9rem;padding:.5rem .6rem;border:1px solid var(--line);
+      border-radius:8px;background:#fff;color:var(--ink);cursor:pointer;box-shadow:var(--shadow-s)}
+  #view-feat .pick button{font-size:1.1rem;padding:.35rem .8rem}
+  #view-feat .pick select:focus{outline:none;border-color:var(--accent)}
+  #view-feat h2{font-size:1.1rem;font-weight:600;margin:1.8rem 0 .5rem}
+  #view-feat h2#famTitle,#view-feat h2#try{margin-top:1.1rem;font-size:1.25rem}
   .rule{color:#333;margin:0 0 1.2rem}
-
   .gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem;margin:0 0 .9rem}
   @media (max-width:560px){.gallery{grid-template-columns:1fr 1fr}}
-  button.on{background:#0b5fa5;border-color:#0b5fa5;color:#fff}
-  button.on:hover:not(:disabled){background:#0a5390;border-color:#0a5390}
   .case .lead{margin:0 0 .8rem;font-size:.95rem;line-height:1.55}
   .case .lead .qt{font-weight:600}
   .case .lead .ctx{color:#555}
-  .case .lead a{color:#6b6b6b;font-size:.85rem}
+  .case .lead a{color:var(--muted);font-size:.85rem}
   .case .hole{margin:0 0 1.5rem;border:1px dashed #d6d6d6;border-radius:4px;
       display:flex;align-items:center;justify-content:center;padding:1.2rem;box-sizing:border-box;
-      color:#6b6b6b;font-size:.95rem;text-align:center}
+      color:var(--muted);font-size:.95rem;text-align:center}
   .case .mini{width:100%;margin:0 0 1.9rem;aspect-ratio:1/1;box-shadow:var(--shadow-s);border-radius:4px}
   .mini coords coord,#board coords coord{color:#333 !important;text-shadow:none;font-weight:400}
   .mini coords,#board coords{font-size:12px;opacity:1}
@@ -64,43 +73,93 @@
   .mini coords.files coord,#board coords.files coord{flex:1 1 0;text-align:center}
   .mini coords.ranks,#board coords.ranks{top:0;left:-13px;width:10px}
   .mini coords.ranks coord,#board coords.ranks coord{flex:1 1 0;transform:none;display:flex;align-items:center;justify-content:flex-end}
-  .marks{color:#6b6b6b;font-size:.85rem;margin:-.6rem 0 1.2rem}
-  h2#try{margin-top:1.1rem;font-size:1.25rem}
-  [hidden]{display:none !important}
+  .marks{color:var(--muted);font-size:.85rem;margin:-.6rem 0 1.2rem}
   .case .q{font-weight:600;font-size:1rem;margin:0 0 .15rem}
   .case .verd{font-size:.95rem;margin:0 0 .7rem}
   .case .verd b{font-weight:600}
   .case .verd b.on{color:var(--yes)} .case .verd b.off{color:var(--no)}
   .case .det{font-size:.9rem;color:#333;margin:0 0 .3rem}
-  .case .note{font-size:.9rem;color:#1a1a1a;margin:.35rem 0 .5rem}
-
+  .case .note{font-size:.9rem;color:var(--ink);margin:.35rem 0 .5rem}
   #board{width:min(440px, 100%);margin:0 0 2rem;aspect-ratio:1/1;box-shadow:var(--shadow-s);border-radius:4px}
   .mini .cg-shapes, #board .cg-shapes{opacity:1}
-  #board coords.files{text-transform:lowercase}
   .fenrow{display:flex;gap:.4rem;align-items:stretch;margin:0 0 .3rem}
-  .fenrow input{flex:1;min-width:0;font:var(--mono);padding:.5rem .6rem;border:1px solid #e4e4e4;
-      border-radius:8px;color:#1a1a1a;background:#fff}
-  .fenrow input:focus{outline:none;border-color:#0b5fa5}
+  .fenrow input{flex:1;min-width:0;font:var(--mono);padding:.5rem .6rem;border:1px solid var(--line);
+      border-radius:8px;color:var(--ink);background:#fff}
+  .fenrow input:focus{outline:none;border-color:var(--accent)}
   .err{color:var(--no);font-size:.85rem;margin:0 0 .4rem}
   .err:empty{display:none}
-  .hint{color:#6b6b6b;font-size:.85rem;margin:.2rem 0 1.2rem}
-
-  table{width:100%;border-collapse:collapse;font-size:.88rem;table-layout:fixed}
-  th{text-align:left;font-weight:600;color:#333;font-size:.85rem;padding:0 .5rem .35rem 0;border-bottom:1px solid #d6d6d6}
-  th:nth-child(2),th:nth-child(3){width:30%}
-  td{padding:.35rem .5rem .35rem 0;border-top:1px solid #eee;vertical-align:baseline;overflow-wrap:anywhere}
-  tr.grp td{border-top:none;padding-top:1.1rem;font-weight:600;color:#1a1a1a}
+  .hint{color:var(--muted);font-size:.85rem;margin:.2rem 0 1.2rem}
+  #view-feat table{width:100%;border-collapse:collapse;font-size:.88rem;table-layout:fixed}
+  #view-feat th{text-align:left;font-weight:600;color:#333;font-size:.85rem;padding:0 .5rem .35rem 0;border-bottom:1px solid #d6d6d6}
+  #view-feat th:nth-child(2),#view-feat th:nth-child(3){width:30%}
+  #view-feat td{padding:.35rem .5rem .35rem 0;border-top:1px solid #eee;vertical-align:baseline;overflow-wrap:anywhere}
+  #view-feat tr.grp td{border-top:none;padding-top:1.1rem;font-weight:600;color:var(--ink)}
   tr.fam{cursor:pointer}
   tr.fam:hover td{background:#fafafa}
   tr.fam.sel td{background:#f1f5f9}
-  tr.solo td{padding-top:1.1rem}
+  #view-feat tr.solo td{padding-top:1.1rem}
   td.empty{color:#8a8a8a}
   .why{color:#555;font-size:.85rem;margin:.6rem 0 0;min-height:1.4em}
+
+  /* Attribution view */
+  #view-attr{font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+  #view-attr,#view-attr *{box-sizing:border-box}
+  #view-attr h2{font-size:1.05rem;font-weight:600;margin:0}
+  #view-attr p.intro{color:var(--muted);margin:0 0 .4rem}
+  #view-attr details.intro{color:var(--muted);margin:0 0 1.2rem;max-width:68ch;font-size:.9rem}
+  #view-attr details.intro summary{cursor:pointer}
+  #view-attr main{display:grid;grid-template-columns:440px 1fr;gap:2rem;align-items:start}
+  @media (max-width:860px){#view-attr main{grid-template-columns:1fr}}
+  #a-board{
+    display:grid;grid-template-columns:repeat(8,1fr);width:100%;aspect-ratio:1;
+    border-radius:6px;overflow:hidden;box-shadow:var(--shadow-m);
+  }
+  #a-board .sq{position:relative;cursor:pointer}
+  #a-board .sq.light{background:#f0d9b5} #a-board .sq.dark{background:#b58863}
+  #a-board .sq .heat{position:absolute;inset:0}
+  /* chessground.base.css sizes pieces to one square of its own board; these fill their square */
+  #a-board .sq piece{position:absolute;inset:0;width:auto;height:auto;z-index:auto;pointer-events:auto;will-change:auto;background-size:cover}
+  #a-board .sq.sel{outline:3px solid var(--accent);outline-offset:-3px;z-index:1}
+  #a-board .sq.hi{outline:3px solid #1a1a1a;outline-offset:-3px;z-index:1}
+  #a-board.fixed .sq{cursor:default}
+  #view-attr .nav{display:flex;align-items:center;gap:.6rem;margin-top:1rem}
+  #view-attr .nav span{flex:1;text-align:center;color:var(--muted);font-variant-numeric:tabular-nums}
+  #view-attr dl{display:grid;grid-template-columns:auto 1fr;gap:.15rem 1rem;margin:1rem 0 0;font-variant-numeric:tabular-nums}
+  #view-attr dt{color:var(--muted)} #view-attr dd{margin:0}
+  #a-fen{font:13px ui-monospace,Menlo,Consolas,monospace;color:var(--muted);margin-top:.8rem;word-break:break-all}
+  #view-attr .head{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin-bottom:.6rem;min-height:2.3rem}
+  #view-attr .row{display:grid;grid-template-columns:2.2rem 1fr 150px 4.6rem;gap:.6rem;align-items:center;padding:.22rem .3rem;border-radius:5px}
+  #view-attr .row:hover{background:#f6f6f6}
+  #view-attr .row .s{color:var(--muted)}
+  #view-attr .row .l{font:13px ui-monospace,Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #view-attr .row .v{font:13px ui-monospace,Menlo,Consolas,monospace;text-align:right}
+  #view-attr .bar{position:relative;height:10px;background:linear-gradient(var(--line),var(--line)) 50% 0/1px 100% no-repeat}
+  #view-attr .bar i{position:absolute;top:0;bottom:0;border-radius:2px}
+  #view-attr .row.f{grid-template-columns:1fr 150px 4.6rem}
+  @media (max-width:480px){#view-attr .row.f{grid-template-columns:1fr 90px 4.6rem}}
+  #a-tip{position:fixed;z-index:5;padding:.55rem .75rem;border-radius:8px;background:#1a1a1a;color:#fff;font-size:.9rem;line-height:1.4;box-shadow:var(--shadow-m);pointer-events:none}
+  #a-tip small{display:block;margin-top:.25rem;color:#bbb;font:12px ui-monospace,Menlo,Consolas,monospace}
+  #view-attr details.fam{margin:0 0 1.2rem}
+  #view-attr details.fam summary{cursor:pointer}
+  #view-attr details.fam summary span{color:var(--muted)}
+  #view-attr .famtools{display:flex;gap:.4rem;margin:.6rem 0}
+  #view-attr .famtools button{padding:.2rem .7rem;font-size:.9rem}
+  #a-fams{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.15rem .8rem}
+  #a-fams label{display:flex;gap:.4rem;align-items:center;cursor:pointer;font:13px ui-monospace,Menlo,Consolas,monospace}
+  #a-fams label:hover{color:var(--accent)}
+  #view-attr .note{color:var(--muted);font-size:.9rem;margin-top:.8rem}
+  #view-attr .fit{display:grid;grid-template-columns:auto 1fr auto;gap:.6rem;align-items:center;margin-top:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+  #view-attr .fit input{cursor:pointer;accent-color:var(--ink)}
+  #a-heldbox{margin-top:2rem}
+  #a-heldbox h2{margin-bottom:.6rem}
 </style>
 </head>
 <body>
   <a class="back" href="index.html">&larr; xai-chess</a>
-  <h1>Positional Features</h1>
+  <h1>Features</h1>
+  <div class="mode views"><button id="v-feat">Features</button><button id="v-attr">Attribution</button></div>
+
+  <div id="view-feat">
   <p class="intro">Yes/no positional features, each a fixed rule over the board. Counts and scores
   are split into one yes/no per value, such as &ldquo;three pawn islands&rdquo;. Every feature is
   checked against up to four positions from master games that a classic book annotated: where the rule and the
@@ -131,6 +190,334 @@
   <table id="read"></table>
   <p class="why" id="why"></p>
   </div>
+  </div>
+
+  <div id="view-attr" hidden>
+  <p class="intro">Green helps White, red hurts. White is always to move.</p>
+  <details class="intro"><summary>How it is computed</summary>
+  <span id="a-method">Gradient × input</span> on each square's features, through the decoder for <span id="a-tap"></span> and the rest of Leela.
+  <em>Relative</em> multiplies each attribution by how far it is from the feature's mean over the
+  <span id="a-npos"></span> positions, in units of its spread.
+  <span id="a-shapnote"><em>Families</em>: Shapley values. Each feature family is switched on or off on all squares at once; its value is its average
+  effect on the decoded win − loss over random orders. <em>Pieces held</em> keeps the features that alone move the value by more
+  than <span id="a-tau"></span> (mostly whole pieces) on throughout; the families split the rest.</span></details>
+  <div class="mode"><button id="a-raw">Raw</button><button id="a-rel">Relative</button><button id="a-shapall" hidden>Families</button><button id="a-shapheld" hidden>Pieces held</button></div>
+  <details class="fam"><summary>Feature families <span id="a-famcount"></span></summary>
+  <div class="famtools"><button id="a-famall">All</button><button id="a-famnone">None</button></div>
+  <div id="a-fams"></div></details>
+  <main>
+    <section>
+      <div id="a-board" class="cg-wrap"></div>
+      <div class="nav"><button id="a-prev">Previous</button><span id="a-count"></span><button id="a-next">Next</button></div>
+      <label class="fit">Closest fits <input type="range" id="a-fit" min="1"> <span id="a-fitval"></span></label>
+      <dl>
+        <dt>Leela, win − loss</dt><dd id="a-y"></dd>
+        <dt>From decoded features</dt><dd id="a-yd"></dd>
+        <dt class="shap">All features off</dt><dd class="shap" id="a-vnone"></dd>
+        <dt class="held">Only the held ones on</dt><dd class="held" id="a-vheld"></dd>
+      </dl>
+      <div id="a-fen"></div>
+    </section>
+    <section>
+      <div class="head"><h2 id="a-title"></h2><button id="a-all" hidden>All squares</button></div>
+      <div id="a-list"></div>
+      <div class="note" id="a-note"></div>
+      <div id="a-heldbox"><h2>Held</h2><div id="a-tlist"></div></div>
+    </section>
+  </main>
+  <div id="a-tip" hidden></div>
+  </div>
+
+<script>
+// --- attribution view: its data (11 MB) loads when the view first opens ---
+const q = new URLSearchParams(location.search), n = q.get("n") || 100000;
+const games = q.get("src") !== "puzzles";         // ?src=puzzles: the held-out puzzle positions
+const tap = q.get("tap") || "encoder0_ln2_ig";    // ?tap=encoder2_ln2: the decoder on that layer, if its file is here
+const load = src => new Promise((ok, no) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = no; document.head.append(s); });
+let opened = false;
+function openAttribution() {
+  if (opened) return; opened = true;
+  const script = document.createElement("script");
+  script.src = `square_attribution_n${n}${tap ? "_" + tap : ""}${games ? "_games" : ""}.js`;
+  script.onload = () => load(`square_shap_${tap.replace(/_ig$/, "")}.js`).catch(() => {}).then(start);
+  document.head.append(script);
+}
+
+const ROLE = {p: "pawn", n: "knight", b: "bishop", r: "rook", q: "queen", k: "king"};
+const $ = id => document.getElementById("a-" + id);   // this view's ids carry an "a-" prefix
+const fmt = v => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(3);
+const MIN = 20;                                   // tokens a feature needs for a usual attribution
+let pos = 0, sel = null, rel = false, mode = "raw";   // mode: raw, rel, shap (family Shapley), held (pieces held)
+let shown = [];                                   // positions kept by the fit slider, in their order
+let off = new Set();                              // families hidden; a family is the label's first part
+try { off = new Set(JSON.parse(localStorage.getItem("families off") || "[]")); } catch (e) {}
+const show = fmt;
+const HASH = {raw: "attribution", rel: "relative", shap: "shapley", held: "shapley-held"};   // not element ids: those scroll
+const FAM = {
+  occupant: "Which piece stands on each square.",
+  control: "The squares each piece attacks.",
+  mobility: "Where each piece can move.",
+  route: "Each piece's quickest way to other squares.",
+  role: "Who defends, attacks, restricts or needs whom.",
+  blocks: "Pieces standing on a line they can block.",
+  blocked_by: "Pieces standing in another piece's way.",
+  pawn: "Pawn structure: chains, passed, isolated and doubled pawns.",
+  pawn_cover: "Which pawns guard each square.",
+  pawn_shield: "Pawns closing a line into a square.",
+  weak: "Squares no pawn of a side can ever guard.",
+  strong: "Pawn-guarded squares no enemy pawn can ever challenge.",
+  square: "Which side controls each square more often.",
+  centralisation: "How far each square is from the edge.",
+  long_diagonal: "Squares on the two long diagonals.",
+  open_file: "Squares on files without pawns.",
+  half_open_file: "Pieces on files with only an enemy pawn.",
+  rook: "Rooks on open files, the seventh rank, in batteries or behind passers.",
+  king: "Castling rights.",
+  material: "Material balance and imbalances.",
+  bishop_pair: "A bishop pair the other side lacks.",
+  unlike_bishops: "Opposite-coloured bishops.",
+  stability: "Enemy pieces and pawns that can attack a piece.",
+  check: "A piece attacking the enemy king.",
+  xray: "Sliders bearing through other pieces.",
+  threat: "Black's best reply if White passed.",
+  material_win: "Squares the engine's best line, which wins material, touches.",
+};
+
+function pieces(fen) {
+  const at = {};
+  fen.split(" ")[0].split("/").forEach((row, r) => {
+    let f = 0;
+    for (const c of row) {
+      if (c >= "1" && c <= "8") { f += +c; continue; }
+      at["abcdefgh"[f++] + (8 - r)] = (c === c.toUpperCase() ? "white " : "black ") + ROLE[c.toLowerCase()];
+    }
+  });
+  return at;
+}
+
+// [square, label, value shown, raw, usual mean] for every feature on a square
+function bits(p, sq) {
+  const A = window.ATTRIBUTION, out = [];
+  for (const [j, v] of p.squares[sq].bits) {
+    if (off.has(A.labels[j].split(".")[0])) continue;
+    const [m, sd, c] = A.usual[j];
+    if (!rel) out.push([sq, A.labels[j], v, v, m]);
+    else if (c >= MIN && sd > 0) out.push([sq, A.labels[j], v * Math.abs(v - m) / sd, v, m]);
+  }
+  return out.sort((a, b) => Math.abs(b[2]) - Math.abs(a[2]));
+}
+
+
+// Plain-language text for a feature label, after features/square/src/lib.rs. White is the side to move.
+const DIR = {n: "up the board", ne: "up and to the right", e: "to the right", se: "down and to the right",
+             s: "down the board", sw: "down and to the left", w: "to the left", nw: "up and to the left"};
+const pc = x => x.replace("_", " ");
+const an = x => (/^[aeiou]/.test(x) ? "an " : "a ") + x;
+const ply = x => x.replace("ply", "");
+const two = (a, b, d, pr) => { const [d1, d2] = pr.split("_"); return `Looking ${DIR[d]}, the first piece is ${an(a)} ${d1} away and ${an(b)} stands ${d2} behind it.`; };
+const TRADE = {bishop_vs_knight: "bishop against knight", exchange: "rook against minor piece", two_minors_vs_rook: "two minor pieces against a rook",
+  two_knights_vs_bishop: "two knights against a bishop", two_rooks_vs_queen: "two rooks against a queen", three_minors_vs_queen: "three minor pieces against a queen",
+  queen_vs_rook_minor: "queen against rook and minor piece", piece_vs_pawns: "a piece against pawns"};
+const COUNT = {none: "No", one: "One", two: "Two"};
+const TEXT = {
+  "mate": a => `A move of the engine's best line touches this square at ply ${ply(a)}; the line ends in mate.`,
+  "material_win": a => `A move of the engine's best line touches this square at ply ${ply(a)}; the line wins material.`,
+  "xray": (a, b, d, pr) => "The piece here is a slider. " + two(a, b, d, pr),
+  "check": () => "The piece here attacks the enemy king.",
+  "threat.mate": a => `If White passed: a move of Black's best line touches this square at ply ${ply(a)}; the line ends in mate.`,
+  "threat.material_win": a => `If White passed: a move of Black's best line touches this square at ply ${ply(a)}; the line wins material.`,
+  "threat.xray": (a, b, d, pr) => "If White passed, Black's best move starts here. From where it lands: " + two(a, b, d, pr),
+  "threat.check": () => "If White passed, Black's best move starts here and gives check.",
+  "threat.move": a => `If White passed, Black's best move goes from here to ${a}.`,
+  "occupant": a => `${an(pc(a))[0].toUpperCase() + an(pc(a)).slice(1)} stands here.`,
+  "material.up": a => `Its side is ahead by ${{up1: "1 point", up2: "2 points", up3plus: "3 points or more"}[a]}, and has more pieces of this type than the other side.`,
+  "material.trade": a => `This piece is part of a material imbalance: ${TRADE[a]}.`,
+  "material.coordinating": () => "A rook or queen outside the material imbalance, on the side with more pieces in it: the piece that coordinates the play.",
+  "bishop_pair": a => `One of a bishop pair the other side does not have; its partner is on ${a}.`,
+  "unlike_bishops": a => `Opposite-coloured bishops: the other side's only bishop is on ${a}.`,
+  "stability.pawn_ever": a => `The enemy pawn on ${a} could advance to attack this piece, with no pawn in its way.`,
+  "stability.pawn_direct": a => `The enemy pawn on ${a} attacks this piece now or after one push.`,
+  "stability.attacked_in": (n, t, a) => `The enemy ${t} on ${a}, worth no more than this piece, ${n === "in0" ? "attacks it now" : `can attack it after ${n.slice(2)} safe move${n === "in1" ? "" : "s"}`}.`,
+  "control.reach": a => `The piece here attacks ${a}.`,
+  "control.geometry": a => `The piece here bears on ${a}, counting batteries and the square an own pawn in front of it attacks.`,
+  "mobility.abs": a => `The piece here can legally move to ${a}.`,
+  "mobility.rel": a => `The piece here can move to ${a} safely.`,
+  "route.abs": (x, m) => `The quickest way for this piece to ${x} starts with the move to ${m}.`,
+  "route.rel": (x, m) => `The quickest way for this piece to ${x} over safe squares starts with the move to ${m}.`,
+  "blocked_by.own": (t, a) => `Its own ${t} on ${a} stands in this piece's way.`,
+  "blocked_by.enemy": (t, a) => `The enemy ${t} on ${a} stands in this piece's way.`,
+  "centralisation": a => ({edge0: "A square on the edge of the board.", edge1: "A square one step from the edge.", edge2: "A square two steps from the edge.", edge3: "One of the four centre squares."})[a],
+  "square.control": a => a === "equal" ? "Both sides control this square equally often." :
+    `${a.startsWith("white") ? "White" : "Black"} controls this square ${{1: "once", 2: "twice", "3plus": "three times or more"}[a.slice(5)]} more than the other side.`,
+  "pawn_cover.white": a => `${COUNT[a]} white pawn${a === "one" ? " guards" : "s guard"} this square now.`,
+  "pawn_cover.black": a => `${COUNT[a]} black pawn${a === "one" ? " guards" : "s guard"} this square now.`,
+  "pawn_cover.white_ever": () => "A white pawn guards this square or can still advance to guard it.",
+  "pawn_cover.black_ever": () => "A black pawn guards this square or can still advance to guard it.",
+  "weak": a => `No ${a} pawn can ever guard this square: a weak square for ${a[0].toUpperCase() + a.slice(1)}.`,
+  "strong.white": a => `Guarded by ${a} white pawn${a === "one" ? "" : "s"}, and no black pawn can ever guard it: a strong square for White.`,
+  "strong.black": a => `Guarded by ${a} black pawn${a === "one" ? "" : "s"}, and no white pawn can ever guard it: a strong square for Black.`,
+  "open_file": a => `This square is on the open ${a}-file (no pawns of either side).`,
+  "half_open_file": a => `The piece here is on the half-open ${a}-file: no own pawn on it, but an enemy pawn.`,
+  "long_diagonal": a => `This square is on the long diagonal ${a.slice(0, 2)}–${a.slice(2)}.`,
+  "role.defends": (t, a) => `The piece here defends its own ${t} on ${a}.`,
+  "role.needed_for": (t, a) => `Without the piece here, its own ${t} on ${a} would hang.`,
+  "role.attacks": (t, a) => `The piece here attacks the enemy ${t} on ${a}.`,
+  "role.restricts": (t, a) => `The piece here keeps an enemy ${t} from moving to ${a} safely.`,
+  "role.needs": (t, a) => `The piece here would hang without its defender, the ${t} on ${a}.`,
+  "role.protected_by": (t, a) => `The piece here is defended by its own ${t} on ${a}.`,
+  "blocks.line": a => `The piece here stands on ${a.startsWith("rank") ? "rank " + a.slice(4) : "the " + a.slice(5) + "-file"}, away from its ends, and can block it.`,
+  "blocks.diagonal": a => `The piece here stands on the diagonal ${a.slice(0, 2)}–${a.slice(2)}, away from its ends, and can block it.`,
+  "blocks.pawn": a => `The piece here stands directly in front of the pawn on ${a}.`,
+  "pawn_shield": (a, d) => `Looking ${DIR[d]} from this square, the first piece is the pawn on ${a}; it closes that line into the square.`,
+  "rook.open_file": a => `This rook is on the open ${a}-file with no enemy rook on it.`,
+  "rook.seventh": () => "This rook is on its seventh rank.",
+  "rook.eighth": () => "This rook is on its eighth rank.",
+  "rook.battery": (t, a) => `This rook is lined up with its own ${t} on ${a}.`,
+  "rook.behind_passer": a => `This rook stands behind its own passed pawn on ${a}.`,
+  "rook.behind_hanging": a => `This rook stands behind its own hanging pawn on ${a}.`,
+  "pawn.chain": a => `This pawn is in a pawn chain with the pawn on ${a}.`,
+  "pawn.chain_pos": a => ({front: "This pawn is the front of its chain: guarded by a pawn, guarding none.", middle: "This pawn is in the middle of its chain: guarded by a pawn and guarding one.", base: "This pawn is the base of its chain: guarding a pawn, guarded by none."})[a],
+  "pawn.chain_dir": a => `This pawn's chain points to the ${a === "centre" ? "centre" : a}.`,
+  "pawn.passed": () => "This pawn is passed.",
+  "pawn.hanging": () => "This pawn is one of a pair of hanging pawns.",
+  "pawn.isolated": () => "This pawn is isolated.",
+  "pawn.doubled_with": a => `This pawn is doubled: another own pawn is on rank ${a.slice(4)} of its file.`,
+  "pawn.blocked_by": (k, t) => `${an(t)[0].toUpperCase() + an(t).slice(1)} stands ${k.slice(5)} square${k === "ahead1" ? "" : "s"} ahead of this pawn on its file.`,
+  "pawn.centre": a => `This pawn is on the c- to f-files, and the centre is ${a}.`,
+  "pawn.rank4_6": () => "This pawn is on its fourth, fifth or sixth rank.",
+  "pawn.rank7": () => "This pawn is on its seventh rank.",
+  "king.castle": a => `This king may still castle ${a}.`,
+};
+function describe(label) {
+  const p = label.split(".");
+  for (const n of [2, 1]) { const f = TEXT[p.slice(0, n).join(".")]; if (f) return f(...p.slice(n)); }
+  return label;
+}
+
+function rows(items, tip = describe, num = (raw, m) => `Raw ${fmt(raw)}, usual ${fmt(m)}`) {
+  const max = Math.max(...items.map(x => Math.abs(x[2])), 1e-9);
+  return items.map(([sq, label, v, raw, m]) => `<div class="row${sq ? "" : " f"}" data-sq="${sq}" data-tip="${tip(label)}" data-num="${num(raw, m)}">
+    ${sq ? `<span class="s">${sq}</span>` : ""}<span class="l">${label}</span>
+    <span class="bar"><i style="background:var(--${v >= 0 ? "pos" : "neg"});width:${50 * Math.abs(v) / max}%;${v >= 0 ? "left:50%" : "right:50%"}"></i></span>
+    <span class="v">${show(v)}</span></div>`).join("");
+}
+
+function draw() {
+  const p = window.ATTRIBUTION.positions[shown[pos]], at = pieces(p.fen);
+  const shap = mode === "shap" || mode === "held", sp = shap && window.SHAP.positions[shown[pos]];
+  const by = {}, sum = {};
+  if (!shap) for (const sq in p.squares) { by[sq] = bits(p, sq); sum[sq] = by[sq].reduce((t, x) => t + x[2], 0); }
+  else if (mode === "held") for (const [sq, , d] of sp.targets) sum[sq] = (sum[sq] || 0) - d;   // a held feature's own share
+  for (let r = 1; r <= 8; r++) for (const f of "abcdefgh") sum[f + r] ??= 0;
+  const max = Math.max(...Object.values(sum).map(Math.abs), 1e-9);
+  let html = "";
+  for (let r = 8; r >= 1; r--) for (let f = 0; f < 8; f++) {
+    const sq = "abcdefgh"[f] + r, s = sum[sq];
+    html += `<div class="sq ${(f + r) % 2 ? "dark" : "light"}${sq === sel ? " sel" : ""}" data-sq="${sq}">
+      <div class="heat" style="background:var(--${s >= 0 ? "pos" : "neg"});opacity:${.85 * Math.abs(s) / max}"></div>
+      ${at[sq] ? `<piece class="${at[sq]}"></piece>` : ""}</div>`;
+  }
+  $("board").innerHTML = html; $("board").classList.toggle("fixed", shap);
+  $("count").textContent = `Position ${pos + 1} of ${shown.length}`;
+  $("y").textContent = fmt(p.y); $("yd").textContent = fmt(p["y decoded"]); $("fen").textContent = p.fen;
+  $("all").hidden = !sel || shap;
+  for (const m in HASH) $(m === "shap" ? "shapall" : m === "held" ? "shapheld" : m).classList.toggle("on", mode === m);
+  document.querySelectorAll(".shap").forEach(x => x.hidden = !shap);
+  document.querySelectorAll(".held").forEach(x => x.hidden = mode !== "held");
+  $("heldbox").hidden = mode !== "held";
+  if (shap) {
+    const phi = sp[mode === "held" ? "phi targets held" : "phi"];
+    $("vnone").textContent = fmt(sp["v none"]); $("vheld").textContent = fmt(sp["v targets"]);
+    $("title").textContent = "Families";
+    $("list").innerHTML = rows(window.SHAP.families.map((f, i) => ["", f, phi[i]]).filter(x => !off.has(x[1]) && Math.abs(x[2]) >= 5e-4)
+      .sort((a, b) => Math.abs(b[2]) - Math.abs(a[2])), f => FAM[f] || f, () => "");
+    $("note").textContent = "";
+    if (mode === "held") $("tlist").innerHTML = rows(sp.targets.map(([sq, l, d]) => [sq, l, -d, d])
+      .sort((a, b) => Math.abs(b[2]) - Math.abs(a[2])), describe, d => `Switched off alone, the value moves by ${fmt(d)}.`);
+  } else if (sel) {
+    $("title").textContent = `Features on ${sel}`;
+    $("list").innerHTML = rows(by[sel].slice(0, 25));
+    $("note").textContent = `All features on ${sel} sum to ${show(sum[sel])}.` + (rel || p.squares[sel].square == null ? "" : ` The square itself, with no features: ${fmt(p.squares[sel].square)}.`);
+  } else {
+    $("title").textContent = "Most relevant features";
+    $("list").innerHTML = rows(Object.values(by).flat().sort((a, b) => Math.abs(b[2]) - Math.abs(a[2])).slice(0, 25));
+    $("note").textContent = "";
+  }
+}
+
+function start() {
+  $("board").onclick = e => { const q = e.target.closest(".sq"); if (q && !$("board").classList.contains("fixed")) { sel = sel === q.dataset.sq ? null : q.dataset.sq; draw(); } };
+  for (const id of ["list", "tlist"]) {
+  $(id).onmouseover = e => {
+    const r = e.target.closest(".row");
+    document.querySelectorAll(".sq.hi").forEach(x => x.classList.remove("hi"));
+    if (r && r.dataset.sq) document.querySelector(`.sq[data-sq="${r.dataset.sq}"]`).classList.add("hi");
+    const tip = $("tip"); tip.hidden = !r;
+    if (r) {
+      tip.innerHTML = r.dataset.tip + (r.dataset.num ? `<small>${r.dataset.num}</small>` : "");
+      const b = r.getBoundingClientRect();
+      tip.style.left = b.left + "px"; tip.style.width = b.width + "px"; tip.style.top = b.bottom + 4 + "px";
+    }
+  };
+  $(id).onmouseleave = () => { document.querySelectorAll(".sq.hi").forEach(x => x.classList.remove("hi")); $("tip").hidden = true; };
+  }
+  const step = d => { pos = (pos + d + shown.length) % shown.length; sel = null; draw(); };
+  const P = window.ATTRIBUTION.positions, err = i => Math.abs(P[i].y - P[i]["y decoded"]);
+  const best = P.map((_, i) => i).sort((a, b) => err(a) - err(b));   // closest fit first
+  $("fit").max = P.length; $("fit").value = P.length;   // max first: value is clamped to the old max
+  $("fit").oninput = () => {                       // keep the k positions where the decoded value is closest to Leela's
+    const k = +$("fit").value;
+    shown = best.slice(0, k).sort((a, b) => a - b); pos = 0; sel = null;
+    $("fitval").textContent = `${k}, error ≤ ${err(best[k - 1]).toFixed(3)}`;
+    draw();
+  };
+  $("fit").oninput();
+  $("prev").onclick = () => step(-1); $("next").onclick = () => step(1); $("all").onclick = () => { sel = null; draw(); };
+  const S = window.SHAP, P0 = window.ATTRIBUTION.positions;
+  const hasShap = !!S && S.positions.length === P0.length && S.positions.every((x, i) => x.fen === P0[i].fen);
+  $("shapall").hidden = $("shapheld").hidden = $("shapnote").hidden = !hasShap;
+  if (hasShap) $("tau").textContent = S.tau;
+  const set = m => { mode = m; rel = m === "rel"; location.hash = HASH[m]; draw(); };
+  $("raw").onclick = () => set("raw"); $("rel").onclick = () => set("rel");
+  $("shapall").onclick = () => set("shap"); $("shapheld").onclick = () => set("held");
+  mode = Object.keys(HASH).find(m => HASH[m] && "#" + HASH[m] === location.hash && (hasShap || m === "rel")) || "raw";
+  rel = mode === "rel";
+  $("npos").textContent = window.ATTRIBUTION.positions.length;
+  if ((window.ATTRIBUTION.method || "").startsWith("integrated"))
+    $("method").textContent = "Integrated gradients from the square-only token (all features off)";
+  $("tap").textContent = window.ATTRIBUTION.tap === "/attn_body/rehape" ? "the embedding" : window.ATTRIBUTION.tap.replace(/\/encoder(\d+)\//, "layer $1, ");
+  const fams = [...new Set(window.ATTRIBUTION.labels.map(l => l.split(".")[0]))].sort();
+  const sync = () => {
+    $("fams").innerHTML = fams.map(f => `<label><input type="checkbox" value="${f}"${off.has(f) ? "" : " checked"}>${f}</label>`).join("");
+    $("famcount").textContent = off.size ? `(${fams.length - fams.filter(f => off.has(f)).length} of ${fams.length})` : "";
+    try { localStorage.setItem("families off", JSON.stringify([...off])); } catch (e) {}
+    draw();
+  };
+  $("fams").onchange = e => { e.target.checked ? off.delete(e.target.value) : off.add(e.target.value); sync(); };
+  $("famall").onclick = () => { off.clear(); sync(); }; $("famnone").onclick = () => { off = new Set(fams); sync(); };
+  sync();
+  document.onkeydown = e => { if (document.getElementById("view-attr").hidden) return; if (e.key === "ArrowLeft") step(-1); if (e.key === "ArrowRight") step(1); };
+  draw();
+}
+
+// --- the view switch: attribution's hashes open it, anything else is the features view ---
+{
+  const ATTR = ["#attribution", "#relative", "#shapley", "#shapley-held"], el = id => document.getElementById(id);
+  let last = "#attribution";                        // attribution's mode, kept across switches
+  const view = () => {
+    const a = ATTR.includes(location.hash);
+    if (a) last = location.hash;
+    el("view-feat").hidden = a; el("view-attr").hidden = !a;
+    document.body.classList.toggle("wide", a);
+    el("v-feat").classList.toggle("on", !a); el("v-attr").classList.toggle("on", a);
+    if (a) openAttribution();
+  };
+  el("v-feat").onclick = () => { if (!ATTR.includes(location.hash)) return; history.pushState(null, "", location.pathname + location.search); view(); };
+  el("v-attr").onclick = () => { location.hash = last; };
+  addEventListener("hashchange", view); addEventListener("popstate", view);
+  view();
+}
+</script>
 
 <script type="module">
 import { Chess } from './vendor/chess.js';
