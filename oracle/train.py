@@ -138,7 +138,8 @@ def batch(idx, rng):
 
 def loss_fn(x, mask, lab, keep):
     logits = llm(inputs_embeds=x, attention_mask=mask, logits_to_keep=keep, use_cache=False).logits
-    return nn.functional.cross_entropy(logits.float().flatten(0, 1), lab[:, keep + 1].flatten(), ignore_index=-100)
+    y = lab[:, keep + 1].flatten().to(logits.device)                  # with 2 GPUs the logits sit on the last one
+    return nn.functional.cross_entropy(logits.float().flatten(0, 1), y, ignore_index=-100)
 
 
 @torch.no_grad()
@@ -155,7 +156,7 @@ def generate(rows, idx):
             gen = torch.zeros((len(kk), 0), dtype=torch.long, device=dev)
             o = llm(inputs_embeds=x, use_cache=not a.no_cache, logits_to_keep=1)
             for _ in range(a.max_new):
-                nxt = o.logits[:, -1].argmax(-1)
+                nxt = o.logits[:, -1].argmax(-1).to(dev)
                 gen = torch.cat([gen, nxt[:, None]], 1)
                 if (gen == end_id).any(1).all() or gen.shape[1] == a.max_new: break
                 if a.no_cache:
