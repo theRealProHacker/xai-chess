@@ -1,0 +1,95 @@
+{
+ "n": 100000,
+ "tap": "/attn_body/rehape",
+ "test positions": 2000,
+ "taps": {
+  "/attn_body/rehape": {
+   "forward": 0.0016508800516297968,
+   "direct": null
+  },
+  "/encoder0/ln1": {
+   "forward": 0.004212626502975465,
+   "direct": null
+  },
+  "/encoder0/ln2": {
+   "forward": 0.0021048547329139055,
+   "direct": null
+  },
+  "/encoder1/ln1": {
+   "forward": 0.0019282762852221287,
+   "direct": null
+  },
+  "/encoder1/ln2": {
+   "forward": 0.001595795624457719,
+   "direct": null
+  },
+  "/encoder2/ln1": {
+   "forward": 0.0015678760192165784,
+   "direct": null
+  },
+  "/encoder2/ln2": {
+   "forward": 0.0018668413075349282,
+   "direct": null
+  },
+  "/encoder3/ln1": {
+   "forward": 0.0021931084254742553,
+   "direct": null
+  },
+  "/encoder3/ln2": {
+   "forward": 0.0022826466303228626,
+   "direct": null
+  },
+  "/encoder4/ln1": {
+   "forward": 0.002410062317353806,
+   "direct": null
+  },
+  "/encoder4/ln2": {
+   "forward": 0.0027171756020149588,
+   "direct": null
+  },
+  "/encoder5/ln1": {
+   "forward": 0.0029317302849274085,
+   "direct": 0.34425119472404725
+  },
+  "/encoder5/ln2": {
+   "forward": 0.0029007783312785316,
+   "direct": null
+  },
+  "/encoder6/ln1": {
+   "forward": 0.0032306997037927156,
+   "direct": null
+  },
+  "/encoder6/ln2": {
+   "forward": 0.002814135629581082,
+   "direct": null
+  },
+  "/encoder7/ln1": {
+   "forward": 0.0029400424165638445,
+   "direct": null
+  },
+  "/encoder7/ln2": {
+   "forward": 0.003420895209350068,
+   "direct": null
+  },
+  "/encoder8/ln1": {
+   "forward": 0.003697088994106855,
+   "direct": null
+  },
+  "/encoder8/ln2": {
+   "forward": 0.003713505974380269,
+   "direct": null
+  },
+  "/encoder9/ln1": {
+   "forward": 0.005387541361839699,
+   "direct": null
+  },
+  "/encoder9/ln2": {
+   "forward": 0.007179545255147311,
+   "direct": null
+  },
+  "/output/wdl": {
+   "forward": 0.009938658315689552,
+   "direct": null
+  }
+ }
+}

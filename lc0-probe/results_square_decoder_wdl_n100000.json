@@ -1,0 +1,48 @@
+{
+ "n": 100000,
+ "bits": 22498,
+ "hidden": 2048,
+ "lr": 0.001,
+ "batch": 4096,
+ "taps": {
+  "/encoder5/ln1": {
+   "token test": 0.34425119472404725,
+   "wdl test": 0.7273319959640503,
+   "wdl square only": 1.805503010749817,
+   "epochs": 18
+  },
+  "/attn_body/rehape": {
+   "token test": 0.0016100464061152065,
+   "wdl test": 0.008563735522329807,
+   "wdl square only": 4.2865309715271,
+   "epochs": 30
+  },
+  "/encoder2/ln1": {
+   "token test": 0.16184039326087182,
+   "wdl test": 0.4382144808769226,
+   "wdl square only": 3.922386646270752,
+   "epochs": 22
+  },
+  "/encoder2/ln2": {
+   "token test": 0.12489804342403481,
+   "wdl test": 0.39960232377052307,
+   "wdl square only": 2.9920718669891357,
+   "epochs": 12
+  },
+  "/encoder0/ln2": {
+   "token test": 0.03944501717681478,
+   "wdl test": 0.07664168626070023,
+   "wdl square only": 4.286768436431885,
+   "epochs": 12
+  },
+  "/encoder0/ln2_pen_centralisation_occupant": {
+   "token test": 0.04268381333208363,
+   "wdl test": 0.37118563055992126,
+   "wdl square only": 4.286768436431885,
+   "epochs": 12,
+   "penalize": "occupant,centralisation",
+   "lam": 0.0009545500309313996,
+   "penalized row norm mean": 0.0016705152811482549
+  }
+ }
+}
