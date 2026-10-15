@@ -1,0 +1,141 @@
+"""Generate ../references.bib from refs.py (IEEE-formatted strings) for IEEEtran.bst.
+
+IEEEtran.bst prints neither doi nor article numbers, so those (and the Tier mark)
+go into `note`, reproducing the reference list of paper.md. doi/eprint/url fields
+are kept as well for other styles.
+"""
+import re, sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+from refs import R
+
+ACCENTS = {"á": r"{\'a}", "é": r"{\'e}", "ö": r'{\"o}', "ü": r'{\"u}', "ø": r"{\o}",
+           "š": r"{\v{s}}", "Ł": r"{\L}", "ł": r"{\l}"}
+MONTHS = {m[:3].lower(): m[:3].lower() for m in
+          "January February March April May June July August September October November December".split()}
+
+
+def tex(s):
+    s = s.replace("&", r"\&").replace("%", r"\%").replace("#", r"\#").replace("_", r"\_")
+    s = s.replace("‘", "`").replace("’", "'").replace("“", "``").replace("”", "''")
+    s = s.replace("–", "--").replace("—", "---")
+    for a, b in ACCENTS.items():
+        s = s.replace(a, b)
+    if re.search(r"[^\x00-\x7f]", s):
+        sys.exit(f"unmapped non-ASCII in {s!r}")
+    return s
+
+
+def authors(s):
+    s = s.replace("*et al.*", "and others")
+    parts = re.split(r",\s+and\s+|\s+and\s+|,\s+", s)
+    out = []
+    for p in parts:
+        if p == "others":
+            out.append(p)
+            continue
+        toks = p.split()
+        i = 0
+        while i < len(toks) and toks[i].endswith("."):
+            i += 1
+        first, last = " ".join(toks[:i]), " ".join(toks[i:])
+        out.append(f"{tex(first)} {{{tex(last)}}}" if " " in last else tex(f"{first} {last}"))
+    return " and ".join(out)
+
+
+def parse(key, s):
+    f, notes = {}, []
+    m = re.search(r"\s*\[Tier (\d)\]$", s)
+    tier = m and m.group(1)
+    s = s[:m.start()] if m else s
+    m = re.search(r"\s*\[Online\]\. Available: (\S+)$", s)
+    if m:
+        f["url"] = m.group(1)
+        s = s[:m.start()]
+    m = re.search(r",? doi: (\S+?)\.?$", s)
+    if m:
+        f["doi"] = m.group(1)
+        s = s[:m.start()]
+    m = re.search(r",? arXiv:(\d{4}\.\d{4,5})\.?$", s)
+    if m:
+        f["eprint"], f["archiveprefix"] = m.group(1), "arXiv"
+        s = s[:m.start()]
+    s = s.rstrip(".")
+    au, rest = s.split(", “", 1)
+    title, rest = rest.split("” ", 1) if "” " in rest else (rest.rstrip("”"), "")
+    f["author"] = authors(au)
+    f["title"] = title.rstrip(",")
+    if rest.startswith("in *"):
+        typ = "inproceedings"
+        bt, rest = re.match(r"in \*(.+?)\*,?\s*(.*)", rest).groups()
+        f["booktitle"] = bt
+    elif rest.startswith("*"):
+        typ = "article"
+        j, rest = re.match(r"\*(.+?)\*,?\s*(.*)", rest).groups()
+        f["journal"] = j
+    elif rest.startswith("presented at"):
+        typ = "misc"
+        hp, rest = re.match(r"(presented at .+?), (\d{4}.*|RLC 2024)$", rest).groups()
+        if rest == "RLC 2024":
+            hp, rest = hp + ", RLC 2024", "2024"
+        f["howpublished"] = hp
+    else:
+        typ = "misc"
+        m = re.match(r"(.*?),?\s*((?:[A-Z][a-z]{2}\. )?\d{4})$", rest)
+        if m and m.group(1):
+            f["howpublished"] = m.group(1)
+            rest = m.group(2)
+    # remaining comma-separated bibliographic fields
+    for part in [p.strip() for p in rest.split(",") if p.strip()]:
+        if m := re.fullmatch(r"(?:([A-Z]+) )?vol\. (\d+)", part):
+            if m.group(1):
+                f["series"] = m.group(1)
+            f["volume"] = m.group(2)
+        elif m := re.fullmatch(r"no\. (\d+)", part):
+            f["number"] = m.group(1)
+        elif m := re.fullmatch(r"pp\. (\d+)–(\d+)", part):
+            f["pages"] = f"{m.group(1)}--{m.group(2)}"
+        elif m := re.fullmatch(r"Art\. no\. (\S+)", part):
+            notes.append(f"Art. no. {m.group(1)}")
+        elif m := re.fullmatch(r"(?:([A-Z][a-z]{2})\. )?(\d{4})", part):
+            if m.group(1):
+                f["month"] = MONTHS[m.group(1).lower()]
+            f["year"] = m.group(2)
+        elif typ == "inproceedings" and "booktitle" in f and "year" not in f:
+            f["booktitle"] += ", " + part   # e.g. "Proc. ECAI 2024, Frontiers Artif. Intell. Appl."
+        else:
+            sys.exit(f"{key}: unparsed field {part!r} in {s!r}")
+    if "year" not in f:
+        sys.exit(f"{key}: no year")
+    if "eprint" in f:
+        if typ == "misc" and "howpublished" not in f:
+            f["howpublished"] = f"arXiv:{f['eprint']}"
+        elif typ == "misc":
+            notes.append(f"arXiv:{f['eprint']}")
+    if "doi" in f:
+        d = f["doi"]
+        notes.append(rf"doi: \href{{https://doi.org/{d}}}{{\nolinkurl{{{d}}}}}")
+    if tier:
+        notes.append(f"[Tier {tier}]")
+    if notes:
+        f["note"] = ", ".join(notes)
+    return typ, f
+
+
+RAW = {"url", "doi", "eprint", "note", "author"}
+order = ["author", "title", "journal", "booktitle", "howpublished", "series", "volume", "number",
+         "pages", "month", "year", "doi", "eprint", "archiveprefix", "url", "note"]
+out = ["% Generated by src/to_bib.py from src/refs.py. Do not edit by hand.\n",
+       "@IEEEtranBSTCTL{IEEEexample:BSTcontrol,\n  CTLdash_repeated_names = \"no\"\n}\n"]
+for key, s in R.items():
+    typ, f = parse(key, s)
+    lines = []
+    for k in order:
+        if k in f:
+            v = f[k] if k in RAW else tex(f[k])
+            if k == "title":   # IEEEtran.bst lowercases titles; keep the source's capitalisation
+                v = "{" + v + "}"
+            lines.append(f"  {k} = {v}" if k == "month" else f"  {k} = {{{v}}}")
+    out.append(f"@{typ}{{{key},\n" + ",\n".join(lines) + "\n}\n")
+Path(__file__).parent.parent.joinpath("references.bib").write_text("\n".join(out))
+print(len(R), "entries written")
