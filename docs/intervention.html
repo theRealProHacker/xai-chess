@@ -1,0 +1,1729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intervention &middot; xai-chess</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.base.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.brown.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.cburnett.css">
+<style>
+  :root{
+    --shadow-s:
+      inset 0 1px 2px #ffffff30,
+      0 1px 2px #00000030,
+      0 2px 4px #00000015;
+    --shadow-m:
+      inset 0 1px 2px #ffffff50,
+      0 2px 4px #00000030,
+      0 4px 8px #00000015;
+    --shadow-l:
+      inset 0 1px 2px #ffffff70,
+      0 4px 6px #00000030,
+      0 6px 10px #00000015;
+    /* Blue vs orange survives red-green colour blindness; these are the colours the board draws. */
+    --cut:#0b3d6b; --ctl:#a35c00;
+    --yes:#0b7a2f; --no:#8a6d00; --bad:#b00020;
+  }
+  [data-view][hidden]{display:none}
+
+  a.back{color:#8a8a8a;text-decoration:none;font-size:.9rem}
+  a.back:hover{color:#0b5fa5}
+
+  .mode{display:flex;flex-wrap:wrap;gap:.4rem;margin:.6rem 0 1.25rem}
+  .mode button.on{background:#1a1a1a;border-color:#1a1a1a;color:#fff}
+  .mode button.on:hover{background:#333;border-color:#333}
+
+  p.intro{margin:0 0 .3rem}
+  details.how{color:#555;font-size:.9rem;margin:0 0 .4rem}
+  details.how summary{cursor:pointer;color:#8a8a8a}
+  details.how summary:hover{color:#0b5fa5}
+  details.how p{margin:.4rem 0}
+
+  #board{width:100%;aspect-ratio:1/1;margin:1rem 0 .6rem;box-shadow:var(--shadow-s);border-radius:4px}
+  #board coords.files{text-transform:lowercase}
+  /* chessground flips coord colour on square parity, which lands at 1.6:1 on the light squares. */
+  #board coords coord{color:#2b2b2b !important;
+      text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff;font-weight:600}
+  /* Obstruct: rings above the pieces, fully opaque, matching the legend; quieter check glow. */
+  body[data-active=obstruct] #board .cg-shapes{z-index:3;opacity:1}
+  body[data-active=obstruct] #board square.check{background:radial-gradient(ellipse at 50% 50%,#c0303055 0%,#c0303022 42%,#00000000 68%)}
+
+  .turn{color:#555;font-size:.85rem;margin:0 0 .2rem}
+  .turn b{color:#1a1a1a;font-weight:600}
+
+  .gallery{display:flex;flex-wrap:wrap;gap:.4rem;margin:.8rem 0 .6rem}
+  .gallery button.on{background:#0b5fa5;border-color:#0b5fa5;color:#fff}
+  .gallery button.on:hover{background:#0a5390;border-color:#0a5390}
+  .gcap{color:#555;font-size:.9rem;min-height:2.4em;margin:0}
+  .gcap b{color:#1a1a1a;font-weight:600}
+
+  .fenrow{display:flex;align-items:center;gap:.4rem;margin:.9rem 0 .25rem}
+  .fenrow input{flex:1;min-width:0;box-sizing:border-box;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      padding:.5rem .6rem;border:1px solid #e4e4e4;border-radius:8px;color:#1a1a1a}
+  .fenrow input:focus{outline:none;border-color:#0b5fa5}
+
+  .btns{display:flex;flex-wrap:wrap;gap:.4rem;margin:.6rem 0 .35rem}
+  button{font:inherit;font-size:.9rem;padding:.5rem .9rem;border:1px solid #e4e4e4;border-radius:8px;
+      background:#fff;color:#1a1a1a;cursor:pointer;box-shadow:var(--shadow-s);
+      transition:border-color .12s,background .12s,box-shadow .12s}
+  button:hover:not(:disabled){border-color:#0b5fa5;background:#fafafa;box-shadow:var(--shadow-m)}
+  button:disabled{opacity:.5;cursor:default}
+  button.primary{background:#0b5fa5;border-color:#0b5fa5;color:#fff}
+  button.primary:hover:not(:disabled){background:#0a5390;border-color:#0a5390}
+
+  .hint{color:#8a6d00;font-size:.82rem;min-height:1.1em;margin:.1rem 0 .3rem}
+  .err{color:var(--bad);font-size:.85rem;min-height:1.1em;margin:.1rem 0 .3rem}
+  @media (max-width:480px){.mode button,.btns button{padding:.45rem .6rem}}
+  @media (max-width:430px){
+    .fenrow{flex-wrap:wrap}
+    .fenrow input{flex:1 0 100%}
+  }
+
+  .result{border:1px solid #e4e4e4;border-left:4px solid #d4d4d4;border-radius:10px;
+      padding:1rem 1.15rem;margin-top:1.1rem;box-shadow:var(--shadow-m)}
+  .result .verdict{font-size:1.45rem;font-weight:600;letter-spacing:-.015em;margin-bottom:.6rem;line-height:1.25}
+  /* Zugzwang, prophylaxis and pin set the class on the verdict; obstruct sets it on the card. */
+  .verdict.zug{color:var(--bad)}
+  .verdict.asset,.verdict.causal{color:var(--yes)}
+  .verdict.neutral,.verdict.incidental{color:var(--no)}
+  .verdict.na,.verdict.thinking{color:#555;font-size:1.15rem}
+  .result.causal{border-left-color:var(--yes)}
+  .result.incidental,.result.square{border-left-color:var(--no)}
+  .result.causal .verdict{color:var(--yes)}
+  .result.incidental .verdict,.result.square .verdict{color:var(--no)}
+  .result.na .verdict,.result.thinking .verdict{color:#555;font-size:1.15rem}
+  .result .eval{color:#555;margin-bottom:.35rem}
+  .result .eval b{color:#1a1a1a}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:0 0 .7rem}
+  .grid.three{grid-template-columns:1fr 1fr 1fr}
+  @media (max-width:520px){.grid,.grid.three{grid-template-columns:1fr}}
+  .cell{border:1px solid #eee;border-radius:8px;padding:.55rem .7rem;background:#fafafa}
+  .grid.three .cell{min-height:4.2em}
+  .cell .lbl{font-size:.72rem;letter-spacing:.02em;color:#6b6b6b;margin-bottom:.3rem}
+  .cell .val{font-size:.95rem;font-weight:600;color:#1a1a1a;line-height:1.35}
+  .grid.three .cell .val{font-size:1rem}
+  .cell .sub{font-size:.76rem;color:#6b6b6b;margin-top:.2rem;line-height:1.35}
+  .result .eff{font-size:.92rem;color:#333;margin-bottom:.35rem}
+  .result .detail{color:#333;font-size:.95rem;line-height:1.55}
+
+  .legend{display:flex;flex-wrap:wrap;gap:.45rem 1.1rem;color:#555;font-size:.82rem;margin:0 0 .4rem}
+  .legend span{display:inline-flex;align-items:center;gap:.4rem}
+  .legend span[hidden]{display:none}
+  .legend i{width:.9rem;height:.9rem;border-radius:50%;display:inline-block;border:2.5px solid}
+  .legend i.cut{border-color:var(--cut)}
+  .legend i.best{border-color:var(--cut);background:radial-gradient(var(--cut) 42%, transparent 43%)}
+  .legend i.ctl{border-color:var(--ctl)}
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; xai-chess</a>
+  <h1>Intervention</h1>
+  <div class="mode">
+    <button data-go="zugzwang">Zugzwang</button>
+    <button data-go="prophylaxis">Prophylaxis</button>
+    <button data-go="pin">Pin</button>
+    <button data-go="obstruct">Obstruct</button>
+  </div>
+
+  <div data-view="zugzwang" hidden>
+    <p class="intro">Would the side to move rather pass?</p>
+    <details class="how"><summary>How it works</summary>
+      <p>The <em>tempo operator</em> (nullzug) compares Stockfish&rsquo;s evaluation after the best move
+      with its evaluation after a <em>null move</em>, where the side to move passes. If passing would be
+      better, the position is zugzwang.</p></details>
+  </div>
+  <div data-view="prophylaxis" hidden>
+    <p class="intro">Play one move. Did it remove a forced mate?</p>
+    <details class="how"><summary>How it works</summary>
+      <p>Load a position with the side you want to defend to move and play <b>exactly one move</b>. The
+      <em>threat operator</em> asks a narrow, mate-only question: did the opponent have a <em>forced
+      checkmate</em> before your move &mdash; found by letting you <em>pass</em> (a null move) &mdash; and is
+      that mate gone after it? Search only: no board edits and no engine patch (a <b>Tier&nbsp;1</b>,
+      confound-free test).</p></details>
+  </div>
+  <div data-view="pin" hidden>
+    <p class="intro">Switch one pin off and see whether the edge survives.</p>
+    <details class="how"><summary>How it works</summary>
+      <p>Set up a position where the side to move pins an enemy piece. Detected pins are arrowed; to pick
+      another, <b>right-drag</b> an arrow from the pinning piece along the pin (needs a mouse; draw it after
+      any moves). The engine evaluates the position twice on a patched Stockfish&nbsp;18: once normally,
+      and once with that <em>one pin switched off</em> at the rules level, nothing else on the board
+      changed.</p>
+      <p>An <b>absolute</b> pin (to the <em>king</em>) frees the pinned piece to move; a <b>relative</b> pin
+      (to a more valuable piece) forbids the pinner from capturing that backstop, which frees the pinned
+      piece the same way. If the side to move&rsquo;s edge &mdash; a forced mate, or a winning evaluation
+      &mdash; exists only while the pin holds, the pin is load-bearing. On a quiet position the eval swing
+      is reproducible at fixed depth, not a measured causal magnitude.</p></details>
+  </div>
+  <div data-view="obstruct" hidden>
+    <p class="intro">Block a line and see whether the position rests on it.</p>
+    <details class="how"><summary>How it works</summary>
+      <p>Mark the line an explanation credits (right-drag an arrow) and the engine drops a blocker on it: a
+      phantom that cuts the ray for the pieces that use it &mdash; rooks and queens on a rank or file,
+      bishops and queens on a diagonal &mdash; and leaves everything else alone. The square stays open;
+      pawns, knights and kings pass through it as before.</p>
+      <p>It then drops the same blocker on squares <em>off</em> the line. Those set the noise floor. Up to
+      three squares on the line are tried, and as many off it. A line earns the credit only if
+      <em>every</em> square tried on it moves the evaluation further than an off-line square does. One
+      square doing all the work is that square&rsquo;s doing, not the line&rsquo;s.</p></details>
+    <div class="gallery" id="o-gallery"></div>
+    <p class="gcap" id="o-gcap"></p>
+  </div>
+
+  <div id="board"></div>
+
+  <div data-view="obstruct" hidden>
+    <div class="legend">
+      <span id="o-legBest"><i class="best"></i>Largest change, on the line</span>
+      <span><i class="cut"></i>Also tried, on the line</span>
+      <span><i class="ctl"></i>Control square, off the line</span>
+    </div>
+  </div>
+
+  <p class="turn"><b id="turn">&nbsp;</b><span data-view="zugzwang" hidden><span id="z-engineStatus"> &middot; loading the engine&hellip;</span></span><span data-view="prophylaxis" hidden><span id="p-engineStatus"> &middot; loading the engine&hellip;</span></span><span data-view="pin" hidden><span id="n-engineStatus"> &middot; loading the engine&hellip;</span></span><span data-view="obstruct" hidden><span id="o-engineStatus"> &middot; loading the engine&hellip;</span></span></p>
+
+  <div class="fenrow">
+    <input id="fen" spellcheck="false" aria-label="FEN">
+    <button id="loadBtn">Load</button>
+  </div>
+  <p class="err" id="err"></p>
+
+  <div class="btns">
+    <span data-view="zugzwang" hidden><button id="z-detectBtn" class="primary" disabled>Detect zugzwang</button></span>
+    <span data-view="prophylaxis" hidden><button id="p-detectBtn" class="primary" disabled>Detect threat removal</button></span>
+    <span data-view="pin" hidden><button id="n-detectBtn" class="primary" disabled>Suspend the pin</button></span>
+    <span data-view="obstruct" hidden><button id="o-cutBtn" class="primary" disabled>Cut the line</button></span>
+    <button id="flipBtn">Flip board</button>
+    <button id="resetBtn">Reset</button>
+  </div>
+
+  <div data-view="zugzwang" hidden>
+    <div class="result" id="z-result" hidden aria-live="polite">
+      <div class="eval" id="z-rEval"></div>
+      <div class="verdict" id="z-rVerdict"></div>
+      <div class="detail" id="z-rDetail"></div>
+    </div>
+  </div>
+
+  <div data-view="prophylaxis" hidden>
+    <p class="hint" id="p-hint"></p>
+    <div class="result" id="p-result" hidden aria-live="polite">
+      <div class="verdict" id="p-rVerdict"></div>
+      <div class="grid" id="p-rGrid">
+        <div class="cell">
+          <div class="lbl">If you pass (null move)</div>
+          <div class="val" id="p-rBefore">&mdash;</div>
+        </div>
+        <div class="cell">
+          <div class="lbl" id="p-rAfterLbl">After your move</div>
+          <div class="val" id="p-rAfter">&mdash;</div>
+        </div>
+      </div>
+      <div class="eff" id="p-rEff"></div>
+      <div class="detail" id="p-rDetail"></div>
+    </div>
+  </div>
+
+  <div data-view="pin" hidden>
+    <p class="hint" id="n-hint"></p>
+    <div class="result" id="n-result" hidden aria-live="polite">
+      <div class="verdict" id="n-rVerdict"></div>
+      <div class="grid" id="n-rGrid">
+        <div class="cell">
+          <div class="lbl">Pin intact (normal rules)</div>
+          <div class="val" id="n-rBefore">&mdash;</div>
+        </div>
+        <div class="cell">
+          <div class="lbl">Pin suspended</div>
+          <div class="val" id="n-rAfter">&mdash;</div>
+        </div>
+      </div>
+      <div class="eff" id="n-rEff"></div>
+      <div class="detail" id="n-rDetail"></div>
+    </div>
+  </div>
+
+  <div data-view="obstruct" hidden>
+    <p class="hint" id="o-hint"></p>
+    <div class="result" id="o-result" hidden aria-live="polite">
+      <div class="verdict" id="o-rVerdict"></div>
+      <div class="grid three" id="o-rGrid">
+        <div class="cell">
+          <div class="lbl">Line open</div>
+          <div class="val" id="o-rBase">&mdash;</div>
+          <div class="sub" id="o-rBaseSub"></div>
+        </div>
+        <div class="cell">
+          <div class="lbl">Blocker on the line</div>
+          <div class="val" id="o-rCut">&mdash;</div>
+          <div class="sub" id="o-rCutSub"></div>
+        </div>
+        <div class="cell">
+          <div class="lbl">Control squares</div>
+          <div class="val" id="o-rCtl">&mdash;</div>
+          <div class="sub" id="o-rCtlSub"></div>
+        </div>
+      </div>
+      <div class="detail" id="o-rDetail"></div>
+    </div>
+  </div>
+
+<script type="module">
+import { Chess } from './vendor/chess.js';
+import { Chessground } from './vendor/chessground/chessground.min.js';
+
+// --- shell: one board, one set of position controls, four views ---------------
+// Each view keeps its own position, engine Worker and result panel, exactly as on its old
+// page; only the active view drives the board. A view's engine starts on first visit.
+const VIEWS    = ['zugzwang', 'prophylaxis', 'pin', 'obstruct'];
+const fenInput = document.getElementById('fen');
+const errEl    = document.getElementById('err');
+const turnEl   = document.getElementById('turn');
+const resetBtn = document.getElementById('resetBtn');
+let active = null;
+const views = {};        // name -> {onMove, onDrawChange, loadFen, demoFen, sync}
+
+const real = Chessground(document.getElementById('board'), {
+  coordinates: true,
+  movable:   {free:false, showDests:true, events:{after:(o, d) => views[active].onMove(o, d)}},
+  draggable: {showGhost:true},
+  drawable:  {enabled:true, onChange: s => { const f = views[active].onDrawChange; if(f) f(s); }, brushes:{
+    // Obstruct's brushes: opaque and matched to its legend swatches.
+    line: {key:'obl', color:'#0b3d6b', opacity:1, lineWidth:8},
+    cut:  {key:'obc', color:'#0b3d6b', opacity:1, lineWidth:6},
+    best: {key:'obb', color:'#0b3d6b', opacity:1, lineWidth:13},
+    ctl:  {key:'obt', color:'#a35c00', opacity:1, lineWidth:6},
+  }},
+});
+
+// A view's handle on the board. While the view is hidden its writes are recorded, not drawn,
+// so an analysis that finishes after a switch cannot paint onto another view's position.
+function boardFor(name){
+  const rec = {cfg:{lastMove:null, check:false, movable:{}}, shapes:[]};
+  const on = () => active === name;
+  return {
+    rec,
+    set(c){
+      rec.cfg = {...rec.cfg, ...c, movable:{...rec.cfg.movable, ...(c.movable || {})}};
+      if('fen' in c) rec.shapes = [];      // chessground's set({fen}) wipes the shapes too
+      if(on()) real.set(c);
+    },
+    setShapes(s){ rec.shapes = s; if(on()) real.setShapes(s); },
+    get state(){ return on() ? real.state : {drawable:{shapes: rec.shapes}}; },
+  };
+}
+const boards = Object.fromEntries(VIEWS.map(v => [v, boardFor(v)]));
+const elFor = p => id => document.getElementById(p + id);
+
+function show(name){
+  if(!VIEWS.includes(name)) name = 'zugzwang';
+  if(name === active) return;
+  if(active) boards[active].rec.shapes = [...real.state.drawable.shapes];
+  real.cancelMove();
+  active = name;
+  document.body.dataset.active = name;
+  document.querySelectorAll('[data-view]').forEach(e => { e.hidden = e.dataset.view !== name; });
+  document.querySelectorAll('[data-go]').forEach(b => b.classList.toggle('on', b.dataset.go === name));
+  resetBtn.hidden = name === 'obstruct';      // obstruct's gallery is its reset
+  errEl.textContent = '';
+  if(!views[name]){
+    real.set({lastMove:null, check:false}); real.setShapes([]);
+    views[name] = SETUP[name](boards[name]);
+  } else {
+    const r = boards[name].rec;
+    real.set({...r.cfg, movable:{...r.cfg.movable}});
+    real.setShapes(r.shapes);
+    views[name].sync();
+  }
+}
+
+document.getElementById('loadBtn').addEventListener('click', () => views[active].loadFen(fenInput.value.trim()));
+fenInput.addEventListener('keydown', e => { if(e.key === 'Enter') views[active].loadFen(fenInput.value.trim()); });
+document.getElementById('flipBtn').addEventListener('click', () => real.toggleOrientation());
+resetBtn.addEventListener('click', () => { const v = views[active]; fenInput.value = v.demoFen; v.loadFen(v.demoFen); });
+document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { location.hash = b.dataset.go; }));
+window.addEventListener('hashchange', () => show(location.hash.slice(1)));
+
+function lineOf(e){ return typeof e.data === 'string' ? e.data : (e.data && e.data.data) || ''; }
+
+const SETUP = {zugzwang: setupZugzwang, prophylaxis: setupProphylaxis, pin: setupPin, obstruct: setupObstruct};
+
+// =============================================================================
+// Zugzwang: tempo operator (nullzug), ported from tempo_op.py
+// =============================================================================
+function setupZugzwang(ground){
+const el = elFor('z-');
+const DEMO_FEN = '8/4k3/8/4K3/4P3/8/8/8 b - - 0 1'; // Black to move loses the opposition
+const NODES    = 300000;           // fixed node count — deterministic given the cold-hash handshake below
+const EPS      = 0.05;              // win-prob threshold for a decisive tempo verdict
+
+let chess = new Chess(DEMO_FEN);
+
+const engineEl  = el('engineStatus');
+const detectBtn = el('detectBtn');
+const resultEl  = el('result');
+const rEval     = el('rEval');
+const rVerdict  = el('rVerdict');
+const rDetail   = el('rDetail');
+
+const colorOf = () => (chess.turn() === 'w' ? 'white' : 'black');
+function dests(){
+  const map = new Map();
+  chess.moves({verbose: true}).forEach(m => {
+    if(!map.has(m.from)) map.set(m.from, []);
+    map.get(m.from).push(m.to);
+  });
+  return map;
+}
+
+ground.set({fen: chess.fen(), turnColor: colorOf(), movable: {color: colorOf(), dests: dests()}});
+syncStatus();
+
+function onMove(orig, dest){
+  const p = chess.get(orig);
+  const promotion = (p && p.type === 'p' && (dest[1] === '8' || dest[1] === '1')) ? 'q' : undefined;
+  chess.move({from: orig, to: dest, promotion});
+  clearResult();
+  applyBoard([orig, dest]);
+}
+
+function applyBoard(lastMove){
+  ground.set({
+    fen: chess.fen(),
+    turnColor: colorOf(),
+    check: chess.in_check() ? colorOf() : false,
+    lastMove: lastMove || null,
+    movable: {color: colorOf(), dests: dests()},
+  });
+  syncStatus();
+}
+
+function syncStatus(){
+  fenInput.value = chess.fen();
+  turnEl.textContent = (chess.turn() === 'w' ? 'White' : 'Black') + ' to move';
+}
+
+function loadFen(fen){
+  const test = new Chess();
+  if(!test.load(fen)){ errEl.textContent = 'Invalid FEN.'; return false; }
+  errEl.textContent = '';
+  chess = test;
+  clearResult();
+  applyBoard(null);
+  return true;
+}
+detectBtn.addEventListener('click', detect);
+
+function clearResult(){ resultEl.hidden = true; }
+function showResult({evalStr = '', cls = '', title = '', detail = ''}){
+  resultEl.hidden = false;
+  rEval.innerHTML = evalStr ? ('Evaluation (White): <b>' + evalStr + '</b>') : '';
+  rEval.style.display = evalStr ? 'block' : 'none';
+  rVerdict.textContent = title;
+  rVerdict.className = 'verdict ' + cls;
+  rDetail.textContent = detail;
+}
+
+// --- engine (single-threaded Stockfish over a Web Worker, UCI) --------------
+const engine = new Worker('vendor/stockfish/stockfish.js');
+
+function initEngine(){
+  return new Promise(resolve => {
+    function onMsg(e){
+      const line = lineOf(e);
+      if(line === 'uciok') engine.postMessage('isready');
+      else if(line === 'readyok'){ engine.removeEventListener('message', onMsg); resolve(); }
+    }
+    engine.addEventListener('message', onMsg);
+    engine.postMessage('uci');
+  });
+}
+
+// Analyse one position at a fixed node count; resolves {score:{cp,mate}, bestmove}.
+// Score is from the side-to-move POV (UCI convention). Callers run these one at a time.
+//
+// A reused persistent Worker keeps a warm transposition table, so `go nodes N` alone is
+// not reproducible. Cold-start the engine before every search — ucinewgame, Clear Hash,
+// isready/readyok — so repeated Detect on the same position returns an identical verdict.
+//
+// Do NOT send `setoption name Threads value 1`. This build advertises Threads as
+// `type spin default 1 min 1 max 1`, so it is already hard-locked to one thread, and
+// sending that setoption permanently hangs the worker (it stops answering `isready`).
+function analyse(fen, nodes){
+  return new Promise(resolve => {
+    let score = null, settled = false, searching = false;
+    function finish(result){
+      if(settled) return;
+      settled = true;
+      clearTimeout(timer);
+      engine.removeEventListener('message', onMsg);
+      resolve(result);
+    }
+    function onMsg(e){
+      const line = lineOf(e);
+      if(!searching){
+        if(line === 'readyok'){ searching = true; engine.postMessage('position fen ' + fen); engine.postMessage('go nodes ' + nodes); }
+        return;
+      }
+      if(line.startsWith('info')){
+        const m = line.match(/score (cp|mate) (-?\d+)/);
+        if(m) score = m[1] === 'cp' ? {cp: parseInt(m[2], 10), mate: null}
+                                    : {cp: null, mate: parseInt(m[2], 10)};
+      } else if(line.startsWith('bestmove')){
+        finish({score, bestmove: line.split(' ')[1]});
+      }
+    }
+    // Safety net: if the worker crashes or never emits `bestmove`, resolve with a
+    // null bestmove so detect()'s `finally` re-enables the button (no permanent hang).
+    const timer = setTimeout(() => finish({score, bestmove: null}), 15000);
+    engine.addEventListener('message', onMsg);
+    engine.postMessage('ucinewgame');
+    engine.postMessage('setoption name Clear Hash');
+    engine.postMessage('isready');
+  });
+}
+
+engine.onerror = () => { engineEl.textContent = ' · the engine failed to load'; };
+initEngine().then(() => { engineEl.textContent = ''; detectBtn.disabled = false; });
+
+// --- evaluation helpers -----------------------------------------------------
+function winProb(score){           // {cp,mate} from some POV -> win expectation
+  if(!score) return null;
+  if(score.mate !== null) return score.mate > 0 ? 0.9999 : 0.0001;
+  // logistic approximation of python-chess's wdl(model="lichess")
+  const p = 1 / (1 + Math.exp(-0.00368208 * score.cp));
+  return Math.min(Math.max(p, 1e-4), 1 - 1e-4);
+}
+function negate(score){
+  if(!score) return null;
+  return {cp: score.cp === null ? null : -score.cp,
+          mate: score.mate === null ? null : -score.mate};
+}
+function whitePovEval(score, stm){  // headline eval string, White's POV
+  if(!score) return '—';
+  const flip = stm === 'b' ? -1 : 1;
+  if(score.mate !== null){ const m = score.mate * flip; return (m > 0 ? '+M' : '-M') + Math.abs(m); }
+  const pawns = (score.cp * flip) / 100;
+  return (pawns >= 0 ? '+' : '-') + Math.abs(pawns).toFixed(2);
+}
+function uciToSan(fen, uci){
+  if(!uci || uci.length < 4) return uci || '—';
+  const g = new Chess(fen);
+  const mv = g.move({from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || 'q'});
+  return mv ? mv.san : uci;
+}
+const pct = x => (x * 100).toFixed(1) + '%';
+
+async function detect(){
+  if(chess.game_over()){
+    showResult({cls: 'na', title: 'Not applicable',
+      detail: 'This position is checkmate, stalemate or a draw — the zugzwang (null-move) test does not apply.'});
+    return;
+  }
+  if(chess.in_check()){
+    showResult({cls: 'na', title: 'Not applicable',
+      detail: 'The side to move is in check, so it cannot pass. The null-move (zugzwang) test is undefined here.'});
+    return;
+  }
+
+  detectBtn.disabled = true;
+  showResult({cls: 'thinking', title: 'Analysing…',
+    detail: 'Running Stockfish on the position and on the null move (pass)…'});
+
+  try{
+    const fen = chess.fen();
+    const stm = chess.turn();
+    const sideName = stm === 'w' ? 'White' : 'Black';
+
+    const posEval = await analyse(fen, NODES);
+    if(posEval.bestmove == null){          // engine timed out / crashed
+      showResult({cls: 'na', title: 'Engine unavailable',
+        detail: 'Stockfish did not respond. Reload the page and try again.'});
+      return;
+    }
+
+    // null move: flip the side to move and clear en passant; board is untouched
+    const parts = fen.split(' ');
+    parts[1] = stm === 'w' ? 'b' : 'w';
+    parts[3] = '-';
+    const nullFen = parts.join(' ');
+    const passEval = new Chess().load(nullFen) ? await analyse(nullFen, NODES) : null;
+
+    const wpBest = winProb(posEval.score);
+    const wpPass = passEval ? winProb(negate(passEval.score)) : null; // negate: back to stm POV
+    const evalStr = whitePovEval(posEval.score, stm);
+    const bestSan = uciToSan(fen, posEval.bestmove);
+
+    if(wpBest === null || wpPass === null){
+      showResult({evalStr, cls: 'na', title: 'Could not evaluate',
+        detail: 'The engine did not return a usable score for one of the positions.'});
+      return;
+    }
+
+    const eff = wpPass - wpBest;              // >0: would rather pass -> zugzwang
+    const dpct = (Math.abs(eff) * 100).toFixed(1) + '%';
+    let cls, title, detail;
+    if(eff > EPS){
+      cls = 'zug'; title = 'Zugzwang';
+      detail = `${sideName} is in zugzwang: passing would be worth ${pct(wpPass)}, `
+             + `but the best legal move (${bestSan}) only reaches ${pct(wpBest)} — `
+             + `being forced to move costs ${dpct}.`;
+    } else if(eff < -EPS){
+      cls = 'asset'; title = 'Not zugzwang — tempo is an asset';
+      detail = `Having the move helps ${sideName}: the best move (${bestSan}) reaches ${pct(wpBest)}, `
+             + `versus ${pct(wpPass)} if forced to pass (+${dpct} for holding the move).`;
+    } else {
+      cls = 'neutral'; title = 'Tempo not decisive';
+      detail = `Passing (${pct(wpPass)}) and the best move ${bestSan} (${pct(wpBest)}) are within ${dpct} — `
+             + `the obligation to move does not materially change ${sideName}'s outcome.`;
+    }
+    showResult({evalStr, cls, title, detail});
+  } catch(err){
+    showResult({cls: 'na', title: 'Error', detail: String(err)});
+  } finally {
+    detectBtn.disabled = false;
+  }
+}
+
+return {onMove, loadFen, demoFen: DEMO_FEN, sync: syncStatus};
+}
+
+// =============================================================================
+// Prophylaxis: threat operator (mate-only, null move)
+// =============================================================================
+function setupProphylaxis(ground){
+const el = elFor('p-');
+// Golden position: White to move. If White passes (null move) Black plays ...Re1#
+// (a forced M1 back-rank mate). h3 or f3 (luft) removes it; material is level, so
+// after the luft move Black has NO forced mate. Verified with Stockfish 18 @ 300k nodes.
+const DEMO_FEN = '4r1k1/5ppp/8/8/8/R7/5PPP/6K1 w - - 0 1';
+const NODES    = 300000;   // fixed node count — deterministic given the cold-hash handshake below
+
+let chess = new Chess(DEMO_FEN);
+let loadedFen = chess.fen();   // the position `m` is played FROM (side S to move) — the "before"
+let engineReady = false;
+
+const engineEl  = el('engineStatus');
+const hintEl    = el('hint');
+const detectBtn = el('detectBtn');
+const resultEl  = el('result');
+const gridEl    = el('rGrid');
+const rVerdict  = el('rVerdict');
+const rBefore   = el('rBefore');
+const rAfter    = el('rAfter');
+const rAfterLbl = el('rAfterLbl');
+const rEff      = el('rEff');
+const rDetail   = el('rDetail');
+
+const colorOf = () => (chess.turn() === 'w' ? 'white' : 'black');
+function dests(){
+  const map = new Map();
+  chess.moves({verbose: true}).forEach(m => {
+    if(!map.has(m.from)) map.set(m.from, []);
+    map.get(m.from).push(m.to);
+  });
+  return map;
+}
+
+ground.set({fen: chess.fen(), turnColor: colorOf(), movable: {color: colorOf(), dests: dests()}});
+syncStatus();
+
+function onMove(orig, dest){
+  const p = chess.get(orig);
+  const promotion = (p && p.type === 'p' && (dest[1] === '8' || dest[1] === '1')) ? 'q' : undefined;
+  chess.move({from: orig, to: dest, promotion});
+  clearResult();
+  applyBoard([orig, dest]);
+  updateDetectState();
+}
+
+function applyBoard(lastMove){
+  ground.set({
+    fen: chess.fen(),
+    turnColor: colorOf(),
+    check: chess.in_check() ? colorOf() : false,
+    lastMove: lastMove || null,
+    movable: {color: colorOf(), dests: dests()},
+  });
+  syncStatus();
+}
+
+function syncStatus(){
+  fenInput.value = chess.fen();
+  turnEl.textContent = (chess.turn() === 'w' ? 'White' : 'Black') + ' to move';
+}
+
+function loadFen(fen){
+  const test = new Chess();
+  if(!test.load(fen)){ errEl.textContent = 'Invalid FEN.'; return false; }
+  errEl.textContent = '';
+  chess = test;
+  loadedFen = chess.fen();
+  clearResult();
+  applyBoard(null);
+  updateDetectState();
+  return true;
+}
+detectBtn.addEventListener('click', detect);
+
+// Enable "Detect" only when exactly one move has been played from the loaded position:
+// prophylaxis needs a (position, single move) pair.
+function updateDetectState(){
+  const n = chess.history().length;
+  if(!engineReady){ detectBtn.disabled = true; hintEl.textContent = ''; return; }
+  if(n === 0){        detectBtn.disabled = true;  hintEl.textContent = 'Play one move for the side to move, then detect.'; }
+  else if(n === 1){   detectBtn.disabled = false; hintEl.textContent = ''; }
+  else {              detectBtn.disabled = true;  hintEl.textContent = 'Play exactly one move from the loaded position — press Reset or Load to start over.'; }
+}
+
+function clearResult(){ resultEl.hidden = true; }
+function showResult({cls = '', title = '', before = '', after = '', afterLbl = '', eff = '', detail = ''}){
+  resultEl.hidden = false;
+  rVerdict.textContent = title;
+  rVerdict.className = 'verdict ' + cls;
+  const hasCells = !!(before || after);
+  gridEl.style.display = hasCells ? 'grid' : 'none';
+  rBefore.textContent = before || '—';
+  rAfter.textContent  = after || '—';
+  if(afterLbl) rAfterLbl.textContent = afterLbl;
+  rEff.textContent = eff;
+  rEff.style.display = eff ? 'block' : 'none';
+  rDetail.textContent = detail;
+}
+
+// --- engine (single-threaded Stockfish over a Web Worker, UCI) --------------
+const engine = new Worker('vendor/stockfish/stockfish.js');
+
+function initEngine(){
+  return new Promise(resolve => {
+    function onMsg(e){
+      const line = lineOf(e);
+      if(line === 'uciok') engine.postMessage('isready');
+      else if(line === 'readyok'){ engine.removeEventListener('message', onMsg); resolve(); }
+    }
+    engine.addEventListener('message', onMsg);
+    engine.postMessage('uci');
+  });
+}
+
+// Same cold-hash handshake and Threads caveat as the zugzwang view's analyse().
+function analyse(fen, nodes){
+  return new Promise(resolve => {
+    let score = null, settled = false, searching = false;
+    function finish(result){
+      if(settled) return;
+      settled = true;
+      clearTimeout(timer);
+      engine.removeEventListener('message', onMsg);
+      resolve(result);
+    }
+    function onMsg(e){
+      const line = lineOf(e);
+      if(!searching){
+        if(line === 'readyok'){ searching = true; engine.postMessage('position fen ' + fen); engine.postMessage('go nodes ' + nodes); }
+        return;
+      }
+      if(line.startsWith('info')){
+        const m = line.match(/score (cp|mate) (-?\d+)/);
+        if(m) score = m[1] === 'cp' ? {cp: parseInt(m[2], 10), mate: null}
+                                    : {cp: null, mate: parseInt(m[2], 10)};
+      } else if(line.startsWith('bestmove')){
+        finish({score, bestmove: line.split(' ')[1]});
+      }
+    }
+    const timer = setTimeout(() => finish({score, bestmove: null}), 15000);
+    engine.addEventListener('message', onMsg);
+    engine.postMessage('ucinewgame');
+    engine.postMessage('setoption name Clear Hash');
+    engine.postMessage('isready');
+  });
+}
+
+engine.onerror = () => { engineEl.textContent = ' · the engine failed to load'; };
+initEngine().then(() => { engineEl.textContent = ''; engineReady = true; updateDetectState(); });
+
+// --- evaluation helpers -----------------------------------------------------
+function winProb(score){           // {cp,mate} from some POV -> win expectation
+  if(!score) return null;
+  if(score.mate !== null) return score.mate > 0 ? 0.9999 : 0.0001;
+  const p = 1 / (1 + Math.exp(-0.00368208 * score.cp));
+  return Math.min(Math.max(p, 1e-4), 1 - 1e-4);
+}
+// A forced mate FOR the side to move (mate > 0). Null = no such mate. Both probe
+// positions have O to move, so `score` is already O's POV — do NOT negate.
+function oMate(score){ return (score && score.mate !== null && score.mate > 0) ? score.mate : null; }
+
+function uciToSan(fen, uci){
+  if(!uci || uci.length < 4) return uci || '—';
+  const g = new Chess(fen);
+  const mv = g.move({from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || 'q'});
+  return mv ? mv.san : uci;
+}
+const pct = x => (x == null ? '—' : (x * 100).toFixed(1) + '%');
+
+async function detect(){
+  // `before` is the loaded position (side S to move), captured before `m`. Guard runs
+  // on `before`, NEVER the live board (which is O-to-move after m).
+  const before = loadedFen;
+  if(chess.history().length !== 1){
+    showResult({cls: 'na', title: 'Play exactly one move',
+      detail: 'Load a position, then play one move for the side to move before detecting.'});
+    return;
+  }
+  const mSan  = chess.history({verbose: true})[0].san;
+  const after = chess.fen();                 // O to move (S just moved)
+
+  const bg = new Chess();
+  if(!bg.load(before)){ showResult({cls: 'na', title: 'Invalid position', detail: 'Could not read the loaded position.'}); return; }
+  const sStm   = before.split(' ')[1];       // 'w' | 'b'  — the defender S
+  const oStm   = sStm === 'w' ? 'b' : 'w';   // the opponent O
+  const sColor = sStm === 'w' ? 'White' : 'Black';
+  const oColor = oStm === 'w' ? 'White' : 'Black';
+
+  if(bg.game_over()){
+    showResult({cls: 'na', title: 'Not applicable',
+      detail: 'The loaded position is already checkmate, stalemate or a draw — there is nothing to defend.'});
+    return;
+  }
+  if(bg.in_check()){
+    showResult({cls: 'na', title: 'Not applicable',
+      detail: `${sColor} is in check in the loaded position and cannot pass, so the null-move threat test is undefined here.`});
+    return;
+  }
+
+  // null move on `before`: S passes -> flip STM, clear en passant -> O to move
+  const parts = before.split(' ');
+  parts[1] = oStm; parts[3] = '-';
+  const nullFen = parts.join(' ');
+  const ng = new Chess();
+  if(!ng.load(nullFen) || ng.game_over()){
+    showResult({cls: 'na', title: 'Not applicable',
+      detail: `After the null move ${oColor} has no legal reply (the position is terminal), so no forced-mate threat can be defined.`});
+    return;
+  }
+
+  detectBtn.disabled = true;
+  showResult({cls: 'thinking', title: 'Analysing…',
+    detail: `Running Stockfish on the null move (you pass) and on the position after ${mSan}…`});
+
+  try{
+    // (1) threat-before: search the null position (O to move -> O POV, no negate)
+    const sBefore = await analyse(nullFen, NODES);
+    if(sBefore.bestmove == null || sBefore.bestmove === '(none)'){
+      showResult({cls: 'na', title: sBefore.score ? 'Not applicable' : 'Engine unavailable',
+        detail: sBefore.score
+          ? `After the null move ${oColor} has no reply, so no threat can be defined.`
+          : 'Stockfish did not respond. Reload the page and try again.'});
+      return;
+    }
+    if(!sBefore.score){
+      showResult({cls: 'na', title: 'Could not evaluate', detail: 'Stockfish returned no score for the null position.'});
+      return;
+    }
+
+    // (2) threat-after: the position after m (O to move). Skip the engine if m ended the game.
+    const ag = new Chess(); ag.load(after);
+    let sAfter;
+    if(ag.game_over()){
+      sAfter = ag.in_checkmate() ? {score: {cp: null, mate: 0}, bestmove: null}   // m mates O first (outran)
+                                 : {score: {cp: 0,   mate: null}, bestmove: null}; // stalemate / draw
+    } else {
+      sAfter = await analyse(after, NODES);
+      if(sAfter.bestmove == null && !sAfter.score){
+        showResult({cls: 'na', title: 'Engine unavailable', detail: 'Stockfish did not respond. Reload the page and try again.'});
+        return;
+      }
+    }
+
+    const beforeMate = oMate(sBefore.score);   // k > 0, or null
+    const afterMate  = oMate(sAfter.score);
+    const existed = beforeMate !== null;       // O had a forced mate if S passed
+    const removed = afterMate === null;        // O has no forced mate after m
+
+    const wpBefore = winProb(sBefore.score);   // O POV
+    const wpAfter  = winProb(sAfter.score);    // O POV
+
+    // Self-check: a forced O-mate MUST read as winProb > 0.5. If this fires, a stray
+    // negate() has inverted the POV — the golden guard against sign flips.
+    if(existed) console.assert(wpBefore != null && wpBefore > 0.5,
+      'POV self-check failed: O has a forced mate but winProb <= 0.5 — the score was negated somewhere.');
+
+    const threatLine = uciToSan(nullFen, sBefore.bestmove);
+    const beforeVal = existed
+      ? `${oColor}: forced mate — ${threatLine} (M${beforeMate}) · ${pct(wpBefore)}`
+      : `${oColor}: no forced mate · ${pct(wpBefore)}`;
+
+    let afterVal;
+    if(afterMate !== null){
+      const afterLine = sAfter.bestmove ? uciToSan(after, sAfter.bestmove) : '—';
+      afterVal = `${oColor}: still mates — ${afterLine} (M${afterMate}) · ${pct(wpAfter)}`;
+    } else if(ag.in_checkmate()){
+      afterVal = `${oColor}: checkmated by ${mSan} · 0.0%`;
+    } else {
+      afterVal = `${oColor}: no forced mate · ${pct(wpAfter)}`;
+    }
+
+    let cls, title, detail, eff = '';
+    if(existed && removed){
+      cls = 'asset'; title = 'Threat removed';
+      detail = `${oColor} had a forced mate (${threatLine}, M${beforeMate}) if ${sColor} passed. `
+             + `After ${mSan}, that mate is gone. Note: this shows only that the mate is gone — `
+             + `it cannot distinguish defending the threat from outrunning it.`;
+      if(wpBefore != null && wpAfter != null)
+        eff = `Prophylactic value: ${oColor}'s winning chances fall from ${pct(wpBefore)} to ${pct(wpAfter)} `
+            + `(−${((wpBefore - wpAfter) * 100).toFixed(1)} pts).`;
+    } else if(!existed){
+      cls = 'neutral'; title = 'No forced-mate threat';
+      detail = `In the loaded position ${oColor} had no forced checkmate even if ${sColor} passed, so there was `
+             + `no mate threat for ${mSan} to remove. ${mSan} may still be a good move — this operator only `
+             + `detects removal of a forced mate.`;
+    } else {   // existed && !removed
+      cls = 'zug'; title = 'Mate threat remains';
+      const afterLine = sAfter.bestmove ? uciToSan(after, sAfter.bestmove) : '—';
+      detail = `${oColor} still has a forced mate (${afterLine}, M${afterMate}) after ${mSan}: `
+             + `the move did not remove the threat.`;
+    }
+    showResult({cls, title, before: beforeVal, after: afterVal, afterLbl: 'After ' + mSan, eff, detail});
+  } catch(err){
+    showResult({cls: 'na', title: 'Error', detail: String(err)});
+  } finally {
+    detectBtn.disabled = false;
+    updateDetectState();
+  }
+}
+
+return {onMove, loadFen, demoFen: DEMO_FEN, sync: syncStatus};
+}
+
+// =============================================================================
+// Pin: rule-level pin suspension (MaskPinner) on patched Stockfish 18
+// =============================================================================
+function setupPin(ground){
+const el = elFor('n-');
+// Golden position: White to move. The g7 pawn is pinned to Kh8 by the bishop on e5.
+// Pin intact -> Qh6+ Kg8 Qxg7# (M2): the frozen pawn denies the king luft, and Be5
+// guards g7 so the king can't recapture. Suspend that one pin and it is dead equal
+// (Bxg7+ Kxg7). Verified on patched Stockfish 18 @ 400k nodes; mask square = e5.
+const DEMO_FEN = '3r3k/6p1/4Q3/4B3/1p3P2/4PKP1/3q4/8 w - - 18 52';
+const NODES    = 300000;
+const MASK_OFF = 64;   // SQ_NONE — engine is byte-for-byte stock Stockfish 18
+
+let chess = new Chess(DEMO_FEN);
+let currentFen = chess.fen();
+let pins = [];           // all absolute pins (side to move pins an enemy piece to its king)
+let engineReady = false;
+
+const engineEl  = el('engineStatus');
+const hintEl    = el('hint');
+const detectBtn = el('detectBtn');
+const resultEl  = el('result');
+const gridEl    = el('rGrid');
+const rVerdict  = el('rVerdict');
+const rBefore   = el('rBefore');
+const rAfter    = el('rAfter');
+const rEff      = el('rEff');
+const rDetail   = el('rDetail');
+
+// --- board (play legal moves, and right-drag to mark the pin) ---
+const colorOf = () => (chess.turn() === 'w' ? 'white' : 'black');
+function dests(){
+  const map = new Map();
+  chess.moves({verbose:true}).forEach(m => {
+    if(!map.has(m.from)) map.set(m.from, []);
+    map.get(m.from).push(m.to);
+  });
+  return map;
+}
+ground.set({fen: chess.fen(), turnColor: colorOf(),
+  movable: {color: colorOf(), dests: dests()},
+  check: chess.in_check() ? colorOf() : false});
+// Re-apply movable dests + re-seed the pin suggestion after any board change.
+// ground.set({fen}) wipes drawable.shapes, so the seed is redrawn here every time.
+function applyBoard(){
+  ground.set({fen: chess.fen(), turnColor: colorOf(), lastMove: null,
+    check: chess.in_check() ? colorOf() : false,
+    movable: {color: colorOf(), dests: dests()}});
+  pins = [...findAllPins(chess), ...findAllRelativePins(chess)];   // absolute + relative, both maskable
+  ground.setShapes(pins.map(p => ({orig: p.pinnerSq, dest: p.markSq, brush:'blue'})));
+}
+function onMove(orig, dest){ chess.move({from:orig, to:dest, promotion:'q'}); clearResult(); applyBoard(); syncStatus(); updateDetectState(); }
+// User right-drew an arrow: keep only their newest one (drop the seeded suggestion) so two don't linger.
+function onDrawChange(shapes){
+  const arrows = shapes.filter(s => s.dest);
+  if(arrows.length > 1) setTimeout(() => ground.setShapes([arrows[arrows.length - 1]]), 0);
+  updateDetectState();
+}
+
+// --- pin detection (geometric ray-scan; chess.js has no attackers API) ----------
+// Square index a1=0..h8=63, matching the engine's MaskPinner convention.
+const FILES = 'abcdefgh';
+function sqIndex(sq){ return FILES.indexOf(sq[0]) + (parseInt(sq[1],10)-1)*8; }
+function sqName(file, rank){ return FILES[file] + (rank+1); }  // file,rank 0-based
+const PIECE_WORDS = {p:'pawn',n:'knight',b:'bishop',r:'rook',q:'queen',k:'king'};
+
+const PIECE_VALUE = {p:1,n:3,b:3,r:5,q:9,k:0};
+
+// All ABSOLUTE pins: a slider of the side to move pins an enemy piece to the enemy KING. The pin
+// is a movement rule, so it is suspended confound-free at the rules level (MaskPinner). Returns
+// {surface:'rule', pinnedSq, pinnerSq, kingSq, markSq, pinnerIdx}.
+function findAllPins(game){
+  const solver = game.turn();
+  const enemy  = solver === 'w' ? 'b' : 'w';
+  let kf=-1, kr=-1;
+  for(let r=0;r<8;r++) for(let f=0;f<8;f++){
+    const pc = game.get(sqName(f,r));
+    if(pc && pc.color===enemy && pc.type==='k'){ kf=f; kr=r; }
+  }
+  if(kf<0) return [];
+  const ROOK=[[1,0],[-1,0],[0,1],[0,-1]];
+  const BISHOP=[[1,1],[1,-1],[-1,1],[-1,-1]];
+  const rays = [...ROOK.map(d=>[d,'r']), ...BISHOP.map(d=>[d,'b'])];
+  const out = [];
+  for(const [[df,dr],kind] of rays){
+    let f=kf+df, r=kr+dr, pinnedSq=null;
+    while(f>=0&&f<8&&r>=0&&r<8){
+      const pc = game.get(sqName(f,r));
+      if(pc){
+        if(!pinnedSq){
+          if(pc.color!==enemy || pc.type==='k') break;   // first piece from king: enemy non-king
+          pinnedSq = sqName(f,r);
+        } else {
+          const slides = pc.type==='q' || (kind==='r' && pc.type==='r') || (kind==='b' && pc.type==='b');
+          if(pc.color===solver && slides){
+            const pinnerSq = sqName(f,r), kingSq = sqName(kf,kr);
+            out.push({surface:'rule', pinnedSq, pinnerSq, kingSq, markSq:kingSq, pinnerIdx: sqIndex(pinnerSq)});
+          }
+          break;
+        }
+      }
+      f+=df; r+=dr;
+    }
+  }
+  return out;
+}
+
+// All RELATIVE pins: a slider of the side to move pins an enemy piece to a MORE VALUABLE enemy
+// piece (not its king). The patched MaskPinner suspends these too — it forbids the pinner from
+// capturing the backstop, freeing the pinned piece as if that capture were unavailable — so they are
+// masked exactly like absolute pins (rule-level, confound-free). Returns {surface, pinnedSq, pinnerSq,
+// backSq, markSq, pinnerIdx, pinnedType, backType}.
+function findAllRelativePins(game){
+  const solver = game.turn(), enemy = solver === 'w' ? 'b' : 'w';
+  const ROOK=[[1,0],[-1,0],[0,1],[0,-1]], BISHOP=[[1,1],[1,-1],[-1,1],[-1,-1]];
+  const out = [];
+  for(let sr=0;sr<8;sr++) for(let sf=0;sf<8;sf++){
+    const pc = game.get(sqName(sf,sr));
+    if(!pc || pc.color!==solver) continue;
+    const dirs = pc.type==='q' ? [...ROOK,...BISHOP] : pc.type==='r' ? ROOK : pc.type==='b' ? BISHOP : null;
+    if(!dirs) continue;
+    for(const [df,dr] of dirs){
+      let f=sf+df, r=sr+dr, first=null;
+      while(f>=0&&f<8&&r>=0&&r<8){
+        const q = game.get(sqName(f,r));
+        if(q){
+          if(!first){ if(q.color!==enemy) break; first={sq:sqName(f,r), type:q.type}; }
+          else {
+            if(q.color===enemy && q.type!=='k' && PIECE_VALUE[q.type] > PIECE_VALUE[first.type]){
+              const pinnerSq = sqName(sf,sr), backSq = sqName(f,r);
+              out.push({surface:'rule', pinnedSq:first.sq, pinnerSq, backSq, markSq:backSq,
+                        pinnerIdx: sqIndex(pinnerSq),
+                        pinnedType:PIECE_WORDS[first.type], backType:PIECE_WORDS[q.type]});
+            }
+            break;   // king backstop = absolute (found elsewhere); own piece / lesser piece = no pin
+          }
+        }
+        f+=df; r+=dr;
+      }
+    }
+  }
+  return out;
+}
+
+function syncStatus(){
+  fenInput.value = chess.fen();
+  turnEl.textContent = (chess.turn()==='w' ? 'White' : 'Black') + ' to move';
+}
+
+// chess.js validate_fen is syntactic only — it accepts kingless boards, pawns on the back
+// rank, and a side-not-to-move-in-check position, all of which crash or fool Stockfish.
+function legalityError(game){
+  let wk=0, bk=0;
+  for(let r=0;r<8;r++) for(let f=0;f<8;f++){
+    const pc = game.get(sqName(f,r));
+    if(!pc) continue;
+    if(pc.type==='p' && (r===0 || r===7)) return 'A pawn can’t sit on the back rank.';
+    if(pc.type==='k'){ pc.color==='w' ? wk++ : bk++; }
+  }
+  if(wk!==1 || bk!==1) return 'Each side needs exactly one king.';
+  // The side NOT to move must not be in check, or its king could just be captured. Probe by
+  // swapping the active colour; blank the ep field first or chess.js rejects the swapped FEN.
+  const parts = game.fen().split(' ');
+  parts[1] = parts[1]==='w' ? 'b' : 'w';
+  parts[3] = '-';
+  const probe = new Chess();
+  if(probe.load(parts.join(' ')) && probe.in_check()){
+    const stm = game.turn()==='w' ? 'White' : 'Black';
+    return `${stm==='White'?'Black':'White'} is in check, but it’s ${stm} to move.`;
+  }
+  return '';
+}
+function loadFen(fen){
+  const test = new Chess();
+  if(!test.load(fen)){ errEl.textContent='Invalid FEN.'; return false; }
+  const bad = legalityError(test);
+  if(bad){ errEl.textContent = bad; return false; }
+  errEl.textContent=''; chess = test; currentFen = chess.fen();
+  clearResult();
+  applyBoard();          // re-applies movable dests + re-seeds the pin suggestion
+  syncStatus();
+  updateDetectState();
+  return true;
+}
+detectBtn.addEventListener('click', detect);
+
+function currentArrow(){ return [...ground.state.drawable.shapes].reverse().find(s => s.dest) || null; }
+// The engine can only suspend a real absolute pin, so the drawn arrow selects among detected
+// pins (by touching one's pinner/pinned/king square); it never masks an arbitrary square.
+function selectedPin(){
+  const a = currentArrow();
+  if(a){ const m = pins.find(p => [p.pinnerSq,p.pinnedSq,p.markSq].includes(a.orig)
+                                || [p.pinnerSq,p.pinnedSq,p.markSq].includes(a.dest)); if(m) return m; }
+  return pins[0] || null;
+}
+function noPinHint(){
+  return 'No pin here — set up a position where the side to move pins an enemy piece to its king '
+    + '(absolute) or to a more valuable piece (relative), then right-drag along the pin.';
+}
+function updateDetectState(){
+  if(!engineReady){ detectBtn.disabled=true; hintEl.textContent=''; return; }
+  if(selectedPin()){ detectBtn.disabled=false; hintEl.textContent=''; }
+  else { detectBtn.disabled=true; hintEl.textContent = noPinHint(); }
+}
+
+function clearResult(){ resultEl.hidden=true; }
+function showResult({cls='', title='', before='', after='', eff='', detail=''}){
+  resultEl.hidden=false;
+  rVerdict.textContent=title; rVerdict.className='verdict '+cls;
+  gridEl.style.display=(before||after)?'grid':'none';
+  rBefore.textContent=before||'—'; rAfter.textContent=after||'—';
+  rEff.textContent=eff; rEff.style.display=eff?'block':'none';
+  rDetail.textContent=detail;
+}
+
+// --- engine (patched Stockfish 18 lite, single-threaded, over a Web Worker) ---
+// Its own Worker: the obstruct view loads the same build, but sets LineBlocker options this
+// view never resets.
+const engine = new Worker('vendor/stockfish/stockfish-18-lite-single.js');
+
+function initEngine(){
+  return new Promise(resolve => {
+    function onMsg(e){
+      const line = lineOf(e);
+      if(line==='uciok') engine.postMessage('isready');
+      else if(line==='readyok'){ engine.removeEventListener('message', onMsg); resolve(); }
+    }
+    engine.addEventListener('message', onMsg);
+    engine.postMessage('uci');
+  });
+}
+
+// Analyse `fen` at a fixed node count with the mask set to `mask` (64 = off). Resolves
+// {score:{cp,mate}, bestmove} from the side-to-move POV. Cold handshake (ucinewgame +
+// Clear Hash) before each search so the reused Worker's warm TT can't make `go nodes`
+// non-deterministic. MaskPinner is a normal spin option here (unlike Threads on the old
+// asm.js build) and is safe to set every search.
+function analyse(fen, nodes, mask){
+  return new Promise(resolve => {
+    let score=null, settled=false, searching=false;
+    function finish(result){ if(settled) return; settled=true; clearTimeout(timer);
+      engine.removeEventListener('message', onMsg); resolve(result); }
+    function onMsg(e){
+      const line = lineOf(e);
+      if(!searching){
+        if(line==='readyok'){ searching=true; engine.postMessage('position fen '+fen); engine.postMessage('go nodes '+nodes); }
+        return;
+      }
+      if(line.startsWith('info')){
+        const m = line.match(/score (cp|mate) (-?\d+)/);
+        if(m) score = m[1]==='cp' ? {cp:parseInt(m[2],10), mate:null} : {cp:null, mate:parseInt(m[2],10)};
+      } else if(line.startsWith('bestmove')){
+        finish({score, bestmove: line.split(' ')[1]});
+      }
+    }
+    const timer = setTimeout(() => finish({score, bestmove:null}), 20000);
+    engine.addEventListener('message', onMsg);
+    engine.postMessage('ucinewgame');
+    engine.postMessage('setoption name MaskPinner value ' + mask);
+    engine.postMessage('setoption name Clear Hash');
+    engine.postMessage('isready');
+  });
+}
+
+engine.onerror = () => { engineEl.textContent=' · the engine failed to load'; };
+initEngine().then(() => { engineEl.textContent=''; engineReady=true; updateDetectState(); });
+
+// --- evaluation helpers -----------------------------------------------------
+function winProb(score){                 // {cp,mate} from stm POV -> stm win expectation
+  if(!score) return null;
+  if(score.mate !== null) return score.mate>0 ? 0.9999 : 0.0001;
+  const p = 1/(1+Math.exp(-0.00368208*score.cp));
+  return Math.min(Math.max(p,1e-4),1-1e-4);
+}
+const solverMate = s => (s && s.mate!==null && s.mate>0) ? s.mate : null;   // forced mate FOR side to move
+const pct = x => (x==null ? '—' : (x*100).toFixed(1)+'%');
+function scoreText(s){
+  if(!s) return '—';
+  if(s.mate!==null) return s.mate>0 ? `forced mate M${s.mate}` : (s.mate===0 ? 'mated' : `getting mated M${-s.mate}`);
+  const cp = s.cp;
+  return (cp>=0?'+':'') + (cp/100).toFixed(2);
+}
+function uciToSan(fen, uci){
+  if(!uci || uci.length<4) return uci || '—';
+  const g = new Chess(fen);
+  const mv = g.move({from: uci.slice(0,2), to: uci.slice(2,4), promotion: uci[4] || 'q'});
+  return mv ? mv.san : uci;
+}
+
+async function detect(){
+  const fen = chess.fen();
+  const sel = selectedPin();
+  if(!sel){ updateDetectState(); return; }   // no pin — the hint explains
+  const solver = chess.turn()==='w' ? 'White' : 'Black';
+  const pinnerPc = chess.get(sel.pinnerSq);
+  const pinName = `${PIECE_WORDS[pinnerPc ? pinnerPc.type : 'q'] || 'piece'} on ${sel.pinnerSq}`;
+
+  detectBtn.disabled=true;
+  showResult({cls:'thinking', title:'Analysing…',
+    detail:`Evaluating with the pin intact, then with the ${pinName}'s pin suspended at the rules level…`});
+
+  try{
+    const off = await analyse(fen, NODES, MASK_OFF);
+    const on  = await analyse(fen, NODES, sel.pinnerIdx);   // same board, MaskPinner on the pinner
+    if((!off.score && off.bestmove==null) || (!on.score && on.bestmove==null)){
+      showResult({cls:'na', title:'Engine unavailable', detail:'Stockfish did not respond. Reload the page and try again.'});
+      return;
+    }
+
+    const mateOff = solverMate(off.score);
+    const mateOn  = solverMate(on.score);
+    const wpOff = winProb(off.score), wpOn = winProb(on.score);
+
+    // Self-check: a forced mate FOR the side to move must read as winProb > 0.5.
+    if(mateOff!==null) console.assert(wpOff!=null && wpOff>0.5, 'POV self-check failed: forced mate but winProb <= 0.5.');
+
+    const bestOff = off.bestmove ? uciToSan(fen, off.bestmove) : '—';
+    const beforeVal = mateOff!==null
+      ? `${solver}: ${bestOff} — forced mate M${mateOff} · ${pct(wpOff)}`
+      : `${solver}: ${scoreText(off.score)} · ${pct(wpOff)}`;
+    const afterVal = mateOn!==null
+      ? `${solver}: forced mate M${mateOn} · ${pct(wpOn)}`
+      : `${solver}: ${scoreText(on.score)} · ${pct(wpOn)}`;
+
+    let cls, title, detail, eff='';
+    if(mateOff!==null && mateOn===null){
+      cls='causal'; title='Pin is load-bearing';
+      detail=`${solver} has a forced mate (${bestOff}, M${mateOff}) only while the pin holds. Switch off the `
+           + `${pinName}'s pin — let the pinned piece move as if free — and the forced mate is gone. `
+           + `The pin, not the material on the board, is what makes the mate.`;
+      if(wpOff!=null && wpOn!=null)
+        eff=`Causal effect of the pin: ${solver}'s winning chances fall from ${pct(wpOff)} to ${pct(wpOn)} `
+           + `(−${((wpOff-wpOn)*100).toFixed(1)} pts) when it is switched off.`;
+    } else if(mateOff!==null && mateOn!==null){
+      cls='incidental'; title='Mate survives the suspension';
+      detail=`${solver} still has a forced mate (M${mateOn}) even with the pin suspended, so this particular pin `
+           + `is not what creates the mate here.`;
+    } else {
+      // no forced mate either way — fall back to the evaluation swing
+      const swing = (wpOff!=null && wpOn!=null) ? (wpOff-wpOn) : 0;
+      if(swing >= 0.15){
+        cls='causal'; title='Pin is load-bearing';
+        detail=`No forced mate, but at fixed depth ${solver}'s edge rests on the pin: suspending it moves the `
+             + `evaluation from ${scoreText(off.score)} to ${scoreText(on.score)}.`;
+        eff=`At a fixed ${(NODES/1000)|0}k-node search, ${solver}'s winning chances fall from ${pct(wpOff)} to `
+           + `${pct(wpOn)} (−${(swing*100).toFixed(1)} pts) — reproducible at this depth, not a measured causal magnitude.`;
+      } else {
+        cls='incidental'; title='Pin has little effect';
+        detail=`Suspending the pin barely moves the evaluation (${scoreText(off.score)} → ${scoreText(on.score)}), so `
+             + `it is not carrying ${solver}'s position here.`;
+      }
+    }
+    showResult({cls, title, before: beforeVal, after: afterVal, eff, detail});
+  } catch(err){
+    showResult({cls:'na', title:'Error', detail:String(err)});
+  } finally {
+    detectBtn.disabled=false;
+    updateDetectState();
+  }
+}
+
+// initial paint
+loadFen(DEMO_FEN);
+return {onMove, onDrawChange, loadFen, demoFen: DEMO_FEN, sync: syncStatus};
+}
+
+// =============================================================================
+// Obstruct: rule-level line blocker (LineBlocker) on patched Stockfish 18
+// =============================================================================
+function setupObstruct(ground){
+const el = elFor('o-');
+// Five claims of the form "this line is why the position is what it is", each measured.
+const GALLERY = [
+  {name:'Alekhine',
+   fen:'1r3k2/p1rqn1p1/Ppn1p2p/1B1pPp2/1P1P1P2/2R1QN2/2R3PP/6K1 w - - 12 26', arrow:['c1','c7'],
+   cap:'<b>“White is winning because he owns the c-file.”</b> Alekhine–Nimzowitsch, San Remo 1930, the game that named Alekhine’s gun. Nothing is hanging and there is no mate: Black is squeezed until he runs out of moves.'},
+  {name:'Long diagonal',
+   fen:'r4rk1/pp3ppp/8/8/3Q4/8/PB4PP/6K1 w - - 0 1', arrow:['b2','g7'],
+   cap:'<b>“The queen mates on g7 because the bishop backs her up.”</b> Queen and bishop share one diagonal.'},
+  {name:'Raking bishop',
+   fen:'6rk/ppp3pp/1q6/6N1/8/8/B4PPP/6K1 w - - 0 1', arrow:['a2','g8'],
+   cap:'<b>“White mates because the bishop rakes a2–g8.”</b> The diagonal is wide open and the bishop really does eye g8. The mate is Nf7#.'},
+  {name:'Dead rook ending',
+   fen:'r5k1/pp3ppp/8/8/8/8/PP3PPP/2R3K1 w - - 0 1', arrow:['c1','c8'],
+   cap:'<b>“White is better because he owns the open c-file.”</b> The same claim with four pawns each and nothing to invade.'},
+  {name:'Morphy',
+   fen:'4kb1r/p2n1ppp/4q3/4p1B1/4P3/1Q6/PPP2PPP/2KR4 w k - 0 16', arrow:['d1','d8'],
+   cap:'<b>“White mates down the d-file.”</b> Morphy–Duke of Brunswick and Count Isouard, Paris 1858. The knight on d7 is in the way; 16.Qb8+ pulls it off, and 17.Rd8# runs down the file.'},
+];
+
+const PLIES    = 10;      // the blocker holds for 10 plies, then the tree sees the real board
+const NODES    = 250000;
+const OFF      = 64;      // SQ_NONE — engine is byte-for-byte stock Stockfish 18
+const SAMPLE   = 3;       // squares tried on the line, and control squares, matched
+
+let chess = new Chess(GALLERY[0].fen);
+let engineReady = false;
+// The arrow is removed from the board once a run finishes (it cut through the rings it was
+// meant to explain), so the marked line is remembered here or the button would never re-enable.
+let markedLine = null;
+
+const engineEl = el('engineStatus');
+const hintEl   = el('hint');
+const cutBtn   = el('cutBtn');
+const resultEl = el('result');
+const gcapEl   = el('gcap');
+const rVerdict = el('rVerdict');
+const rDetail  = el('rDetail');
+const cells = {
+  base: [el('rBase'), el('rBaseSub')],
+  cut:  [el('rCut'),  el('rCutSub')],
+  ctl:  [el('rCtl'),  el('rCtlSub')],
+};
+// Only shown on runs that actually draw the disc.
+const legBest = el('legBest');
+
+// --- geometry ---------------------------------------------------------------
+// Square index a1=0 … h8=63, matching the engine's LineBlocker convention.
+const FILES = 'abcdefgh';
+const sqIndex = sq => FILES.indexOf(sq[0]) + (parseInt(sq[1],10)-1)*8;
+const sqName  = (f,r) => FILES[f] + (r+1);
+const coords  = sq => [FILES.indexOf(sq[0]), parseInt(sq[1],10)-1];
+const LETTER = {p:'', n:'N', b:'B', r:'R', q:'Q', k:'K'};
+
+// Squares strictly between two ends of a rank, file or diagonal. null if the arrow is not a line.
+function between(orig, dest){
+  const [f0,r0] = coords(orig), [f1,r1] = coords(dest);
+  const df = f1-f0, dr = r1-r0;
+  if(!(df===0 || dr===0 || Math.abs(df)===Math.abs(dr)) || (df===0 && dr===0)) return null;
+  const sf = Math.sign(df), sr = Math.sign(dr), out = [];
+  for(let f=f0+sf, r=r0+sr; f!==f1 || r!==r1; f+=sf, r+=sr) out.push(sqName(f,r));
+  return out;
+}
+// Which slider class owns this line: 0 = rank/file (rooks and queens), 1 = diagonal (bishops
+// and queens). The engine cannot work this out from one square -- every square lies on both a
+// file and a diagonal -- so the page has to tell it which line it marked.
+function axisOf(orig, dest){
+  const [f0,r0] = coords(orig), [f1,r1] = coords(dest);
+  return (f1===f0 || r1===r0) ? 0 : 1;
+}
+const collinear = (a,b) => {
+  const [fa,ra]=coords(a), [fb,rb]=coords(b);
+  return fa===fb || ra===rb || Math.abs(fa-fb)===Math.abs(ra-rb);
+};
+// A control square may not sit on any line through either end of the marked line. Without that
+// rule a "control" can cut a second load-bearing line — b8 for Ra8# blocks the mating rank — and
+// a real effect reads as noise.
+const offLine = (orig,dest,sq) => !collinear(sq,orig) && !collinear(sq,dest);
+
+// Spread a list to at most SAMPLE entries, keeping both ends.
+const spread = xs => xs.length <= SAMPLE ? xs.slice() : [xs[xs.length-1], xs[(xs.length/2)|0], xs[0]];
+
+function emptySquares(game){
+  const out = [];
+  for(let r=0;r<8;r++) for(let f=0;f<8;f++){ const s = sqName(f,r); if(!game.get(s)) out.push(s); }
+  return out;
+}
+
+// --- board ------------------------------------------------------------------
+const colorOf = () => (chess.turn()==='w' ? 'white' : 'black');
+function dests(){
+  const map = new Map();
+  chess.moves({verbose:true}).forEach(m => {
+    if(!map.has(m.from)) map.set(m.from, []);
+    map.get(m.from).push(m.to);
+  });
+  return map;
+}
+ground.set({fen: chess.fen(), turnColor: colorOf(),
+  movable: {color: colorOf(), dests: dests()},
+  check: chess.in_check() ? colorOf() : false});
+function applyBoard(shapes){
+  ground.set({fen: chess.fen(), turnColor: colorOf(), lastMove: null,
+    check: chess.in_check() ? colorOf() : false,
+    movable: {color: colorOf(), dests: dests()}});
+  ground.setShapes(shapes || []);   // ground.set wipes shapes, so the arrow is redrawn here
+}
+function onMove(orig, dest){
+  const arrow = currentArrow();
+  chess.move({from:orig, to:dest, promotion:'q'});
+  clearResult(); gcapEl.innerHTML = '';
+  galleryEl.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+  applyBoard(arrow ? [{orig:arrow.orig, dest:arrow.dest, brush:'line'}] : []);
+  syncStatus(); updateCutState();
+}
+// Keep only the newest arrow so a seeded line and a hand-drawn one don't both linger.
+function onDrawChange(shapes){
+  const arrows = shapes.filter(s => s.dest);
+  if(arrows.length > 1) setTimeout(() => ground.setShapes([arrows[arrows.length-1]]), 0);
+  clearResult(); updateCutState();
+}
+const currentArrow = () => [...ground.state.drawable.shapes].reverse().find(s => s.dest) || null;
+
+// --- the plan: which squares get a blocker ----------------------------------
+function plan(){
+  const a = currentArrow() || markedLine;
+  if(!a) return {error:'Right-drag an arrow along the line you want to cut.'};
+  const seg = between(a.orig, a.dest);
+  if(seg === null) return {error:'That arrow is not a rank, file or diagonal.'};
+  const empty = new Set(emptySquares(chess));
+  const lineAll = seg.filter(s => empty.has(s));
+  if(!lineAll.length) return {error:'That line has no empty square to block.'};
+  const line = spread(lineAll);
+  const seen = new Set(), cand = [];
+  for(const s of line){
+    const [f,r] = coords(s);
+    for(let df=-1;df<=1;df++) for(let dr=-1;dr<=1;dr++){
+      if(!df && !dr) continue;
+      const nf=f+df, nr=r+dr;
+      if(nf<0||nf>7||nr<0||nr>7) continue;
+      const n = sqName(nf,nr);
+      if(empty.has(n) && offLine(a.orig,a.dest,n) && !seen.has(n)){ seen.add(n); cand.push(n); }
+    }
+  }
+  cand.sort((x,y) => (x[1]-y[1]) || (x[0] < y[0] ? -1 : 1));
+  // Without an off-line square there is no noise floor, and every drop would count as an
+  // effect. A short arrow on a crowded board hits this: every neighbour of the line is
+  // collinear with one of its ends, so nothing is left to compare against.
+  if(!cand.length) return {error:'No free square beside this line is off it, so there is nothing to measure against.'};
+  return {orig:a.orig, dest:a.dest, axis: axisOf(a.orig, a.dest), lineAll, line, controls: spread(cand)};
+}
+
+function updateCutState(){
+  if(!engineReady){ cutBtn.disabled = true; hintEl.textContent = ''; return; }
+  const p = plan();
+  cutBtn.disabled = !!p.error;
+  hintEl.textContent = p.error || '';
+}
+
+function syncStatus(){
+  fenInput.value = chess.fen();
+  turnEl.textContent = (chess.turn()==='w' ? 'White' : 'Black') + ' to move';
+}
+
+// chess.js validate_fen is syntactic only — it accepts kingless boards, pawns on the back rank
+// and a side-not-to-move-in-check position, all of which crash or fool Stockfish.
+function legalityError(game){
+  let wk=0, bk=0;
+  for(let r=0;r<8;r++) for(let f=0;f<8;f++){
+    const pc = game.get(sqName(f,r));
+    if(!pc) continue;
+    if(pc.type==='p' && (r===0||r===7)) return 'A pawn can’t sit on the back rank.';
+    if(pc.type==='k'){ pc.color==='w' ? wk++ : bk++; }
+  }
+  if(wk!==1 || bk!==1) return 'Each side needs exactly one king.';
+  const parts = game.fen().split(' ');
+  parts[1] = parts[1]==='w' ? 'b' : 'w';
+  parts[3] = '-';
+  const probe = new Chess();
+  if(probe.load(parts.join(' ')) && probe.in_check()){
+    const stm = game.turn()==='w' ? 'White' : 'Black';
+    return `${stm==='White'?'Black':'White'} is in check, but it’s ${stm} to move.`;
+  }
+  return '';
+}
+function loadFen(fen, arrow, caption){
+  const test = new Chess();
+  if(!test.load(fen)){ errEl.textContent='Invalid FEN.'; return false; }
+  const bad = legalityError(test);
+  if(bad){ errEl.textContent = bad; return false; }
+  errEl.textContent=''; chess = test;
+  markedLine = null;
+  clearResult();
+  gcapEl.innerHTML = caption || '';
+  applyBoard(arrow ? [{orig:arrow[0], dest:arrow[1], brush:'line'}] : []);
+  syncStatus();
+  updateCutState();
+  return true;
+}
+cutBtn.addEventListener('click', cut);
+
+const galleryEl = el('gallery');
+GALLERY.forEach(g => {
+  const b = document.createElement('button');
+  b.textContent = g.name;
+  b.addEventListener('click', () => {
+    galleryEl.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    loadFen(g.fen, g.arrow, g.cap);
+  });
+  galleryEl.appendChild(b);
+});
+
+// --- result panel -----------------------------------------------------------
+// The disc key goes with the disc: clearing the board's marks has to clear it too.
+function clearResult(){ resultEl.hidden = true; legBest.hidden = true; }
+function showResult({cls='', title='', base=null, cut=null, ctl=null, detail=''}){
+  resultEl.hidden = false;
+  resultEl.className = 'result ' + cls;
+  rVerdict.textContent = title;
+  el('rGrid').style.display = base ? 'grid' : 'none';
+  for(const [k, v] of Object.entries({base, cut, ctl})){
+    if(!v) continue;
+    cells[k][0].textContent = v[0];
+    cells[k][1].textContent = v[1] || '';
+  }
+  rDetail.textContent = detail;
+}
+
+// --- engine (patched Stockfish 18 lite, single-threaded, over a Web Worker) ---
+const engine = new Worker('vendor/stockfish/stockfish-18-lite-single.js');
+
+function initEngine(){
+  return new Promise(resolve => {
+    function onMsg(e){
+      const line = lineOf(e);
+      if(line==='uciok') engine.postMessage('isready');
+      else if(line==='readyok'){ engine.removeEventListener('message', onMsg); resolve(); }
+    }
+    engine.addEventListener('message', onMsg);
+    engine.postMessage('uci');
+  });
+}
+
+// Analyse at a fixed node count with a blocker on `sq` (64 = off) cutting `axis` (0 = rank/file,
+// rooks and queens; 1 = diagonal, bishops and queens). Cold handshake before each search: the
+// blocker is not in the Zobrist key, so a warm TT would answer for the wrong engine. Both options
+// are set before `position fen` because set() computes checkers and blockers at the root.
+function analyse(fen, sq, axis){
+  return new Promise(resolve => {
+    let score=null, settled=false, searching=false;
+    function finish(r){ if(settled) return; settled=true; clearTimeout(timer);
+      engine.removeEventListener('message', onMsg); resolve(r); }
+    function onMsg(e){
+      const line = lineOf(e);
+      if(!searching){
+        if(line==='readyok'){ searching=true; engine.postMessage('position fen '+fen); engine.postMessage('go nodes '+NODES); }
+        return;
+      }
+      if(line.startsWith('info')){
+        const m = line.match(/score (cp|mate) (-?\d+)/);
+        if(m) score = m[1]==='cp' ? {cp:parseInt(m[2],10), mate:null} : {cp:null, mate:parseInt(m[2],10)};
+      } else if(line.startsWith('bestmove')){
+        finish({score, bestmove: line.split(' ')[1]});
+      }
+    }
+    const timer = setTimeout(() => finish({score, bestmove:null}), 20000);
+    engine.addEventListener('message', onMsg);
+    engine.postMessage('ucinewgame');
+    engine.postMessage('setoption name LineBlocker value ' + sq);
+    engine.postMessage('setoption name LineBlockerAxis value ' + axis);
+    engine.postMessage('setoption name LineBlockerPlies value ' + PLIES);
+    engine.postMessage('setoption name Clear Hash');
+    engine.postMessage('isready');
+  });
+}
+
+engine.onerror = () => { engineEl.textContent = ' · the engine failed to load'; };
+initEngine().then(() => { engineEl.textContent = ''; engineReady = true; updateCutState(); });
+
+// --- evaluation helpers -----------------------------------------------------
+const mateFor     = s => (s && s.mate !== null && s.mate > 0);    // forced mate FOR side to move
+const mateAgainst = s => (s && s.mate !== null && s.mate <= 0);
+function scoreText(s){
+  if(!s) return '—';
+  if(s.mate !== null) return s.mate > 0 ? `mate in ${s.mate}` : (s.mate === 0 ? 'mated' : `mated in ${-s.mate}`);
+  return (s.cp >= 0 ? '+' : '') + (s.cp/100).toFixed(2);
+}
+// A cut line can make a move LEGAL that is illegal on the real board — cutting a pin frees the
+// piece it was holding — and chess.js only knows the real board, so it refuses to name those.
+// Fall back to piece + from–to rather than printing raw coordinates.
+function uciToSan(fen, uci){
+  if(!uci || uci.length < 4 || uci === '(none)') return '—';
+  const g = new Chess(fen);
+  const mv = g.move({from: uci.slice(0,2), to: uci.slice(2,4), promotion: uci[4] || 'q'});
+  if(mv) return mv.san;
+  const from = uci.slice(0,2), pc = g.get(from);
+  return (pc ? LETTER[pc.type] : '') + from + '–' + uci.slice(2,4);
+}
+
+// --- the intervention -------------------------------------------------------
+async function cut(){
+  const p = plan();
+  if(p.error){ updateCutState(); return; }
+  const fen = chess.fen();
+  const stm = chess.turn()==='w' ? 'White' : 'Black';
+  const other = stm === 'White' ? 'Black' : 'White';
+
+  cutBtn.disabled = true;
+  markedLine = {orig:p.orig, dest:p.dest};
+  ground.setShapes([{orig:p.orig, dest:p.dest, brush:'line'}]);
+
+  const total = 1 + p.line.length + p.controls.length;
+  let done = 0;
+  const tick = () => showResult({cls:'thinking',
+    title:`Analysing… search ${++done} of ${total}`});
+  tick();
+
+  try{
+    const base = await analyse(fen, OFF, p.axis);
+    if(!base.score && base.bestmove == null){
+      showResult({cls:'na', title:'The engine did not answer',
+        detail:'Reload the page and try again.'});
+      return;
+    }
+
+    const runAll = async sqs => {
+      const out = [];
+      for(const s of sqs){ tick(); const r = await analyse(fen, sqIndex(s), p.axis); out.push({sq:s, ...r}); }
+      return out;
+    };
+    const onLine   = await runAll(p.line);
+    const controls = await runAll(p.controls);
+
+    // A sound blocker never empties the move list: it occupies one square, and the side to move
+    // had moves a moment ago without it. `bestmove (none)` from an armed search means the engine
+    // build is wrong, so say that instead of scoring the noise it returns.
+    const dead = [...onLine, ...controls].find(r => !r.bestmove || r.bestmove === '(none)');
+    if(base.bestmove && base.bestmove !== '(none)' && dead){
+      showResult({cls:'na', title:'The engine build is wrong',
+        detail:`With a blocker on ${dead.sq} it reports no legal move at all. A blocker cuts one `
+             + `line for one slider class; it cannot take every move away. Re-vendor the engine with `
+             + `tools/stockfish-xai/build-wasm.sh before trusting this page.`});
+      return;
+    }
+
+    // You cut a line by blocking it ANYWHERE on it, so a line effect has to show at every square
+    // tried on it. Scoring the loudest square instead credits the line for whatever that one
+    // square happens to be worth -- a knight's landing square, a king's flight square -- which the
+    // line need have nothing to do with. Nor is "moved" a win-probability threshold: losing a mate
+    // that leaves +6.33 is worth 0.09 of win probability, which would call every square on a
+    // mating line inert.
+    // Win probability cannot see mate in 1 against mate in 5 -- both saturate at 0.9999 -- so the
+    // squares on a line are ordered on a scale that can: forced mates by distance, then centipawns,
+    // then being mated. Squares on one line may differ in size; what they all have to do is land
+    // worse than leaving the line alone AND worse than every square off it.
+    const rank = s => !s ? 0
+                    : s.mate !== null ? (s.mate > 0 ? 1e6 - s.mate : -1e6 - s.mate)
+                    : s.cp;
+    const matey = s => !!(s && s.mate !== null);
+    const baseRank = rank(base.score);
+    const ctlWorst = Math.min(...controls.map(r => rank(r.score)));
+    const ctlBest  = Math.max(...controls.map(r => rank(r.score)));
+    // Two scores that are both plain centipawns have to clear the control floor by a real margin;
+    // gaining, losing or merely delaying a forced mate is categorical and always counts.
+    const NOISE_CP = 30;
+    const past = (a, floor, sign) => {
+      if (matey(base.score) || matey(a)) return true;
+      return sign * (floor - rank(a)) >= NOISE_CP;
+    };
+    const worse  = r => rank(r.score) < baseRank && rank(r.score) < ctlWorst && past(r.score, ctlWorst,  1);
+    const better = r => rank(r.score) > baseRank && rank(r.score) > ctlBest  && past(r.score, ctlBest,  -1);
+    const dir = onLine.filter(worse).length >= onLine.filter(better).length ? worse : better;
+    const movers = onLine.filter(dir);
+    const held   = onLine.filter(r => !dir(r));
+    const sqList = rs => rs.map(r => r.sq).join(', ');
+    // Headline the strongest square that actually moved, and only when one square is strictly
+    // strongest, measured on the same rank scale the verdict uses. No unique winner, no disc.
+    const far  = r => Math.abs(rank(r.score) - baseRank);
+    const top  = movers.length ? Math.max(...movers.map(far)) : -1;
+    const tied = movers.filter(r => far(r) === top);
+    const best = tied.length === 1 ? tied[0] : null;
+
+    // Board marks: the arrow is dropped now; a filled disc marks the square the verdict names.
+    // customSvg drops into a 100x100 viewBox sized to one square.
+    const DISC = '<circle cx="50" cy="50" r="21" fill="#0b3d6b"/>';
+    legBest.hidden = !best;
+    ground.setShapes([
+      ...onLine.map(r => r === best
+        ? {orig:r.sq, brush:'cut', customSvg:{html:DISC}}
+        : {orig:r.sq, brush:'cut'}),
+      ...controls.map(r => ({orig:r.sq, brush:'ctl'})),
+    ]);
+
+    const ctlTexts = controls.map(r => scoreText(r.score));
+    // One line, always: collapse a set of scores to what it has in common.
+    const collapse = rs => {
+      const texts = rs.map(r => scoreText(r.score)), uniq = [...new Set(texts)];
+      if (uniq.length === 1) return uniq[0];
+      if (rs.every(r => r.score && r.score.mate !== null))
+        return mateFor(base.score) ? 'still mate' : 'still mated';
+      const cps = rs.map(r => (r.score && r.score.cp !== null) ? r.score.cp : null).filter(v => v !== null);
+      const fmt = c => (c >= 0 ? '+' : '') + (c / 100).toFixed(2);
+      return cps.length === rs.length
+        ? `${fmt(Math.min(...cps))} to ${fmt(Math.max(...cps))}`
+        : uniq.join(' · ');
+    };
+    const cellBase = [scoreText(base.score), `best move ${uciToSan(fen, base.bestmove)}`];
+    const cellCut  = [collapse(onLine), onLine.map(r => r.sq).join(' ')];
+    const cellCtl  = [collapse(controls), controls.map(r => r.sq).join(' ')];
+
+    let cls, title, detail;
+    const forOther = dir === better;
+    const side = forOther ? 'better' : 'worse';
+    if(movers.length && !held.length){
+      cls='causal';
+      title = forOther ? `The line carries the position — for ${other}` : 'The line carries the position';
+      detail=`Every square tried on the line — ${sqList(movers)} — leaves ${stm} ${side} off than `
+           + `with it open: ${scoreText(base.score)} becomes ${collapse(onLine)}. The same blocker off `
+           + `the line lands at ${collapse(controls)}, so none of that is the blocker's own weight.`
+           + (new Set(onLine.map(r => rank(r.score))).size > 1
+                ? ` They do not all move it equally far, but they all move it.` : '');
+    } else if(movers.length){
+      cls='square';
+      title = movers.length === 1 ? 'One square carries it, not the line'
+                                  : 'Part of the line carries it, not all of it';
+      detail=`Only ${sqList(movers)} ${movers.length === 1 ? 'clears' : 'clear'} both bars — `
+           + `${side} than leaving the line open, and ${side} than every square off it. The same `
+           + `blocker on ${sqList(held)}, the same line, lands at `
+           + `${[...new Set(held.map(r => scoreText(r.score)))].join(', ')}, inside the control band `
+           + `(${collapse(controls)}). A line is cut wherever you block it, so what carries the `
+           + `position here is ${sqList(movers)}, not the line.`;
+    } else {
+      cls='incidental'; title='Nothing rests on this line';
+      detail=`Blocking the line lands at ${collapse(onLine)} against ${collapse(controls)} off it — `
+           + `the same neighbourhood. What is being measured is the blocker's own weight on the `
+           + `board, not the line's. The line is real; the position does not rest on it.`;
+    }
+    showResult({cls, title, base:cellBase, cut:cellCut, ctl:cellCtl, detail});
+  } catch(err){
+    showResult({cls:'na', title:'Something went wrong', detail:String(err)});
+  } finally {
+    cutBtn.disabled = false;
+    updateCutState();
+  }
+}
+
+// initial paint
+galleryEl.querySelector('button').click();
+return {onMove, onDrawChange, loadFen, demoFen: null, sync: syncStatus};
+}
+
+show(location.hash.slice(1));
+</script>
+</body>
+</html>
