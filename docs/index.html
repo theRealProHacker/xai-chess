@@ -15,57 +15,29 @@
   <h1>xai-chess</h1>
   <p class="intro">Explainable AI for chess: a benchmark that tests, by intervention, whether the factor an explanation cites for a move actually drives it or is just a plausible red herring.</p>
   <div class="cards">
-    <a class="card" href="survey.html">
-      <div class="t">The Survey <span class="ai">(AI-generated)</span></div>
-      <div class="s">Intervention-grounded evaluation of chess move-explanations (64 works)</div>
+    <a class="card" href="papers.html">
+      <div class="t">Papers <span class="ai">(AI-generated)</span></div>
+      <div class="s">A survey of intervention-grounded evaluation, the move-explanation landscape, and one summary per paper</div>
     </a>
-    <a class="card" href="landscape.html">
-      <div class="t">Move-explanation landscape <span class="ai">(AI-generated)</span></div>
-      <div class="s">What already exists: systems that explain a specific move, and the datasets behind them</div>
-    </a>
-    <a class="card" href="RESEARCH_SUMMARIES.html">
-      <div class="t">Deep-research summaries <span class="ai">(AI-generated)</span></div>
-      <div class="s">One deep-research pass per paper: summary, dependencies, results, weaknesses</div>
-    </a>
-    <a class="card" href="demo.html">
-      <div class="t">Zugzwang Demo</div>
-      <div class="s">Interactive analysis board &mdash; detect zugzwang with the tempo operator</div>
-    </a>
-    <a class="card" href="prophylaxis.html">
-      <div class="t">Prophylaxis Demo</div>
-      <div class="s">Interactive analysis board &mdash; detect a removed mate threat with the threat operator</div>
-    </a>
-    <a class="card" href="pin.html">
-      <div class="t">Pin Intervention Demo</div>
-      <div class="s">Rule-level intervention &mdash; suspend one pin on a patched Stockfish and watch the mate vanish</div>
-    </a>
-    <a class="card" href="obstruct.html">
-      <div class="t">Obstruct Demo</div>
-      <div class="s">Rule-level intervention &mdash; drop a magic blocker on a line and see whether anything rested on it</div>
-    </a>
-    <a class="card" href="render.html">
-      <div class="t">Reason Renderer</div>
-      <div class="s">A move&rsquo;s reason in the Reason DSL, rendered as English and checked against the board</div>
+    <a class="card" href="intervention.html">
+      <div class="t">Intervention</div>
+      <div class="s">Change one thing &mdash; a tempo, a threat, a pin, a line &mdash; and see whether the move rested on it</div>
     </a>
     <a class="card" href="tactics.html">
-      <div class="t">Tactical Tools</div>
+      <div class="t">Tactics</div>
       <div class="s">Engine-free &mdash; what hangs, what is forcing, and what the last move threatens</div>
     </a>
-    <a class="card" href="pieces.html">
-      <div class="t">Positional Tools</div>
-      <div class="s">Engine-free &mdash; how exposed each king is, and what every piece is actually doing</div>
+    <a class="card" href="positional.html">
+      <div class="t">Positional</div>
+      <div class="s">Engine-free &mdash; king exposure, what every piece is doing, and who controls each square</div>
+    </a>
+    <a class="card" href="reasoning.html">
+      <div class="t">Reasoning</div>
+      <div class="s">A move&rsquo;s reason in the Reason DSL, rendered as English and checked against the board</div>
     </a>
     <a class="card" href="features.html">
-      <div class="t">Positional Features</div>
-      <div class="s">The journey&rsquo;s yes/no features in Rust, each held against four book-annotated master-game positions</div>
-    </a>
-    <a class="card" href="attribution.html">
-      <div class="t">Feature Attribution</div>
-      <div class="s">Which per-square features drive Leela&rsquo;s evaluation, through a decoder at layer 0</div>
-    </a>
-    <a class="card" href="space.html">
-      <div class="t">Space Visualizer</div>
-      <div class="s">Descriptive, engine-free &mdash; who controls each square, and where the structure points</div>
+      <div class="t">Features</div>
+      <div class="s">Yes/no positional features, and which of them drive Leela&rsquo;s evaluation</div>
     </a>
   </div>
 </body>
