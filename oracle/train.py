@@ -56,7 +56,7 @@ if a.dtype == "auto":
 else:
     dt = getattr(torch, a.dtype)
 tok = AutoTokenizer.from_pretrained(a.model)
-kw = dict(dtype=dt, device_map="auto" if cuda else None)
+kw = dict(dtype=dt, device_map=("balanced" if torch.cuda.device_count() > 1 else "auto") if cuda else None)  # "auto" fills GPU 0 first
 try:
     llm = AutoModelForCausalLM.from_pretrained(a.model, **kw)
 except ValueError:                                                                     # multimodal-only config
