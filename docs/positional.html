@@ -111,18 +111,18 @@
 <body>
   <a class="back" href="index.html">&larr; xai-chess</a>
   <h1>Positional</h1>
-  <p class="intro">What each piece is doing, and who holds each square. No engine.</p>
+  <p class="intro">Who holds each square. No engine.</p>
   <details class="intro"><summary>How it is read</summary>
     <p id="about"></p><p id="caption"></p></details>
 
-  <div class="view" id="view" role="group" aria-label="Analysis">
+  <!-- <div class="view" id="view" role="group" aria-label="Analysis">
     <button data-view="pieces">Pieces</button>
     <button data-view="space">Space</button>
-  </div>
+  </div> -->
   <div class="btns">
     <span id="mode" role="group" aria-label="What to show">
-      <button data-mode="king" data-view="pieces">King safety</button>
-      <button data-mode="quality" data-view="pieces">Piece quality</button>
+      <!-- <button data-mode="king" data-view="pieces">King safety</button>
+      <button data-mode="quality" data-view="pieces">Piece quality</button> -->
       <button data-mode="space" data-view="space">Control</button>
       <button data-mode="pawns" data-view="space">Pawns</button>
       <button data-mode="files" data-view="space">Files</button>
@@ -1103,7 +1103,8 @@ function setMode(m, loadFirst) {
 }
 // Hash values are not element ids: setting location.hash to an id scrolls to it.
 const setView = (v, loadFirst) => setMode(lastMode[v], loadFirst);
-const hashView = () => (location.hash === '#space' ? 'space' : 'pieces');
+const hashView = () => 'space';   // Pieces view commented out
+// const hashView = () => (location.hash === '#space' ? 'space' : 'pieces');
 viewBtns.forEach(b => b.addEventListener('click', () => {
   history.replaceState(null, '', '#' + b.dataset.view);
   setView(b.dataset.view);
