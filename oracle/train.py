@@ -103,7 +103,7 @@ class Projector(nn.Module):
 rms = emb.weight.float().pow(2).mean(1).sqrt().mean().item()
 proj = Projector(256, a.hidden, emb.weight.shape[1], rms).to(dev)
 opt = torch.optim.AdamW(proj.parameters(), lr=a.lr, weight_decay=a.wd)
-steps_per_epoch = math.ceil(len(tr) / a.batch)
+steps_per_epoch = max(1, math.ceil(len(tr) / a.batch))                          # eval-only sets have no train split
 sched = torch.optim.lr_scheduler.OneCycleLR(opt, a.lr, total_steps=a.epochs * steps_per_epoch, pct_start=0.05)
 start = 0
 if (out / "last.pt").exists():
