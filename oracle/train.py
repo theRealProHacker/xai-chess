@@ -31,7 +31,7 @@ ap.add_argument("--eval-batch", type=int, default=32)
 ap.add_argument("--max-new", type=int, default=24)
 ap.add_argument("--grad-ckpt", action="store_true", help="recompute LLM activations in backward: less memory, ~30%% slower")
 ap.add_argument("--no-cache",action="store_true", help="generate without KV cache (slow; for checking the cached path)")
-ap.add_argument("--eval-only", nargs="+", metavar="CKPT", help="re-score saved checkpoints (e.g. epoch*.pt) and exit")
+ap.add_argument("--eval-only", nargs="+", metavar="CKPT", help="score saved checkpoints on --data's val split and exit")
 ap.add_argument("--log-every", type=int, default=50)
 ap.add_argument("--seed", type=int, default=0)
 a = ap.parse_args()
@@ -46,8 +46,10 @@ wdl, black, split = D["wdl"], D["black"], D["split"]
 acts = torch.from_numpy(np.load(Path(a.data) / "acts.npy").astype(np.float32))       # (N, 64, 256)
 tr = np.flatnonzero(split == 0)
 if a.train_n: tr = tr[:a.train_n]
-mu, sd = acts[tr].mean((0, 1)), acts[tr].std((0, 1)) + 1e-6                          # per channel, train only
-acts = (acts - mu) / sd
+raw = acts
+if len(tr):
+    mu, sd = acts[tr].mean((0, 1)), acts[tr].std((0, 1)) + 1e-6                      # per channel, train only
+    acts = (acts - mu) / sd
 val = [json.loads(l) for l in open(Path(a.data) / "val.jsonl")][:a.eval_n]
 
 # ---- model ----
@@ -206,7 +208,7 @@ def score(rows, preds):
 
 
 val_idx = [r["i"] for r in val]
-mean_wdl = wdl[tr].mean(0)
+mean_wdl = wdl[tr].mean(0) if len(tr) else wdl.mean(0)                              # eval-only set: its own mean
 base_mean = score(val, [qa.render(mean_wdl, black[r["i"]], r["q"], r["fmt"], r["colour"]) for r in val])
 print("baseline mean:", json.dumps(base_mean), flush=True)
 print(f"{a.model} {dt}, {len(tr):,} train positions, {steps_per_epoch} steps/epoch, eval on {len(val)} val", flush=True)
@@ -234,6 +236,7 @@ def evaluate(ep, t0, report):
 if a.eval_only:
     for c in a.eval_only:
         ck = torch.load(c, map_location=dev); proj.load_state_dict(ck["proj"])
+        acts = (raw - ck["mu"].cpu()) / ck["sd"].cpu()                                # the checkpoint's train stats
         evaluate(ck["epoch"], None, out / "report_rescored.jsonl")
     sys.exit()
 

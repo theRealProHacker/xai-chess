@@ -1,6 +1,6 @@
 """Eval-oracle dataset: Leela layer-9 residual (/encoder9/ln2, 64 square tokens) + value-head WDL.
 
-Positions: the first N of sf-probe/data/fens.txt, split by position into train/val/test.
+Positions: the first N of --fens (default: sf-probe/data/fens.txt, pin puzzles), split by position into train/val/test.
 Writes to oracle/data/:
   acts.npy        float16 [N, 64, 256]   layer-9 tokens, in the net's square order (side to move = us)
   labels.npz      wdl [N, 3] (side to move), black [N] bool, split [N] (0 train, 1 val, 2 test), fens
@@ -18,6 +18,7 @@ from lc0_planes import encode_fens
 import qa
 
 ap = argparse.ArgumentParser()
+ap.add_argument("--fens", default=str(ROOT / "sf-probe/data/fens.txt"), help="fens_games.txt = one position per Lichess game")
 ap.add_argument("--n", type=int, default=20000)
 ap.add_argument("--val", type=int, default=1000)
 ap.add_argument("--test", type=int, default=1000)
@@ -28,7 +29,7 @@ a = ap.parse_args()
 OUT = Path(a.out)
 OUT.mkdir(parents=True, exist_ok=True)
 
-fens = [l for l in (ROOT / "sf-probe/data/fens.txt").read_text().split("\n") if l][:a.n]
+fens = [l for l in Path(a.fens).read_text().split("\n") if l][:a.n]
 N = len(fens)
 m = onnx.load(ROOT / "vendor/lc0-nets/t1-256x10.onnx")
 m.graph.output.append(onnx.ValueInfoProto(name=a.tap))
