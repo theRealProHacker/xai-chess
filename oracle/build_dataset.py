@@ -7,7 +7,7 @@ Writes to oracle/data/:
   val.jsonl, test.jsonl   one fixed (question, answer) per position; train resamples every epoch
   train_preview.jsonl     200 sampled train rows, for reading
 
-  PYTHONPATH=.pylibs .venv/bin/python oracle/build_dataset.py
+  PYTHONPATH=.pylibs .venv/bin/python oracle/build_dataset.py [--tap /encoder5/ln2 --out oracle/data_l5]
 """
 import argparse, json, sys
 from pathlib import Path
@@ -23,8 +23,9 @@ ap.add_argument("--val", type=int, default=1000)
 ap.add_argument("--test", type=int, default=1000)
 ap.add_argument("--tap", default="/encoder9/ln2")
 ap.add_argument("--batch", type=int, default=256)
+ap.add_argument("--out", default=str(ROOT / "oracle/data"))
 a = ap.parse_args()
-OUT = ROOT / "oracle/data"
+OUT = Path(a.out)
 OUT.mkdir(parents=True, exist_ok=True)
 
 fens = [l for l in (ROOT / "sf-probe/data/fens.txt").read_text().split("\n") if l][:a.n]
