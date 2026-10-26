@@ -31,6 +31,7 @@ ap.add_argument("--eval-batch", type=int, default=32)
 ap.add_argument("--max-new", type=int, default=24)
 ap.add_argument("--grad-ckpt", action="store_true", help="recompute LLM activations in backward: less memory, ~30%% slower")
 ap.add_argument("--no-cache",action="store_true", help="generate without KV cache (slow; for checking the cached path)")
+ap.add_argument("--eval-only", nargs="+", metavar="CKPT", help="re-score saved checkpoints (e.g. epoch*.pt) and exit")
 ap.add_argument("--log-every", type=int, default=50)
 ap.add_argument("--seed", type=int, default=0)
 a = ap.parse_args()
@@ -146,7 +147,8 @@ def loss_fn(x, mask, lab, keep):
 @torch.no_grad()
 def generate(rows, idx):
     """Greedy answers; rows of equal prompt length run together, so no padding and no KV cache needed."""
-    proj.eval()
+    was_training = llm.training
+    proj.eval(); llm.eval()                         # train mode + grad ckpt makes HF drop the KV cache
     outs = [None] * len(rows)
     groups = {}
     for k, r in enumerate(rows): groups.setdefault(len(prompt_ids(r["question"])), []).append(k)
@@ -168,7 +170,7 @@ def generate(rows, idx):
                             logits_to_keep=1)
             for k, g in zip(kk, gen.tolist()):
                 outs[k] = tok.decode(g[:g.index(end_id)] if end_id in g else g, skip_special_tokens=True).strip()
-    proj.train()
+    proj.train(); llm.train(was_training)
     return outs
 
 
@@ -209,6 +211,32 @@ base_mean = score(val, [qa.render(mean_wdl, black[r["i"]], r["q"], r["fmt"], r["
 print("baseline mean:", json.dumps(base_mean), flush=True)
 print(f"{a.model} {dt}, {len(tr):,} train positions, {steps_per_epoch} steps/epoch, eval on {len(val)} val", flush=True)
 
+def evaluate(ep, t0, report):
+    t1 = time.time()
+    preds = generate(val, val_idx)
+    shuf = generate(val, list(np.random.default_rng(ep).permutation(val_idx)))
+    rep = dict(epoch=ep, train_min=round((t1 - t0) / 60, 1) if t0 else None, eval_min=round((time.time() - t1) / 60, 1),
+               model=score(val, preds), shuffled=score(val, shuf), mean=base_mean)
+    with open(report, "a") as f: f.write(json.dumps(rep) + "\n")
+    with open(out / f"samples_epoch{ep}.jsonl", "w") as f:
+        for r, p_, s_ in zip(val, preds, shuf):
+            f.write(json.dumps(dict(question=r["question"], answer=r["answer"], pred=p_, shuffled=s_, fen=r["fen"])) + "\n")
+    print(f"\n== epoch {ep} ==", flush=True)
+    keys = ["parsed", "format_ok", "subject_ok", "exact", "side", "side_q8", "bin", "bin_pm1", "pawn_mae", "win_mae", "score_mae"]
+    print(f"{'':12}" + "".join(f"{k:>11}" for k in keys))
+    for name in ("model", "shuffled", "mean"):
+        print(f"{name:12}" + "".join(f"{'-' if rep[name][k] is None else rep[name][k]:>11}" for k in keys))
+    for r, p_ in list(zip(val, preds))[:5]:
+        print(f"  Q: {r['question']}\n     true: {r['answer']}\n     pred: {p_}")
+    print(flush=True)
+
+
+if a.eval_only:
+    for c in a.eval_only:
+        ck = torch.load(c, map_location=dev); proj.load_state_dict(ck["proj"])
+        evaluate(ck["epoch"], None, out / "report_rescored.jsonl")
+    sys.exit()
+
 for ep in range(start, a.epochs):
     rng = np.random.default_rng(a.seed * 1000 + ep)
     order = rng.permutation(tr)
@@ -228,20 +256,4 @@ for ep in range(start, a.epochs):
               mu=mu, sd=sd, model=a.model, P=P, args=vars(a))
     torch.save(ck, out / f"epoch{ep}.pt"); torch.save(ck, out / "last.pt")
 
-    t1 = time.time()
-    preds = generate(val, val_idx)
-    shuf = generate(val, list(np.random.default_rng(ep).permutation(val_idx)))
-    rep = dict(epoch=ep, train_min=round((t1 - t0) / 60, 1), eval_min=round((time.time() - t1) / 60, 1),
-               model=score(val, preds), shuffled=score(val, shuf), mean=base_mean)
-    with open(out / "report.jsonl", "a") as f: f.write(json.dumps(rep) + "\n")
-    with open(out / f"samples_epoch{ep}.jsonl", "w") as f:
-        for r, p_, s_ in zip(val, preds, shuf):
-            f.write(json.dumps(dict(question=r["question"], answer=r["answer"], pred=p_, shuffled=s_, fen=r["fen"])) + "\n")
-    print(f"\n== epoch {ep} ==", flush=True)
-    keys = ["parsed", "format_ok", "subject_ok", "exact", "side", "side_q8", "bin", "bin_pm1", "pawn_mae", "win_mae", "score_mae"]
-    print(f"{'':12}" + "".join(f"{k:>11}" for k in keys))
-    for name in ("model", "shuffled", "mean"):
-        print(f"{name:12}" + "".join(f"{'-' if rep[name][k] is None else rep[name][k]:>11}" for k in keys))
-    for r, p_ in list(zip(val, preds))[:5]:
-        print(f"  Q: {r['question']}\n     true: {r['answer']}\n     pred: {p_}")
-    print(flush=True)
+    evaluate(ep, t0, out / "report.jsonl")
