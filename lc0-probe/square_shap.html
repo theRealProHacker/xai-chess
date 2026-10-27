@@ -54,18 +54,27 @@ dt{color:var(--muted)}dd{margin:0}
 .bar{position:relative;height:10px;background:linear-gradient(var(--line),var(--line)) 50% 0/1px 100% no-repeat}
 .bar i{position:absolute;top:0;bottom:0;border-radius:2px}
 #heldbox{margin-top:2rem}
+#claim{margin:0 0 1.4rem;padding:1rem 1.2rem;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-s);max-width:68ch}
+#claim h2{margin:0 0 .3rem}
+#claim p{margin:0 0 .4rem}
+#claim .yes{color:var(--pos);font-weight:600}#claim .no{color:var(--neg);font-weight:600}
+#claim details{color:var(--muted);font-size:.9rem}#claim summary{cursor:pointer}
+#claim blockquote{margin:.4rem 0 0;padding-left:.8rem;border-left:3px solid var(--line);font-style:italic}
+.row.fam{background:#eef4fb;font-weight:600}
 #tip{position:fixed;z-index:5;padding:.55rem .75rem;border-radius:8px;background:#1a1a1a;color:#fff;font-size:.9rem;line-height:1.4;box-shadow:var(--shadow-m);pointer-events:none}
 </style>
 </head>
 <body>
 <h1>Family Shapley</h1>
-<p class="intro">Green helps White, red hurts. White is always to move.</p>
+<p class="intro">Green helps White, red hurts.</p>
 <details class="intro"><summary>How it is computed</summary>
-Each feature family is switched on or off on all squares at once; its Shapley value is its average effect on
+Positions are mirrored so that White moves; Black-to-move positions are shown unmirrored. Each feature family is switched on or off on all squares at once; its Shapley value is its average effect on
 the decoded win − loss over random orders, through the layer-0 decoder and the rest of Leela. The values add
 up to the decoded value minus the value with all features off. <em>Pieces held</em>: features whose removal
 alone moves the value by more than <span id="tau"></span> (mostly whole pieces) stay on throughout, and the
 families split only the rest.</details>
+<section id="claim" hidden><h2 id="ctopic"></h2><p id="ctext"></p><p id="cverdict"></p>
+  <details><summary>Source</summary><p id="csrc"></p><blockquote id="cquote"></blockquote></details></section>
 <div class="mode"><button id="all">All features</button><button id="hold">Pieces held</button></div>
 <main>
   <section>
@@ -139,9 +148,15 @@ function bar(v, max) {
 }
 
 function draw() {
-  const S = window.SHAP, p = S.positions[pos], at = pieces(p.fen);
+  const S = window.SHAP, p = S.positions[pos], tb = p.claim !== undefined;
+  // Textbook positions with Black to move were mirrored for the net; undo it, so the board is the book's
+  // and green helps White: flip ranks, swap colours in labels, negate values.
+  const k = tb && p.side_to_move === "black" ? -1 : 1;
+  const sqo = sq => k > 0 ? sq : sq[0] + (9 - +sq[1]);
+  const lab = l => k > 0 ? l : l.replace(/white|black/g, c => c === "white" ? "black" : "white");
+  const fen = tb ? p.orig_fen : p.fen, at = pieces(fen);
   const own = {};                                   // a held feature's own share: minus its removal effect
-  if (held) for (const [sq, , d] of p.targets) own[sq] = (own[sq] || 0) - d;
+  if (held) for (const [sq, , d] of p.targets) own[sqo(sq)] = (own[sqo(sq)] || 0) - k * d;
   const tmax = Math.max(...Object.values(own).map(Math.abs), 1e-9);
   let html = "";
   for (let r = 8; r >= 1; r--) for (let f = 0; f < 8; f++) {
@@ -152,16 +167,28 @@ function draw() {
   }
   $("board").innerHTML = html;
   $("count").textContent = `Position ${pos + 1} of ${S.positions.length}`;
-  $("vals").innerHTML = `<dt>Leela, win − loss</dt><dd>${fmt(p.y)}</dd><dt>From decoded features</dt><dd>${fmt(p["y decoded"])}</dd>
-    <dt>All features off</dt><dd>${fmt(p["v none"])}</dd>` + (held ? `<dt>Only the held ones on</dt><dd>${fmt(p["v targets"])}</dd>` : "");
-  $("fen").textContent = p.fen;
+  $("vals").innerHTML = `<dt>Leela, win − loss</dt><dd>${fmt(k * p.y)}</dd><dt>From decoded features</dt><dd>${fmt(k * p["y decoded"])}</dd>
+    <dt>All features off</dt><dd>${fmt(k * p["v none"])}</dd>` + (held ? `<dt>Only the held ones on</dt><dd>${fmt(k * p["v targets"])}</dd>` : "");
+  $("fen").textContent = fen;
+  $("claim").hidden = !tb;
+  if (tb) {
+    const side = s => s[0].toUpperCase() + s.slice(1);
+    const fp = p.favours === p.side_to_move ? p.percentile : 100 - p.percentile;   // percentile for the book's side
+    $("ctopic").textContent = side(p.topic);
+    $("ctext").textContent = `${side(p.side_to_move)} to move. ${p.claim}`;
+    $("cverdict").innerHTML = `<span class="${p.verdict === "supported" ? "yes" : "no"}">${side(p.verdict)}.</span>
+      <b>${p.family}</b> ranks at ${Math.round(fp)}% for ${side(p.favours)} among 300 game positions (supported from 75%).`;
+    $("csrc").innerHTML = p.url ? `<a href="${p.url}">${p.source}</a>` : p.source;
+    $("cquote").textContent = p.quote;
+  }
   $("all").classList.toggle("on", !held); $("hold").classList.toggle("on", held);
-  const phi = p[held ? "phi targets held" : "phi"], max = Math.max(...phi.map(Math.abs), 1e-9);
+  const phi = p[held ? "phi targets held" : "phi"].map(v => k * v), max = Math.max(...phi.map(Math.abs), 1e-9);
   $("list").innerHTML = S.families.map((f, i) => [f, phi[i]]).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
-    .map(([f, v]) => `<div class="row" data-tip="${FAM[f] || f}"><span class="l">${f}</span>${bar(v, max)}<span class="v">${fmt(v)}</span></div>`).join("");
+    .map(([f, v]) => `<div class="row${tb && f === p.family ? " fam" : ""}" data-tip="${FAM[f] || f}"><span class="l">${f}</span>${bar(v, max)}<span class="v">${fmt(v)}</span></div>`).join("");
   $("heldbox").hidden = !held;
   const dmax = Math.max(...p.targets.map(t => Math.abs(t[2])), 1e-9);
   $("tlist").innerHTML = p.targets.slice().sort((a, b) => Math.abs(b[2]) - Math.abs(a[2]))
+    .map(([sq, l, d]) => [sqo(sq), lab(l), k * d])
     .map(([sq, l, d]) => `<div class="row t" data-sq="${sq}" data-tip="Switched off alone, the value moves by ${fmt(d)}."><span class="s">${sq}</span><span class="l">${l}</span>${bar(-d, dmax)}<span class="v">${fmt(-d)}</span></div>`).join("");
 }
 
