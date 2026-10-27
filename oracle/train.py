@@ -7,8 +7,10 @@ After every epoch: checkpoint (epoch{e}.pt, last.pt), greedy answers on --eval-n
 rendered in the asked format ("mean"), and the same model fed another position's tokens ("shuffled").
 
   python oracle/train.py --out oracle/runs/q08b            # resumes from last.pt if it exists
+Stage 2 (--lora R): projector + LoRA on the LLM's linear layers, same loss; --save-every keeps last.pt fresh mid-epoch.
+  python oracle/train.py --out oracle/runs/q08b_lora --lora 16 --init-proj oracle/runs/q08b/epoch9.pt
 """
-import argparse, json, math, sys, time
+import argparse, contextlib, json, math, os, sys, time
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "oracle"))
@@ -32,6 +34,14 @@ ap.add_argument("--max-new", type=int, default=24)
 ap.add_argument("--grad-ckpt", action="store_true", help="recompute LLM activations in backward: less memory, ~30%% slower")
 ap.add_argument("--no-cache",action="store_true", help="generate without KV cache (slow; for checking the cached path)")
 ap.add_argument("--eval-only", nargs="+", metavar="CKPT", help="score saved checkpoints on --data's val split and exit")
+ap.add_argument("--lora", type=int, default=0, metavar="R", help="LoRA rank on the LLM (0 = frozen LLM, stage 1)")
+ap.add_argument("--lora-alpha", type=float, help="default 2R")
+ap.add_argument("--lora-dropout", type=float, default=0.0)
+ap.add_argument("--lora-lr", type=float, default=2e-4)
+# full attention q/k/v/o, gated-delta-net in_proj_qkv/in_proj_z/out_proj, MLPs; not in_proj_a/b (16-wide gate heads)
+ap.add_argument("--lora-targets", default="q_proj,k_proj,v_proj,o_proj,in_proj_qkv,in_proj_z,out_proj,gate_proj,up_proj,down_proj")
+ap.add_argument("--init-proj", metavar="CKPT", help="warm-start the projector (and its mu/sd) from a checkpoint; ignored when resuming")
+ap.add_argument("--save-every", type=int, default=200, help="steps between mid-epoch last.pt saves (0 = epoch end only)")
 ap.add_argument("--log-every", type=int, default=50)
 ap.add_argument("--seed", type=int, default=0)
 a = ap.parse_args()
@@ -71,6 +81,21 @@ if a.grad_ckpt:                                   # HF only checkpoints in train
     llm.train()
 emb = llm.get_input_embeddings()
 dev = emb.weight.device
+lcfg = dict(r=a.lora, alpha=a.lora_alpha or 2 * a.lora, dropout=a.lora_dropout, targets=a.lora_targets) if a.lora else None
+if a.eval_only:                                   # the checkpoints' LoRA config wins over the flags
+    lcs = {json.dumps(c) for c in (torch.load(c, map_location="cpu").get("lora") for c in a.eval_only) if c}
+    assert len(lcs) <= 1, f"checkpoints disagree on LoRA config: {lcs}"
+    lcfg = json.loads(lcs.pop()) if lcs else None
+lora_params = []
+if lcfg:
+    from peft import LoraConfig, get_peft_model, get_peft_model_state_dict, set_peft_model_state_dict
+    names = set(lcfg["targets"].split(","))
+    tgt = [n for n, m in llm.named_modules() if isinstance(m, nn.Linear) and n.rsplit(".", 1)[-1] in names
+           and "visual" not in n and "vision" not in n]
+    llm = get_peft_model(llm, LoraConfig(r=lcfg["r"], lora_alpha=lcfg["alpha"], lora_dropout=lcfg["dropout"], target_modules=tgt))
+    llm.train()                                   # LoRA dropout; generate() switches to eval and back
+    lora_params = [p for p in llm.parameters() if p.requires_grad]
+    print(f"LoRA r={lcfg['r']} on {len(tgt)} modules: {sum(p.numel() for p in lora_params):,} params", flush=True)
 END = "<|im_end|>" if "<|im_end|>" in tok.get_vocab() else tok.eos_token
 end_id = tok.convert_tokens_to_ids(END)
 pad_id = tok.pad_token_id if tok.pad_token_id is not None else end_id
@@ -102,15 +127,24 @@ class Projector(nn.Module):
 
 rms = emb.weight.float().pow(2).mean(1).sqrt().mean().item()
 proj = Projector(256, a.hidden, emb.weight.shape[1], rms).to(dev)
-opt = torch.optim.AdamW(proj.parameters(), lr=a.lr, weight_decay=a.wd)
+groups = [dict(params=list(proj.parameters()), lr=a.lr)] + ([dict(params=lora_params, lr=a.lora_lr)] if lora_params else [])
+opt = torch.optim.AdamW(groups, weight_decay=a.wd)
 steps_per_epoch = max(1, math.ceil(len(tr) / a.batch))                          # eval-only sets have no train split
-sched = torch.optim.lr_scheduler.OneCycleLR(opt, a.lr, total_steps=a.epochs * steps_per_epoch, pct_start=0.05)
-start = 0
-if (out / "last.pt").exists():
+sched = torch.optim.lr_scheduler.OneCycleLR(opt, [g["lr"] for g in groups], total_steps=a.epochs * steps_per_epoch, pct_start=0.05)
+start, s0, rng_state = 0, 0, None
+if (out / "last.pt").exists() and not a.eval_only:
     ck = torch.load(out / "last.pt", map_location=dev)
+    assert ck.get("lora") == lcfg, f"last.pt has LoRA config {ck.get('lora')}, flags say {lcfg}"
     proj.load_state_dict(ck["proj"]); opt.load_state_dict(ck["opt"]); sched.load_state_dict(ck["sched"])
-    start = ck["epoch"] + 1
-    print(f"resumed from epoch {ck['epoch']}", flush=True)
+    if lcfg: set_peft_model_state_dict(llm, ck["lora_sd"])
+    mu, sd = ck["mu"].cpu(), ck["sd"].cpu(); acts = (raw - mu) / sd
+    start, s0, rng_state = ck["epoch"], ck.get("step", steps_per_epoch), ck.get("rng")  # old checkpoints: epoch end
+    if "trng" in ck: torch.set_rng_state(ck["trng"].cpu())
+    print(f"resumed from epoch {start} step {s0}/{steps_per_epoch}", flush=True)
+elif a.init_proj and not a.eval_only:
+    ck = torch.load(a.init_proj, map_location=dev); proj.load_state_dict(ck["proj"])
+    mu, sd = ck["mu"].cpu(), ck["sd"].cpu(); acts = (raw - mu) / sd
+    print(f"projector from {a.init_proj}", flush=True)
 
 
 def embed(ids_list, soft):
@@ -213,6 +247,25 @@ base_mean = score(val, [qa.render(mean_wdl, black[r["i"]], r["q"], r["fmt"], r["
 print("baseline mean:", json.dumps(base_mean), flush=True)
 print(f"{a.model} {dt}, {len(tr):,} train positions, {steps_per_epoch} steps/epoch, eval on {len(val)} val", flush=True)
 
+def reported(ep, report):
+    if not report.exists(): return False
+    eps = []
+    for l in open(report):
+        try: eps.append(json.loads(l)["epoch"])
+        except (ValueError, KeyError): pass                                             # a line cut off by a kill
+    return ep in eps
+
+
+def save(ck, path):
+    torch.save(ck, path.with_suffix(".tmp")); os.replace(path.with_suffix(".tmp"), path)
+
+
+def ckpt(ep, step, rng):
+    return dict(proj=proj.state_dict(), opt=opt.state_dict(), sched=sched.state_dict(), epoch=ep, step=step,
+                rng=rng.bit_generator.state, trng=torch.get_rng_state(), mu=mu, sd=sd, model=a.model, P=P, args=vars(a),
+                lora=lcfg, lora_sd=get_peft_model_state_dict(llm) if lcfg else None)
+
+
 def evaluate(ep, t0, report):
     t1 = time.time()
     preds = generate(val, val_idx)
@@ -237,26 +290,33 @@ if a.eval_only:
     for c in a.eval_only:
         ck = torch.load(c, map_location=dev); proj.load_state_dict(ck["proj"])
         acts = (raw - ck["mu"].cpu()) / ck["sd"].cpu()                                # the checkpoint's train stats
-        evaluate(ck["epoch"], None, out / "report_rescored.jsonl")
+        if ck.get("lora"): set_peft_model_state_dict(llm, ck["lora_sd"])
+        with llm.disable_adapter() if lcfg and not ck.get("lora") else contextlib.nullcontext():
+            evaluate(ck["epoch"], None, out / "report_rescored.jsonl")
     sys.exit()
 
 for ep in range(start, a.epochs):
     rng = np.random.default_rng(a.seed * 1000 + ep)
     order = rng.permutation(tr)
+    first = s0 if ep == start else 0
+    if first and rng_state: rng.bit_generator.state = rng_state                       # question draws continue mid-epoch
     t0, run, n = time.time(), 0.0, 0
-    for s in range(steps_per_epoch):
+    for s in range(first, steps_per_epoch):
         loss = loss_fn(*batch(order[s * a.batch:(s + 1) * a.batch], rng))
         opt.zero_grad(set_to_none=True); loss.backward()
-        torch.nn.utils.clip_grad_norm_(proj.parameters(), 1.0)
+        torch.nn.utils.clip_grad_norm_([p for g in groups for p in g["params"]], 1.0)
         opt.step(); sched.step()
         run += loss.item(); n += 1
         if (s + 1) % a.log_every == 0 or s + 1 == steps_per_epoch:
             el = time.time() - t0
             print(f"ep {ep} step {s + 1}/{steps_per_epoch} loss {run / n:.4f} "
-                  f"{el / (s + 1):.2f}s/step eta {el / (s + 1) * (steps_per_epoch - s - 1) / 60:.1f}min", flush=True)
+                  f"{el / (s + 1 - first):.2f}s/step eta {el / (s + 1 - first) * (steps_per_epoch - s - 1) / 60:.1f}min", flush=True)
             run, n = 0.0, 0
-    ck = dict(proj=proj.state_dict(), opt=opt.state_dict(), sched=sched.state_dict(), epoch=ep,
-              mu=mu, sd=sd, model=a.model, P=P, args=vars(a))
-    torch.save(ck, out / f"epoch{ep}.pt"); torch.save(ck, out / "last.pt")
-
-    evaluate(ep, t0, out / "report.jsonl")
+        if a.save_every and (s + 1) % a.save_every == 0 and s + 1 < steps_per_epoch:
+            save(ckpt(ep, s + 1, rng), out / "last.pt")
+    if first < steps_per_epoch:
+        ck = ckpt(ep, steps_per_epoch, rng)
+        save(ck, out / f"epoch{ep}.pt"); save(ck, out / "last.pt")
+    # a kill during eval resumes at this epoch's end and re-evaluates; the report check keeps it to one line
+    if not reported(ep, out / "report.jsonl"):
+        evaluate(ep, t0 if first < steps_per_epoch else None, out / "report.jsonl")
