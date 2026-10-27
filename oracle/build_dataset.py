@@ -20,6 +20,7 @@ import qa
 ap = argparse.ArgumentParser()
 ap.add_argument("--fens", default=str(ROOT / "sf-probe/data/fens.txt"), help="fens_games.txt = one position per Lichess game")
 ap.add_argument("--n", type=int, default=20000)
+ap.add_argument("--skip-over", action="store_true", help="drop checkmate/stalemate/other game-over positions")
 ap.add_argument("--val", type=int, default=1000)
 ap.add_argument("--test", type=int, default=1000)
 ap.add_argument("--tap", default="/encoder9/ln2")
@@ -29,7 +30,11 @@ a = ap.parse_args()
 OUT = Path(a.out)
 OUT.mkdir(parents=True, exist_ok=True)
 
-fens = [l for l in Path(a.fens).read_text().split("\n") if l][:a.n]
+fens = [l for l in Path(a.fens).read_text().split("\n") if l]
+if a.skip_over:
+    import chess
+    fens = [f for f in fens[:2 * a.n] if not chess.Board(f).is_game_over()]
+fens = fens[:a.n]
 N = len(fens)
 m = onnx.load(ROOT / "vendor/lc0-nets/t1-256x10.onnx")
 m.graph.output.append(onnx.ValueInfoProto(name=a.tap))

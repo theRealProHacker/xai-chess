@@ -8,6 +8,7 @@ rendered in the asked format ("mean"), and the same model fed another position's
 
   python oracle/train.py --out oracle/runs/q08b            # resumes from last.pt if it exists
 Stage 2 (--lora R): projector + LoRA on the LLM's linear layers, same loss; --save-every keeps last.pt fresh mid-epoch.
+--eval-every N adds mid-epoch checkpoint + val evals; test.jsonl is scored once, after the last epoch (report_test.jsonl).
   python oracle/train.py --out oracle/runs/q08b_lora --lora 16 --init-proj oracle/runs/q08b/epoch9.pt
 """
 import argparse, contextlib, json, math, os, sys, time
@@ -41,7 +42,10 @@ ap.add_argument("--lora-lr", type=float, default=2e-4)
 # full attention q/k/v/o, gated-delta-net in_proj_qkv/in_proj_z/out_proj, MLPs; not in_proj_a/b (16-wide gate heads)
 ap.add_argument("--lora-targets", default="q_proj,k_proj,v_proj,o_proj,in_proj_qkv,in_proj_z,out_proj,gate_proj,up_proj,down_proj")
 ap.add_argument("--init-proj", metavar="CKPT", help="warm-start the projector (and its mu/sd) from a checkpoint; ignored when resuming")
+ap.add_argument("--init-ckpt", metavar="CKPT", help="warm-start projector, mu/sd and LoRA weights from a checkpoint (LoRA flags must match)")
 ap.add_argument("--save-every", type=int, default=200, help="steps between mid-epoch last.pt saves (0 = epoch end only)")
+ap.add_argument("--eval-every", type=int, default=0, help="also checkpoint + val eval every N steps within an epoch")
+ap.add_argument("--test-n", type=int, default=1000, help="test rows scored once after the last epoch (0 = none)")
 ap.add_argument("--log-every", type=int, default=50)
 ap.add_argument("--seed", type=int, default=0)
 a = ap.parse_args()
@@ -61,6 +65,7 @@ if len(tr):
     mu, sd = acts[tr].mean((0, 1)), acts[tr].std((0, 1)) + 1e-6                      # per channel, train only
     acts = (acts - mu) / sd
 val = [json.loads(l) for l in open(Path(a.data) / "val.jsonl")][:a.eval_n]
+test = [json.loads(l) for l in open(Path(a.data) / "test.jsonl")][:a.test_n] if a.test_n else []
 
 # ---- model ----
 cuda = torch.cuda.is_available()
@@ -141,10 +146,13 @@ if (out / "last.pt").exists() and not a.eval_only:
     start, s0, rng_state = ck["epoch"], ck.get("step", steps_per_epoch), ck.get("rng")  # old checkpoints: epoch end
     if "trng" in ck: torch.set_rng_state(ck["trng"].cpu())
     print(f"resumed from epoch {start} step {s0}/{steps_per_epoch}", flush=True)
-elif a.init_proj and not a.eval_only:
-    ck = torch.load(a.init_proj, map_location=dev); proj.load_state_dict(ck["proj"])
+elif (a.init_ckpt or a.init_proj) and not a.eval_only:
+    ck = torch.load(a.init_ckpt or a.init_proj, map_location=dev); proj.load_state_dict(ck["proj"])
     mu, sd = ck["mu"].cpu(), ck["sd"].cpu(); acts = (raw - mu) / sd
-    print(f"projector from {a.init_proj}", flush=True)
+    if a.init_ckpt:
+        assert ck.get("lora") == lcfg, f"{a.init_ckpt} has LoRA config {ck.get('lora')}, flags say {lcfg}"
+        if lcfg: set_peft_model_state_dict(llm, ck["lora_sd"])
+    print(f"{'projector + LoRA' if a.init_ckpt else 'projector'} from {a.init_ckpt or a.init_proj}", flush=True)
 
 
 def embed(ids_list, soft):
@@ -241,19 +249,18 @@ def score(rows, preds):
     return {k: (round(float(np.mean(v)), 4) if v else None) for k, v in m.items()}
 
 
-val_idx = [r["i"] for r in val]
 mean_wdl = wdl[tr].mean(0) if len(tr) else wdl.mean(0)                              # eval-only set: its own mean
-base_mean = score(val, [qa.render(mean_wdl, black[r["i"]], r["q"], r["fmt"], r["colour"]) for r in val])
-print("baseline mean:", json.dumps(base_mean), flush=True)
+base_mean = lambda rows: score(rows, [qa.render(mean_wdl, black[r["i"]], r["q"], r["fmt"], r["colour"]) for r in rows])
+print("baseline mean:", json.dumps(base_mean(val)), flush=True)
 print(f"{a.model} {dt}, {len(tr):,} train positions, {steps_per_epoch} steps/epoch, eval on {len(val)} val", flush=True)
 
-def reported(ep, report):
+def reported(ep, step, report):
     if not report.exists(): return False
-    eps = []
+    done = set()
     for l in open(report):
-        try: eps.append(json.loads(l)["epoch"])
+        try: r = json.loads(l); done.add((r["epoch"], r.get("step", steps_per_epoch)))
         except (ValueError, KeyError): pass                                             # a line cut off by a kill
-    return ep in eps
+    return (ep, step) in done
 
 
 def save(ck, path):
@@ -266,22 +273,24 @@ def ckpt(ep, step, rng):
                 lora=lcfg, lora_sd=get_peft_model_state_dict(llm) if lcfg else None)
 
 
-def evaluate(ep, t0, report):
+def evaluate(ep, step, t0, report, rows=None, name="val"):
+    rows = rows or val; idx = [r["i"] for r in rows]
     t1 = time.time()
-    preds = generate(val, val_idx)
-    shuf = generate(val, list(np.random.default_rng(ep).permutation(val_idx)))
-    rep = dict(epoch=ep, train_min=round((t1 - t0) / 60, 1) if t0 else None, eval_min=round((time.time() - t1) / 60, 1),
-               model=score(val, preds), shuffled=score(val, shuf), mean=base_mean)
+    preds = generate(rows, idx)
+    shuf = generate(rows, list(np.random.default_rng(ep * 100003 + step).permutation(idx)))
+    rep = dict(epoch=ep, step=step, data=name, train_min=round((t1 - t0) / 60, 1) if t0 else None,
+               eval_min=round((time.time() - t1) / 60, 1), model=score(rows, preds), shuffled=score(rows, shuf), mean=base_mean(rows))
     with open(report, "a") as f: f.write(json.dumps(rep) + "\n")
-    with open(out / f"samples_epoch{ep}.jsonl", "w") as f:
-        for r, p_, s_ in zip(val, preds, shuf):
+    tag = "test" if name == "test" else f"epoch{ep}" + ("" if step == steps_per_epoch else f"_step{step}")
+    with open(out / f"samples_{tag}.jsonl", "w") as f:
+        for r, p_, s_ in zip(rows, preds, shuf):
             f.write(json.dumps(dict(question=r["question"], answer=r["answer"], pred=p_, shuffled=s_, fen=r["fen"])) + "\n")
-    print(f"\n== epoch {ep} ==", flush=True)
+    print(f"\n== {name} epoch {ep} step {step}/{steps_per_epoch} ==", flush=True)
     keys = ["parsed", "format_ok", "subject_ok", "exact", "side", "side_q8", "bin", "bin_pm1", "pawn_mae", "win_mae", "score_mae"]
     print(f"{'':12}" + "".join(f"{k:>11}" for k in keys))
     for name in ("model", "shuffled", "mean"):
         print(f"{name:12}" + "".join(f"{'-' if rep[name][k] is None else rep[name][k]:>11}" for k in keys))
-    for r, p_ in list(zip(val, preds))[:5]:
+    for r, p_ in list(zip(rows, preds))[:5]:
         print(f"  Q: {r['question']}\n     true: {r['answer']}\n     pred: {p_}")
     print(flush=True)
 
@@ -292,7 +301,7 @@ if a.eval_only:
         acts = (raw - ck["mu"].cpu()) / ck["sd"].cpu()                                # the checkpoint's train stats
         if ck.get("lora"): set_peft_model_state_dict(llm, ck["lora_sd"])
         with llm.disable_adapter() if lcfg and not ck.get("lora") else contextlib.nullcontext():
-            evaluate(ck["epoch"], None, out / "report_rescored.jsonl")
+            evaluate(ck["epoch"], ck.get("step", steps_per_epoch), None, out / "report_rescored.jsonl")
     sys.exit()
 
 for ep in range(start, a.epochs):
@@ -302,6 +311,8 @@ for ep in range(start, a.epochs):
     if first and rng_state: rng.bit_generator.state = rng_state                       # question draws continue mid-epoch
     t0, run, n = time.time(), 0.0, 0
     for s in range(first, steps_per_epoch):
+        if s == first and s and a.eval_every and s % a.eval_every == 0 and not reported(ep, s, out / "report.jsonl"):
+            evaluate(ep, s, None, out / "report.jsonl")                                # killed during this eval
         loss = loss_fn(*batch(order[s * a.batch:(s + 1) * a.batch], rng))
         opt.zero_grad(set_to_none=True); loss.backward()
         torch.nn.utils.clip_grad_norm_([p for g in groups for p in g["params"]], 1.0)
@@ -312,11 +323,15 @@ for ep in range(start, a.epochs):
             print(f"ep {ep} step {s + 1}/{steps_per_epoch} loss {run / n:.4f} "
                   f"{el / (s + 1 - first):.2f}s/step eta {el / (s + 1 - first) * (steps_per_epoch - s - 1) / 60:.1f}min", flush=True)
             run, n = 0.0, 0
-        if a.save_every and (s + 1) % a.save_every == 0 and s + 1 < steps_per_epoch:
+        if s + 1 < steps_per_epoch and a.eval_every and (s + 1) % a.eval_every == 0:
+            save(ckpt(ep, s + 1, rng), out / "last.pt"); evaluate(ep, s + 1, t0, out / "report.jsonl")
+        elif s + 1 < steps_per_epoch and a.save_every and (s + 1) % a.save_every == 0:
             save(ckpt(ep, s + 1, rng), out / "last.pt")
     if first < steps_per_epoch:
         ck = ckpt(ep, steps_per_epoch, rng)
         save(ck, out / f"epoch{ep}.pt"); save(ck, out / "last.pt")
     # a kill during eval resumes at this epoch's end and re-evaluates; the report check keeps it to one line
-    if not reported(ep, out / "report.jsonl"):
-        evaluate(ep, t0 if first < steps_per_epoch else None, out / "report.jsonl")
+    if not reported(ep, steps_per_epoch, out / "report.jsonl"):
+        evaluate(ep, steps_per_epoch, t0 if first < steps_per_epoch else None, out / "report.jsonl")
+if test and not reported(a.epochs - 1, steps_per_epoch, out / "report_test.jsonl"):
+    evaluate(a.epochs - 1, steps_per_epoch, None, out / "report_test.jsonl", test, "test")
