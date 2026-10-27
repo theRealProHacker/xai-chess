@@ -1,6 +1,6 @@
 Previous (unguided) journey: https://typst.app/project/rhD6vG2m3c6TY3SA1Sy2hn
 
-## First meeting 17.08. 
+# First meeting 17.08. 
 
 Mainly about general understanding
 
@@ -21,7 +21,7 @@ Finding: there is no existing formal language for chess explanations. There are 
 
 So let's start with that first:
 
-### Objective 1
+## Objective 1
 
 The goal is to find a formal language that can represent most existing chess explanations
 while remaining verifiable by a relatively simple deterministic engine.  
@@ -42,7 +42,7 @@ But let's just get to it.
 We can explain chess moves or we can do positional analyses. 
 In some sense, you could say that the positional analysis is sufficient because any move can be justified by showing it leads to the best possible position (you can only do one move and there is a finite set of possible positions), but the more natural is to start with move explanations first. 
 
-### Objective 1, first pass: my personal experience
+## Objective 1, first pass: my personal experience
 
 My personal experience is that many move explanations mostly look like this: move X leads to Y or Z, Y leads to A and Z leads to B and A and B are both good (so X is good). It could of course be much less complicated "move X leads to A" or much more complicated (more width, more depth or more complex outcomes). Also you can reason using exclusion, or explain why move X is better than moves Y and Z, etc. 
 
@@ -90,7 +90,7 @@ The problem with these in general is that they often might be wrong, you can bas
 
 But let's go at this in a more structured way by looking at the literature
 
-### Objective 1, second pass: Literature
+## Objective 1, second pass: Literature
 
 The Russian chess school is one of the most influential chess cultures dominating the world for a long time and coincidentally it's most defining feature is its focus on positional play, so it definitely is a good starting point.
 
@@ -102,11 +102,11 @@ Main positional evaluation criterias:
 4. Initiative and Attack
 5. King Safety
 
-### Objective 1, third pass: Simple Validation on Feng et al. (Minimal Maynard Coding)
+## Objective 1, third pass: Simple Validation on Feng et al. (Minimal Maynard Coding)
 
 To-Do for next week
 
-### Objective 2: Existing work
+## Objective 2: Existing work
 
 There already is some literature on looking into the engine both on Stockfish (SF) and on an open source replica of Deepminds AlphaZero.
 
@@ -114,7 +114,7 @@ e.g.
 IJCAI 2023 — "Unveiling Concepts Learned by a World-Class Chess-Playing Agent."
 
 
-### Objective 2: Experiment setup
+## Objective 2: Experiment setup
 
 My original plan was to use the Lichess puzzle tags.
 
@@ -139,7 +139,7 @@ if pin_prevents_attack(puzzle) or pin_prevents_escape(puzzle):
 
 So, I let Claude Code write the engine patch to get out the NNUE computations from SF and filtered out the puzzles with a single identifiable absolute pin. Of those 151,614 puzzles 43,177 (28.48%) are tagged with `pin`. 3260 (~7,55%) originally automatically tagged puzzles have the tag removed, seemingly by human vote. This was computed by comparing the automatic system against the real tag in the lichess database. 
 
-#### What does the Stockfish evaluation NN look like
+## What does the Stockfish evaluation NN look like
 
 Good general overview
 https://github.com/official-stockfish/nnue-pytorch/blob/master/docs/nnue.md
@@ -168,7 +168,7 @@ Overview by Claude for SF 18
 │ fc_2_out                │ 1 int32                                    │ the eval                                 │
 └─────────────────────────┴────────────────────────────────────────────┴──────────────────────────────────────────┘
 
-### Some reading
+## Some reading
 
 
 General problem for explanations: What can I assume the target user to already know? What is obvious to him?
@@ -242,9 +242,9 @@ Probing
 Manual inspection
 Changing model weights in response to increasing training
 
-## Second meeting 31.08.
+# Second meeting 31.08.
 
-### Feedback
+## Feedback
 
 Keywords: activation oracle, symbolic learning, circuits 
 
@@ -253,13 +253,13 @@ Next week
 2. Stockfish, depth
 3. Leela -> Transformer architecture is more similar to LLM research
 
-### Objective 2: Simplicity
+## Objective 2: Simplicity
 
 In the original demo I had reduced each layer to 16 dimensions using SVD to keep everything comparable in a logistic regression, but to keep it simple, I just did an MLP on the raw vectors for each layer instead which gives a quite nice result.
 
 ![Layers](./sf-probe/layers_mlp.png)
 
-### Objective 2: Depth
+## Objective 2: Depth
 
 The next question was trying to find out how far the net could look into the future essentially.
 
@@ -268,7 +268,7 @@ Now we want to find out if it is easier to see that the pin is relevant if it be
 To decide this we can use Lichess' automatic tagging code which goes through the puzzle and looks at where the pin becomes relevant. 
 We call this the relevance distance `d`. 
 
-#### Score by distance class trained seperately
+## Score by distance class trained seperately
 So, first instinct is to plot score over `d`.
 
 However, there is one major problem:
@@ -293,19 +293,19 @@ For this reason, I tried to keep the number of puzzles used in training uniform 
 
 The next step was looking at what happens when we train a seperate model for each depth, choosing negative samples of the same length as the positive samples. Also, I used the opportunity to do a 1:1 ratio between positive and negative samples. 
 
-#### Score by distance class trained seperately
+## Score by distance class trained seperately
 
 ![Score per distance class](./sf-probe/distance_own.png)
 
 What we can see is that training the model on just puzzles with d=0 for example doesn't make the model better at detecting relevance. Also, the plot almost didn't change. 
 
-#### Classifier
+## Classifier
 
 Just for fun, I wanted to try to train a model to predict between the classes d=0, d=1 and negative, if we remove everything else. 
 
 ![Classifier](./sf-probe/confusion_3class.png)
 
-#### Types of pin relevances
+## Types of pin relevances
 
 The real question is if there are different types of relevances that are more easily detectable than others apart from the relevance depth?
 
@@ -325,7 +325,7 @@ This gives 4 options:
 What we see is that escape is consistently easier to read, specifically `escape.greater`
 
 
-### Objective 3
+## Objective 3
 
 Goal is to look at the layers of Leela Zero (lc0) just like we looked at Stockfish. 
 
@@ -334,7 +334,7 @@ Before making the experiment the hypothesis was that lc0 would be much better co
 1. "Evidence of Learned Look-Ahead in a Chess-Playing Neural Network" by Erik Jenner, Shreyas Kapur, Vasil Georgiev, Cameron S. Allen, Scott Emmons, and Stuart Russell, published at NeurIPS 2024 (arXiv:2406.00877)
 2. A 2025 follow-up paper, "Understanding the learned look-ahead behavior of chess neural networks"
 
-#### Experiment
+## Experiment
 
 On each layer we have a 256-vector per square which gives 256x65=16384 dimensions.
 
@@ -344,7 +344,7 @@ Then we have the mean of all squares.
 
 ![lc0 results](./lc0-probe/layers_mlp.png)
 
-### Objective 1: Example of some chess commentary
+## Objective 1: Example of some chess commentary
 
 The chess commentary is from this paper: ChessGPT: Bridging Policy Learning and Language Modeling
 
@@ -368,7 +368,7 @@ Looking into chess commentary, we can see a lot of redundant simple commentary a
 
 Looking at the commentary, it would actually be very easy to build a simple deterministic system to write this commentary. 
 
-#### Precedent: [Jhamtani et al. (ACL 2018)](https://aclanthology.org/P18-1154.pdf)
+## Precedent: [Jhamtani et al. (ACL 2018)](https://aclanthology.org/P18-1154.pdf)
 
 ![Six categories](./image/journey/Screenshot%202026-09-06%20at%2019-17-18%20Learning%20to%20Generate%20Move-by-Move%20Commentary%20for%20Chess%20Games%20from%20Large-Scale%20Social%20Forum%20Data%20-%20P18-1154.pdf.png)
 
@@ -385,7 +385,7 @@ Chess.com example (https://www.reddit.com/r/chessbeginners/comments/10cwkvw/why_
 
 ![chess.com from Reddit](./image/journey/chess_com_explanation.jpeg)
 
-### Predicate Logic?
+## Predicate Logic?
 
 One possible basis for our language would be something like Prolog:
 
@@ -418,7 +418,7 @@ absolute_pin (N,M,K) :- ours(N) and theirs(M) and theirs(K) and is_king(K) and (
     )
 ```
 
-### Back to some chess literature
+## Back to some chess literature
 
 Main idea is to "distill" SF's evaluation function to some more simple model on explainable factors.
 For that we need to understand what the factors are. 
@@ -435,7 +435,7 @@ Their theses:
 2. Keep a To-Do list with goals you want to achieve (over 3-10 moves)
 3. Each move should either give you an advantage or remove an advantage from your opponent
 
-#### What are these advantages?
+## What are these advantages?
 
 Wilhelm Steinitz's 9 advantages
 1. lead in development
@@ -516,7 +516,7 @@ Qualitative
 For PMEs (positions with material equivalence) also:
 1. play-coordinating piece is valued higher
 
-#### Positional evaluation
+## Positional evaluation
 
 1. Material (as above)
     - if unequal material, compare
@@ -551,7 +551,7 @@ For PMEs (positions with material equivalence) also:
     5. Mobile pawn majority
     6. Free pawn
 
-### Extra
+## Extra
 
 Exact space counting method in "Winning Chess" by Silman and Seirawan. 
 
@@ -570,7 +570,7 @@ Possibly: 100 or 1000
 2. CLIP2 on chess -> this is ChessGPT
 3. Activation oracle on leela activation -> where do we get the data?
 
-## Third meeting 10.09.
+# Third meeting 10.09.
 
 For next time:
 1. Build features (with Claude)?
@@ -582,7 +582,7 @@ For next time:
 7. Datensätze suchen
 8. PoC: Pin relevance with LLM/activation oracle
 
-### lc0 depth
+## lc0 depth
 
 Late for last meeting:
 
@@ -592,14 +592,14 @@ Late for last meeting:
 
 Leela actually reaches 99.3% AUROC on depth 0 and then also degrades quite heavily. No substantial lookahead to be seen in comparison to SF. 
 
-### lc0 by subcategory
+## lc0 by subcategory
 
 ![lc0 by reason](./lc0-probe/reasons.png)
 
 Here Leela reaches a perfect score in one category and shows its superiority over SF especially in the attack category. 
 Greater is still easier than hanging for some reason. 
 
-### Dataset
+## Dataset
 
 Most simple idea: Take the chess commentary dataset but remove all the "dirt".
 Instead of doing this myself, just use Claude instead. 
@@ -622,7 +622,7 @@ Instead of doing this myself, just use Claude instead.
     ![Comment length histogram](./cleaned_commentary/comment_lengths.png)
     i.e. if we take the most valuable 10% we still got 60,000+ left which gives us 25M characters i.e. approx 5M tokens
 
-### Experiments
+## Experiments
 
 This list is mostly in hindsight
 
@@ -632,7 +632,7 @@ This list is mostly in hindsight
 5. Dictionary learning
 3. activation oracle (AO)
 
-### Experiment 1: Gemini 3.5 Flash Lite + basic prompt optimization, judged by Claude Sonnet
+## Experiment 1: Gemini 3.5 Flash Lite + basic prompt optimization, judged by Claude Sonnet
 
 The most simply setup imaginable:
 
@@ -646,7 +646,7 @@ Best prompt after three rounds:
 
     Before writing, work through the position silently: identify the piece that moved, its origin and destination square, and what it now attacks, defends, or opens up -- check each claim against the actual diagram, not memory. Do not show this reasoning or use headers.\n\nWrite 1-4 plain sentences in the voice of a human annotator noting their own game -- ordinary prose, no markdown, no bold, no bullets, no hype adjectives (\"thematic\", \"ambitious\", \"solidify\", \"razor-sharp\", \"dynamic\"), no generic filler that would fit any position. Prefer plans, ideas, and evaluations of the position over concrete tactical claims: what the move develops, what square or file it gives up or gains, what plan it continues. Name at most one concrete threat -- a specific piece taking a specific square next move -- and only if you have verified it is actually available on this board; otherwise mention no concrete threat at all. Never say who stands better unless the material count makes it obvious. If nothing concrete and verified stands out, write one short, modest sentence. Output only the commentary.
 
-#### Judgement criteria
+## Judgement criteria
 
 - **faithful** — every concrete claim about the position, threats, pieces and lines is true.
   5 = all true. 3 = one wrong or unverifiable claim. 1 = mostly wrong, wrong piece/square, or
@@ -660,7 +660,7 @@ Best prompt after three rounds:
 - **overall** — would a strong club player accept this in place of the reference? Weigh
   faithfulness most.
 
-#### Eval
+## Eval
 
 The Sonnet judgements out of 5
 
@@ -669,11 +669,11 @@ The Sonnet judgements out of 5
 | baseline | 299 | 2.70 | 3.02 | 3.13 | 2.78 |
 | best | 257 | **3.06** | 3.17 | 3.48 | 3.83 |
 
-#### Understanding
+## Understanding
 
 Essentially, the main point is that be improving the prompt and increasing its length, we can mostly improve human-like behaviour and relevance slightly. However, we cannot improve faithfulness by any relevant measure. For this, we would need a source of truth. Overall 3/5 is a very bad score of course. 
 
-### Experiment 2: Gemini 3.5 Flash Lite with thinking + advanced prompt, judged by Claude Sonnet
+## Experiment 2: Gemini 3.5 Flash Lite with thinking + advanced prompt, judged by Claude Sonnet
 
 Next idea: do the exact same thing as before but feed a 22 page PDF instruction meant for humans and add thinking. 
 
@@ -685,7 +685,7 @@ I first took the three publicly available PDFs from the ICS website and fed it i
 
 Then I asked Fable to set up the experiment. 
 
-#### Setup
+## Setup
 
 Only the 300 dev cases first
 
@@ -722,7 +722,7 @@ What Gemini gets (one user message per example, gemini-3.5-flash-lite, temperatu
 
 [*Judge input*](./commentary_gen/JUDGE2.md)
 
-#### Expectations
+## Expectations
 
 My expectations were rather low. I assumed the full PDF was too much context and not precisely enough tuned on just commentary/positional analysis. 
 
@@ -730,7 +730,7 @@ However, I still believed there would be some improvement and most importantly I
 
 Lovable had already done some research on how LLMs are pretty good at identifying what would help them improve their own work [no citation]. So, maybe this is true here as well.
 
-#### Results
+## Results
 
 I am just using the raw Fable output here
 
@@ -795,7 +795,7 @@ These are the specific tools Fable proposed:
 
 Some of these seem not absolutely trivial to build (e.g. pawn-structure)
 
-### Experiment 3: Gemini 3.5 Flash Lite with thinking + optimized advanced prompt + tools, judged by Claude Sonnet
+## Experiment 3: Gemini 3.5 Flash Lite with thinking + optimized advanced prompt + tools, judged by Claude Sonnet
 
 First, lets just optimize the prompt a bit more. I wanted to remove most of the part that is about deciding which move to play and just keep the positional analysis part. This also dropped the length quite a bit by almost half. 
 
@@ -810,7 +810,7 @@ Updates:
 3. Check if the tools that were supposed by the judges are actually used by the LLM in the dev set
 4. Do prompt optimization steps on the training set for the full prompt including the shortened chess school prompt and the tool prompts, then run it on the dev set.
 
-#### First with all tools executed and injected into prompt
+## First with all tools executed and injected into prompt
 
 Overall result
 
@@ -827,7 +827,7 @@ Overall result
 ![Tool performance](./commentary_gen/static_tool_faithful_side_by_side.png)
 ![Tool coocurrence](./commentary_gen/static_tool_cooccurrence_rownorm.png)
 
-#### Second with real tool calling
+## Second with real tool calling
 
 Tool calling isn't generally an improvement because it is just easier to dump everything into the prompt at this point. 
 
@@ -852,7 +852,7 @@ A hand-tuned system prompt with an extremely tight instruction + lots of pointer
 ![Tool performance](./commentary_gen/tool_faithful_side_by_side.png)
 ![Tool coocurrence](./commentary_gen/tool_cooccurrence_rownorm.png)
 
-#### Three with even tighter prompt + most tools injected + more advanced tools
+## Three with even tighter prompt + most tools injected + more advanced tools
 
 The prompt is just a bit tighter with an explicit step-by-step procedure and the tools are all injected (additional tools: `change`, `alternatives`, `king_safety`, `piece_quality`, `space`) except for some were the model can play through (`after`, `legal`, `attack_map`). Also an additional tool use judge metric.
 
@@ -879,7 +879,7 @@ Fable:
     - Four new notes call a recapture "forced" when other replies are legal. Softening the sheet's wording should fix this.
     - The comparison mixes judges and the per-batch judge spread is wide: 3.28 to 4.32 overall. [Judge prompt](./commentary_gen/JUDGE6.md)
 
-#### ChessGPT
+## ChessGPT
 
 Downloaded and tried to run the benchmark on ChessGPT
 
@@ -888,11 +888,11 @@ Problems:
 2. Fine-tuned on 1024 tokens and max limit of 2048 tokens (too little for real reasoning)
 3. Fine-tuned too hard -> Lost chat capabailities (or never had any)
 
-### DSL
+## DSL
 
 Proof of Concept (PoC): Just express "This move threatens mate"
 
-#### Rust
+## Rust
 
 I chose Rust for the PoC, because
 1. it has an expressive `enum` type
@@ -932,7 +932,7 @@ Reasoning {
 };
 ```
 
-#### Let Claude ride wild
+## Let Claude ride wild
 
 I then let Claude loose on the whole thing and asked it to create the full DSL
 
@@ -942,7 +942,7 @@ I then let Claude loose on the whole thing and asked it to create the full DSL
 
     Keep to the absolute necessary and only write the reasoning plus for each new reason add the example inclu[d]ing the fen position + move and original comment"
 
-#### What it did
+## What it did
 
 It wrote a total of 53 `Reason`s each with a natural language description of what they represent:
 
@@ -952,7 +952,7 @@ It wrote a total of 53 `Reason`s each with a natural language description of wha
 
 Claude even wrote minimal verifications that didn't need an engine without being asked. These are neither complete nor proofs of any kind, but they at least test plausability. 
 
-#### What's missing
+## What's missing
 
 Fundamentally
 1. No generator -> LLM?
@@ -972,7 +972,7 @@ My thoughts split by core and language
 
 
 
-#### Example 1:
+## Example 1:
 
     Reasoning {
         fen: "1rbr2k1/2Rn1ppp/1P1q4/p2p4/P2B4/4P3/4B1PP/3Q1RK1 w - - 1 28",
@@ -987,9 +987,9 @@ My thoughts split by core and language
 4. The general comment of threatening the king side is lost and the fact that the king is weakly defended
 5. The fact that "Black's pieces are too tied up on the queen side" and that is the reason for the weakly defended king is also lost. 
 
-### Experiment X: Dictionary learning/SAE/feature attribution
+## Experiment X: Dictionary learning/SAE/feature attribution
 
-#### Motivation
+## Motivation
 
 If we look at most models, we have the input layer which is very strongly mapped to the actual input, then we have deeper layers which carry the deeper meaning behind the input which is step-by-step used to at the end reach the final output. 
 
@@ -1007,12 +1007,12 @@ For example, if our input is just the board, we can understand which pieces are 
 
 Also, it might be that if we provide very complex features that are not easily replicable in a 10-layer transformer like Leela, we could essentially skip ahead a few layers. This is highly speculative but possible. 
 
-#### Features
+## Features
 
 I am having big problems making a complete list of all possible features if I am honest. 
 My perfectionism doesn't allow me to try an incomplete set. 
 
-### Experiment Y: Activation oracle (AO)
+## Experiment Y: Activation oracle (AO)
 
 Inspired by the paper: [ACTIVATION ORACLES: TRAINING AND EVALUATING LLMS AS GENERAL-PURPOSE ACTIVATION EXPLAINERS (Jan 2026)](https://arxiv.org/pdf/2512.15674)
 
@@ -1026,15 +1026,15 @@ Essentially, the model would learn to verbalize the non-verbal thought of Leela.
 If this would actually work, it would be the absolute pinnacle of what we are trying to achieve. 
 Especially, considering the fact that transformer models can reach ["Grandmaster-Level Chess Without Search"](https://huggingface.co/papers/2402.04494)
 
-#### Problem I am having with the oracle
+## Problem I am having with the oracle
 
 Suppose we have functions f, we want the oracle to learn, i.e. to be able to provide their answer from the Leela activations when asked: If these functions are deterministically determinable, then how can the oracle be better than agent that has direct access to functions f? The oracle could only become better than the tool use agent if it had sufficient non-generated (i.e. human) data. 
 
-### Other
+## Other
 
 Adam Karvonen ([GitHub](https://github.com/adamkarvonen)) seems to be an interesting person. He is the author of the AO paper and also did research on GPT3's chess playing ability (where he trained linear probes on GPT), sparse autoencoders (SAEs) and dictionary learning as well. He is currently working at Anthropic (Jan 2026). 
 
-#### Caïssa AI
+## Caïssa AI
 I actually found the Prolog predicate neuro-symbolic engine I was looking for: ["Caïssa AI: A Neuro-Symbolic Chess Agent for Explainable Move Suggestion and Grounded Commentary" (2025)](https://dl.acm.org/doi/10.1007/978-3-032-02813-6_11).
 
 [GPL-2.0 open source code](https://github.com/MazenS0liman/Caissa-AI)
@@ -1045,7 +1045,7 @@ This could definitely be a starting point, but it is lacking a lot on the chess 
 
 ![Tactics and Concepts](./image/journey/Screenshot%202026-09-18%20at%2001-34-53%20MazenS0liman_Caissa-AI%20A%20multi-agent%20system%20that%20deliver%20accurate%20chess%20commentary%20with%20almost%20no%20hallucinations%20unlike%20prior%20methods%20which%20either%20generate%20basic%20commentaries%20or%20with%20logical%20reasoning%20errors.png)
 
-#### Paper: "Learning to Generate Move-by-Move Commentary for Chess Games from Large-Scale Social Forum Data" (ACL 2018)
+## Paper: "Learning to Generate Move-by-Move Commentary for Chess Games from Large-Scale Social Forum Data" (ACL 2018)
 
 https://aclanthology.org/P18-1154.pdf
 https://github.com/harsh19/ChessCommentaryGeneration
@@ -1054,13 +1054,13 @@ https://github.com/harsh19/ChessCommentaryGeneration
 2. Adding threats as features helps
 3. BiLSTM
 
-#### Paper: "Unveiling Concepts Learned by a World-Class Chess-Playing Agent" (IJCAI-23)
+## Paper: "Unveiling Concepts Learned by a World-Class Chess-Playing Agent" (IJCAI-23)
 
 https://www.ijcai.org/proceedings/2023/0541.pdf
 
 Global explanations and concept probing on basic concepts. 
 
-#### Paper: "Communicating Chess Strategies in Natural Language" (13.07.2026)
+## Paper: "Communicating Chess Strategies in Natural Language" (13.07.2026)
 
 https://arxiv.org/html/2607.11486v1
 
@@ -1085,25 +1085,25 @@ This is why I argue for a two-step process. One that first generates and validat
 
 The prompt engineering we did, is essentially such a process. The tools provide the core explanation (at least partially) judged as `faithfulness` and `relevance` and the LLM prompted correctly, provides the language factor (summarised as `human`). 
 
-#### MA Thesis: "Explainable Chess AI: A Browser Extension for Move Explanation and Analysis in Real-Time Chess Interfaces" (10.12.2025)
+## MA Thesis: "Explainable Chess AI: A Browser Extension for Move Explanation and Analysis in Real-Time Chess Interfaces" (10.12.2025)
 
 https://github.com/NSM1997/chessAI
 
 Interesting stuff
 
-#### Paper: "Exploring Explainable Multi-agent MCTS-minimax Hybrids in Board Game Using Process Mining" (24.09.25)
+## Paper: "Exploring Explainable Multi-agent MCTS-minimax Hybrids in Board Game Using Process Mining" (24.09.25)
 
 https://arxiv.org/pdf/2503.23326
 
 Not viable for chess (only 3v3 checkers), plus bad interpretability and focuses on what was played, not so much on what wasn't.
 
-### Next
+## Next
 
 1. LLM that is prompted to analyse a position and conclude an eval -> RL on the eval (expensive, but interesting)
 2. [LatentQA](https://arxiv.org/abs/2412.08686)/[activation oracles](https://arxiv.org/abs/2512.15674) -> build a dataset mapping lc0 activations to natural language descriptions starting by eval and them going to more and more complex concepts up to then doing full explanations -> to read what to consider: https://arxiv.org/abs/2607.23379
 3. Verify the DSL
 
-#### How to get more data?
+## How to get more data?
 
 1. Books -> difficult to obtain, digitalize and bring in a suitable form
 2. Lichess studies -> discovery problem
@@ -1183,7 +1183,7 @@ For example, here is an extraction from the YT channel "You Me And Chess"
 
 This looks really clean!
 
-#### Tree-search explanation
+## Tree-search explanation
 
 Lots of explanations are about the lines that do not work -> not only explain why a line works, but also why one doesn't. 
 
@@ -1195,13 +1195,13 @@ How do we determine moves that seem reasonable but aren't and moves that are ver
 
 -> Reasonability is highly subjective -> MAIA-3?
 
-#### Questions
+## Questions
 
 1. Tracing the Thought of a Grandmaster-level Chess-Playing Transformer
 2. Feature attribution/oracle
 3. Compute
 
-#### Feedback
+## Feedback
 1. Read cited papers again
     - Transcoder (SAE but multi-layer)
     - Lorsa
@@ -1220,10 +1220,10 @@ How do we determine moves that seem reasonable but aren't and moves that are ver
 6. Trying to get chess knowledge into an LLM will be very expensive/not feasible
 7. Start with Qwen 3.5 probably
 
-## Fourth meeting 28.09.
+# Fourth meeting 28.09.
 
 
-### DSL
+## DSL
 First, I applied for the cluster compute, then I decided to continue the DSL by adding more reasons but most importantly judgements, comparisons, "but", "either" and much more 
 
 Reflection: we use concepts to make it easier for us to express more complex or simply lengthy explanations, e.g. a relative pin is nothing else but saying that e.g. the knight can't move because it would allow the bishop to take the queen behind it. 
@@ -1252,7 +1252,7 @@ The DSL lies at the heart of it all. It has to meet demands from all sides.
 
 On top of move reasoning this approach could also be adapted to positional analysis, etc. 
 
-#### GANs
+## GANs
 
 While thinking about the problem, I thought about Generative Adversarial Networks (GANs) as possible models. The advantage is that the discriminator doesn't necessarily need fully-supervised data. For example, the discriminator could just learn what human commentary looks like. The renderer than learns to fool the discriminator when turning the DSL into human commentary. No 1-to-1 DSL->human gold dataset would be needed necessarily.   
 
@@ -1267,7 +1267,7 @@ Solution:
     - some more supervised data
     - reconstruction loss??
 
-#### How to train the generator in general
+## How to train the generator in general
 
 - Train for relevance
 - Train for diversity
@@ -1279,7 +1279,7 @@ My first instinct was to use the delta between MAIA-3 and Stockfish for some of 
 
 For diversity, we can essentially do the same as for images, and write a similarity score which we try to maximize cross-sample. 
 
-#### Generator suggestions by Claude
+## Generator suggestions by Claude
 
 (after I had already told it my ideas)
 
@@ -1296,7 +1296,7 @@ For diversity, we can essentially do the same as for images, and write a similar
 7. Sparse surrogate model. Learn, across the corpus, which atom differences predict that the engine prefers one move over another, and explain a move by its largest contributors. Correlational, and weak on one-off tactics.
 8. E-graph normalisation. Rewrite candidate explanations into canonical, human-like form. It cleans up output but adds no content.
 
-#### Similarity score
+## Similarity score
 
 I concluded that the next most important thing was building a similarity score (a metric). This is necessary for evaluations and training.
 
@@ -1305,7 +1305,7 @@ I concluded that the next most important thing was building a similarity score (
     -> negative means contradictory
 - Completely different things with no similarity are 0
 
-### Features
+## Features
 
 All binary, per player, assuming there are no concrete tactics
 
@@ -1451,14 +1451,14 @@ All binary, per player, assuming there are no concrete tactics
         4. Attack
         5. Obstruction
 
-#### Left out
+## Left out
 For PMEs (positions with material equivalence) also:
 1. play-coordinating piece is valued higher
 
 5. Pieces
     10. Piece-by-piece comparison
 
-### Training an SAE
+## Training an SAE
 
 The problem: One layer, one position has 64 squares × 256 = 16,384 numbers.
 
@@ -1472,7 +1472,7 @@ Approaches:
 
 The problem: We use global features in a local setting and the network just tries to go around our features as much as possible. The next question is how we actually evaluate the importance of each feature. 
 
-### LIME
+## LIME
 
 The idea for LIME is to make a locally interpretable model, i.e. you train a model for a specific position. You do that by creating synthetic data through pertubation. For chess, perturbation is pretty difficult but can be done by randomly inserting pawns for example. 
 
@@ -1483,17 +1483,17 @@ My first instinct was to randomly insert an equal amount of pawns for both sides
 4. A 4-layer MLP doesn't outperform a simple linear model, but the linear model is simpler to read
 5. Doing these pawn perturbations is best for understanding pawn structure features and actually works. For example, it tells us that more pawn islands is bad
 
-    ┌─────────────────┬─────────┬───────────────────────────────┐
-    │ Black's islands │ samples │ Leela's Q for White (average) │
-    ├─────────────────┼─────────┼───────────────────────────────┤
-    │ 1               │ 16      │ +0.14                         │
-    ├─────────────────┼─────────┼───────────────────────────────┤
-    │ 2 (book)        │ 1357    │ +0.25                         │
-    ├─────────────────┼─────────┼───────────────────────────────┤
-    │ 3               │ 410     │ +0.35                         │
-    ├─────────────────┼─────────┼───────────────────────────────┤
-    │ 4+              │ 39      │ +0.57                         │
-    └─────────────────┴─────────┴───────────────────────────────┘
+        ┌─────────────────┬─────────┬───────────────────────────────┐
+        │ Black's islands │ samples │ Leela's Q for White (average) │
+        ├─────────────────┼─────────┼───────────────────────────────┤
+        │ 1               │ 16      │ +0.14                         │
+        ├─────────────────┼─────────┼───────────────────────────────┤
+        │ 2 (book)        │ 1357    │ +0.25                         │
+        ├─────────────────┼─────────┼───────────────────────────────┤
+        │ 3               │ 410     │ +0.35                         │
+        ├─────────────────┼─────────┼───────────────────────────────┤
+        │ 4+              │ 39      │ +0.57                         │
+        └─────────────────┴─────────┴───────────────────────────────┘
 
 6. Interesting idea: purposefully try to find perturbations that only edit a single feature and changes nothing else (i.e. isolate the feature) -> Problem: very difficult and often impossible to avoid confounding factors -> that's why we train the model
 7. In general, unguided perturbations aren't that valuable because they just confound to much too often (already seen with Shapley from another paper where a bishop and pawns were confounding, making the pawns less valuable due to the presence of the bishop)
@@ -1501,7 +1501,7 @@ My first instinct was to randomly insert an equal amount of pawns for both sides
 
 Idea: learn what a normal chess position looks like. Bias towards those in the perturbation (e.g. don't allow impossible positions, etc.)
 
-### SAE: Features by square
+## SAE: Features by square
 
 On the other hand, we could focus on only the pieces and squares and construct the features per square. We would need only 1-2k features per square, of which only a few **need** to be fixed by us. 
 
@@ -1630,7 +1630,7 @@ Not done yet:
 - Majority and minority: numerical superiority on a wing; assess whether it can create a passer or provoke a weakness.
 - Compactness and connectivity: mutually supporting pawns versus scattered targets.
 
-### Probing on the per-square features
+## Probing on the per-square features
 
 The first step is probing the features in lc0. The idea is that if the features can be constructed from the layers, we can probably find a way through back-propagation or similar to find some kind of attribution???
 
@@ -1721,7 +1721,7 @@ I then also tested the hypothesis that tactical patterns increase at later stage
     │ all                 │ 500  │ 0.964     │ 0.978   │ 0.974   │ 0.970   │
     └─────────────────────┴──────┴───────────┴─────────┴─────────┴─────────┘
 
-### Building the Decoder
+## Building the Decoder
 
 The decoder makes the per-square SAE complete. On layer 5 the FVU (fraction of unexplained variance) is 39%, i.e. we can explain 61% of variance. If we include the square identity, we can almost exactly reconstruct the embedding (the input), which makes sense. Only an error of 0.2% remains. So, I wanted to run the decoder on the whole network: 
 <!-- 
@@ -1893,7 +1893,7 @@ This also works on the embedding layer
 
 Now the question still remains: How do we get the relevance/feature attribution from our decoders. 
 
-### Feature attribution
+## Feature attribution
 
 Our features aren't the best there are, but they are a start. 
 
@@ -1914,7 +1914,7 @@ My thought process is followingly:
 
 > **Fundamental problem**: feature attribution doesn't really solve our fundamental correlation vs causation problem
 
-#### 1. Just trying stuff: Feature attribution on features through embedding layer and attention
+## 1. Just trying stuff: Feature attribution on features through embedding layer and attention
 
 My first try was to use the embedding decoder with a 1% error on the WDL output and just do feature attribution on it. As I said, this discards most of the interesting information which can't be in the embedding layer (e.g. tactics, complex cross-square patterns)
 
@@ -1942,7 +1942,7 @@ On top, I also tried training the model with all features, even those that never
 
 However, this still doesn't really make the cut, so we should probably move up a layer
 
-### 2. Choosing the best layer
+## 2. Choosing the best layer
 
 As we discussed, the embedding layer is simply not good, because it reduces some of the more interesting features and mostly just relies on the piece squares. Instead, we want a layer where we still have a very low reconstruction loss but that doesn't rely on the pieces positions anymore. This is were our earlier features add chart comes in handy. It is maximised for Layers L1 and L2, specifically L2. So, let's try that instead. 
 
@@ -1972,17 +1972,17 @@ As we discussed, the embedding layer is simply not good, because it reduces some
 2. Do L1 regularization (Lasso) on that feature family
 3. New dataset of 100k random positions
 
-    ┌─────────────────────────┬───────────┬─────────┐
-    │ ln2 decoder             │ Token FVU │ WDL FVU │
-    ├─────────────────────────┼───────────┼─────────┤
-    │ L0, 20k, min 20         │ 0.045     │ 0.291   │
-    ├─────────────────────────┼───────────┼─────────┤
-    │ L0, 100k, min 1         │ 0.039     │ 0.077   │
-    ├─────────────────────────┼───────────┼─────────┤
-    │ L0, 100k, min 1, Lasso  │ 0.043     │ 0.371   │
-    ├─────────────────────────┼───────────┼─────────┤
-    │ L2, 100k, min 1         │ 0.125     │ 0.400   │
-    └─────────────────────────┴───────────┴─────────┘
+        ┌─────────────────────────┬───────────┬─────────┐
+        │ ln2 decoder             │ Token FVU │ WDL FVU │
+        ├─────────────────────────┼───────────┼─────────┤
+        │ L0, 20k, min 20         │ 0.045     │ 0.291   │
+        ├─────────────────────────┼───────────┼─────────┤
+        │ L0, 100k, min 1         │ 0.039     │ 0.077   │
+        ├─────────────────────────┼───────────┼─────────┤
+        │ L0, 100k, min 1, Lasso  │ 0.043     │ 0.371   │
+        ├─────────────────────────┼───────────┼─────────┤
+        │ L2, 100k, min 1         │ 0.125     │ 0.400   │
+        └─────────────────────────┴───────────┴─────────┘
 
 Without regularization L0 ln2 has <8% loss on the WDL output, with regularization the loss explodes, so it seems like we can't just leave those out. The 8% is also partially misleading because  
 
@@ -1995,11 +1995,7 @@ What I noticed:
 2. Still some bugs in the feature definitions, features missing and partially bad features, that are abused
 3. For example, that Black is blocked by its own piece is considered bad for White, even if that makes no sense
 
-**Open Questions**:
-1. 
-
-
-### Compute
+## Compute
 
 As soon as I got access to the compute cluster, I tried to learn how to get a cluster running, initially just using vllm inference. The next step would then be doing CLIP, fine-tuning and RL, all using LoRA of course. I had applied for 64 GBs and 8 CPU cores, which should even be enough for the highly-praised Qwen3.8-27B. 
 
@@ -2043,7 +2039,7 @@ module load GCC/14.2.0 CMake/3.31.3-GCCcore-14.2.0 CUDA/12.9.1
 
     [ Prompt: 53.5 t/s | Generation: 15.3 t/s ]
 
-### LLaVA
+## LLaVA
 
 The first step to building an oracle is doing LLaVA, the goal is to bring the leela activations into the same space as the LLM tokens and then fine-tune the LLM on it. 
 
@@ -2071,3 +2067,45 @@ To do the fine-tuning quickly and reliably on the 1080s, I chose to start with t
         export HF_HOME=/scratch/$USER/hf HF_HUB_OFFLINE=1
         nvidia-smi
         cd ~/xai-chess && python oracle/train.py --out oracle/runs/q08b
+
+
+## Feedback
+
+**Open Questions**:  
+
+1. Correlation vs Causation
+2. Solve vanishing gradients + features over several layers
+    - Skip connections + SAE/decoder at every layer
+3. Search for logical/programming language metrics
+    - Not decidable for complete programming languages
+    - Most research looking at fraction of examples that two logical statements match (Jaccard similarity)
+    - Best other approach:
+        - Canonical AST similarity
+    - https://github.com/ali-ballout/Learning-to-Classify-Logical-Formulas-based-on-their-Semantic-Similarity
+
+
+# Fifth meeting 15.10.
+
+## Feature Attribution: Shapley
+
+Now the trick to using SHAP efficiently is doing it only after we have the integrated gradients (IGs) result. SHAP on its own can be very expensive especially at 30,000 features á 64 squares
+
+## Feature Attribution: Measuring features at different layers simultaneously
+
+Basically, the idea is to decode several layers at the same time. 
+
+If we decode e.g. L0, then L2 and then L5, L0 catches most of the accuracy and the additional decoding on L2 and L5 don't add that much. 
+For that reason
+
+## Notes
+
+1. Was sick unfortunately
+2. LLaVA works mostly
+3. Many interesting finds
+    - Paper: Language Models that Play Chess and Explain Their Moves (Oct 26, Princeton)
+        - Flamingo architecture (first VLMs, 2021) with lc0 layers interleaved into SmolLM3-3B
+        - [Reddit](https://www.reddit.com/r/chess/comments/1wypz4z/princeton_researchers_train_a_4b_llm_to_reach/) thread 
+    - [Tutorial](https://www.youtube.com/watch?v=GEJOB_TFYJ0): Training DeepSeek directly to play chess without Leela with GRPO
+    - Reading: 
+
+# Sixth meeting 
