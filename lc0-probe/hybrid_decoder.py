@@ -17,6 +17,10 @@ The tokens are in Leela's side-to-move frame (Leela sees the colour only through
 gap is ~0.003), so the decoder has to learn the symmetry. --inv optionally adds the squared gap between the two
 colourings' values to the loss from epoch --inv-from.
 
+--combine H replaces the plain sum at the added taps with S = F + D + C([F, D]): C a per-token MLP (hidden H) on the
+forwarded stream F and the decoder's output D, trained jointly with D. C's last layer starts at zero, so each stage
+starts where the plain sum does. Readers that add the decoders (hybrid_fvu.py, square_shap.py --hybrid) ignore C.
+
   python lc0-probe/hybrid_decoder.py --n 100000 --device cuda
 """
 import argparse, json, shutil, sys, time, types
@@ -44,9 +48,11 @@ ap.add_argument("--lr", type=float, default=1e-3)
 ap.add_argument("--opt", default="adam", help="any of optim_extra.make's names")
 ap.add_argument("--wd", type=float, default=0.0)
 ap.add_argument("--tag", default="", help="suffix for the run's files")
+ap.add_argument("--games", action="store_true", help="the 100k Lichess game positions (fens_games.txt) instead of the puzzles")
 ap.add_argument("--inv", type=float, default=0.0, help="weight of the colour-invariance loss")
 ap.add_argument("--inv-from", type=int, default=10, help="first epoch with the invariance loss")
 ap.add_argument("--inv-pos", type=int, default=32, help="positions per batch the invariance loss runs on")
+ap.add_argument("--combine", type=int, default=0, help="hidden size of the combiner at the added taps (0: plain sum)")
 ap.add_argument("--min", type=int, default=20, help="positive train tokens needed to use a bit (in either colouring)")
 ap.add_argument("--device", default="cpu")
 ap.add_argument("--threads", type=int, default=2)
@@ -57,10 +63,11 @@ torch.set_num_threads(a.threads)
 dev = torch.device(a.device)
 TAPS, HID = a.taps.split(","), [int(h) for h in a.hidden.split(",")]
 N = a.n
+G = "_games" if a.games else ""
 log = lambda *x: print(time.strftime("%H:%M:%S"), *x, flush=True)
 
 # --- boards: e < N White to move (the cache's side-to-move frame), e >= N the same board colour-swapped
-fens = [l for l in (ROOT / "sf-probe/data/fens.txt").read_text().split("\n") if l][:N]
+fens = [l for l in (ROOT / f"sf-probe/data/fens{G}.txt").read_text().split("\n") if l][:N]
 white = [f if f.split()[1] == "w" else chess.Board(f).mirror().fen() for f in fens]
 boards = white + [chess.Board(f).mirror().fen() for f in white]
 M = np.array(label_map(), np.int32)
@@ -70,7 +77,7 @@ va_pos = ~te_pos & (np.random.default_rng(1).random(100000) < 0.1)[:N]
 tr_pos = ~te_pos & ~va_pos
 fold = np.random.default_rng(2).integers(0, a.folds, N)                     # cross-fitting folds
 toks, bits = [], []
-with open(ROOT / "lc0-probe/data/square_bits_n100000_nodes200000.jsonl") as f:
+with open(ROOT / f"lc0-probe/data/square_bits{G}_n100000_nodes200000.jsonl") as f:
     for i, l in enumerate(f):
         if i == N: break
         sq = json.loads(l)["squares"]
@@ -103,8 +110,11 @@ def bags(E):
     return flat.to(dev, non_blocking=True), torch.from_numpy(off).to(dev, non_blocking=True)
 
 class MLP(torch.nn.Module):
-    def __init__(self, hidden):
+    def __init__(self, hidden, comb=0):
         super().__init__()
+        if comb:                                                           # [forwarded stream, decoder output] -> correction
+            self.comb = torch.nn.Sequential(torch.nn.Linear(512, comb), torch.nn.GELU(), torch.nn.Linear(comb, 256))
+            torch.nn.init.zeros_(self.comb[2].weight); torch.nn.init.zeros_(self.comb[2].bias)
         self.inp = torch.nn.EmbeddingBag(D_in, hidden, mode="sum")
         torch.nn.init.normal_(self.inp.weight, std=(len(idx) / (2 * N * 64)) ** -0.5)   # unit pre-activations
         self.bias = torch.nn.Parameter(torch.zeros(hidden))
@@ -121,7 +131,7 @@ def seg(i, o_):
     return m
 full = seg(["/input/planes"], TAPS + ["/output/wdl"])
 segs = [seg([t], [u]) for t, u in zip(TAPS, TAPS[1:] + ["/output/wdl"])]
-MM = ROOT / f"lc0-probe/data/hybrid_tmp_n{N}{a.tag}"; MM.mkdir(exist_ok=True)   # streams and checkpoints on disk: 25+ GB at
+MM = ROOT / f"lc0-probe/data/hybrid_tmp{G}_n{N}{a.tag}"; MM.mkdir(exist_ok=True)   # streams and checkpoints on disk: 25+ GB at
 big = lambda name, n, mode="w+": np.lib.format.open_memmap(MM / f"{name}.npy", mode, np.float16, (n, 64, 256))  # n=100k
 v_of = lambda w: w[:, 0] - w[:, 2]
 if (MM / "V.npy").exists():                                                # a rerun resumes from what is on disk
@@ -149,16 +159,21 @@ both = lambda P: np.concatenate([P, P + N])
 E_va, TE = both(np.flatnonzero(va_pos)), np.flatnonzero(te_pos)
 P_all = np.flatnonzero(tr_pos)
 F = None                                                                   # stream forwarded to the current tap
-res = {"n": N, "taps": TAPS, "hidden": HID, "folds": a.folds, "inv": a.inv, "opt": a.opt, "lr": a.lr, "wd": a.wd}
+res = {"n": N, "taps": TAPS, "hidden": HID, "folds": a.folds, "combine": a.combine, "inv": a.inv, "opt": a.opt, "lr": a.lr, "wd": a.wd}
 final = []
 
 def fit(k, h, P_tr, Zf, mu, sd, fwd, label):
     """Train one decoder for stage k on positions P_tr (both colourings); early stopping on E_va.
     Checkpointed every epoch, so a rerun picks up where it stopped."""
-    D = MLP(h).to(dev)
+    D = MLP(h, a.combine if k else 0).to(dev)
     if k: torch.nn.init.zeros_(D.out.weight)                               # added decoders start at the mean residual
-    dec = lambda E: D(*bags(E)) * sd + mu
-    target = lambda E: (D(*bags(E)), (torch.from_numpy(Zf(E)).to(dev).reshape(-1, 256) - mu) / sd)
+    def raw(E, f=None):
+        """D's output (normalised) plus the combiner's correction; f: the forwarded stream, default fwd(E)."""
+        r = D(*bags(E))
+        if hasattr(D, "comb"): r = r + D.comb(torch.cat([fwd(E) if f is None else f, r * sd + mu], 1))
+        return r
+    dec = lambda E, f=None: raw(E, f) * sd + mu
+    target = lambda E: (raw(E), (torch.from_numpy(Zf(E)).to(dev).reshape(-1, 256) - mu) / sd)
     opt = optim_extra.make(a.opt, D.parameters(), a.lr, a.wd)
     def val():
         with torch.no_grad():
@@ -242,7 +257,8 @@ with torch.no_grad():
             for s in range(0, len(E), 512):
                 e, S = E[s:s + 512], None
                 for k in range(len(TAPS)):
-                    S = (0 if S is None else segs[k - 1](S)) + (final[k]["fn"](e) if k < upto else 0)
+                    f = None if S is None else segs[k - 1](S)
+                    S = (0 if f is None else f) + (final[k]["fn"](e, f) if k < upto else 0)
                 out.append(run_from(len(TAPS) - 1, S).cpu())
             vals.append(torch.cat(out).numpy())
         name = " + ".join("D" + t.split("encoder")[1].split("/")[0] for t in TAPS[:upto])
@@ -253,8 +269,8 @@ with torch.no_grad():
         res[name] = r
         log(f"{name:14} value r {r['r']:.4f} (Black to move {r['r Black to move']:.4f})  median |dy| {r['median |dy|']:.4f}  "
             f"colour gap {r['colour gap median']:.4f}")
-torch.save({"keep": keep, "sq row": SQ, "stm row": STM, "taps": TAPS,
+torch.save({"keep": keep, "sq row": SQ, "stm row": STM, "taps": TAPS, "combine": a.combine,
             "decoders": [{q: d[q] for q in ("state", "mu", "sd", "hidden", "tap")} for d in final]},
-           ROOT / f"lc0-probe/data/hybrid_decoder_n{N}{a.tag}.pt")
-json.dump(res, open(ROOT / f"lc0-probe/results_hybrid_decoder_n{N}{a.tag}.json", "w"), indent=1)
+           ROOT / f"lc0-probe/data/hybrid_decoder{G}_n{N}{a.tag}.pt")
+json.dump(res, open(ROOT / f"lc0-probe/results_hybrid_decoder{G}_n{N}{a.tag}.json", "w"), indent=1)
 shutil.rmtree(MM)

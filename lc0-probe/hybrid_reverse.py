@@ -44,6 +44,7 @@ ap.add_argument("--min", type=int, default=20, help="positive train tokens neede
 ap.add_argument("--tag", default="", help="suffix for the run's files")
 ap.add_argument("--device", default="cpu")
 ap.add_argument("--threads", type=int, default=2)
+ap.add_argument("--games", action="store_true", help="the 100k Lichess game positions (fens_games.txt) instead of the puzzles")
 a = ap.parse_args()
 rng = np.random.default_rng(0)
 torch.manual_seed(0)
@@ -52,11 +53,12 @@ dev = torch.device(a.device)
 TAPS, HID = a.taps.split(","), [int(h) for h in a.hidden.split(",")]
 assert len(TAPS) == 3
 N = a.n
+G = "_games" if a.games else ""
 log = lambda *x: print(time.strftime("%H:%M:%S"), *x, flush=True)
 mse = torch.nn.functional.mse_loss
 
 # --- boards, splits, inputs: as hybrid_decoder.py
-fens = [l for l in (ROOT / "sf-probe/data/fens.txt").read_text().split("\n") if l][:N]
+fens = [l for l in (ROOT / f"sf-probe/data/fens{G}.txt").read_text().split("\n") if l][:N]
 white = [f if f.split()[1] == "w" else chess.Board(f).mirror().fen() for f in fens]
 boards = white + [chess.Board(f).mirror().fen() for f in white]
 M = np.array(label_map(), np.int32)
@@ -66,7 +68,7 @@ va_pos = ~te_pos & (np.random.default_rng(1).random(100000) < 0.1)[:N]
 tr_pos = ~te_pos & ~va_pos
 fold = np.random.default_rng(2).integers(0, max(a.folds, 1), N)
 toks, bits = [], []
-with open(ROOT / "lc0-probe/data/square_bits_n100000_nodes200000.jsonl") as f:
+with open(ROOT / f"lc0-probe/data/square_bits{G}_n100000_nodes200000.jsonl") as f:
     for i, l in enumerate(f):
         if i == N: break
         sq = json.loads(l)["squares"]
@@ -117,8 +119,8 @@ def seg(i, o_):
     return m
 s12, s35, tail = [seg([t], [u]) for t, u in zip(TAPS, TAPS[1:] + ["/output/wdl"])]
 v_of = lambda w: w[:, 0] - w[:, 2]
-ST = ROOT / f"lc0-probe/data/hybrid_rev_streams_n{N}"; ST.mkdir(exist_ok=True)   # shared by the sweep's runs
-MM = ROOT / f"lc0-probe/data/hybrid_rev_tmp_n{N}{a.tag}"; MM.mkdir(exist_ok=True)
+ST = ROOT / f"lc0-probe/data/hybrid_rev_streams{G}_n{N}"; ST.mkdir(exist_ok=True)   # shared by the sweep's runs
+MM = ROOT / f"lc0-probe/data/hybrid_rev_tmp{G}_n{N}{a.tag}"; MM.mkdir(exist_ok=True)
 big = lambda d, name, n, mode="w+": np.lib.format.open_memmap(d / f"{name}.npy", mode, np.float16, (n, 64, 256))
 if (ST / "V.npy").exists():
     Y5, V = big(ST, "Y5", N, "r"), np.load(ST / "V.npy")
@@ -267,7 +269,7 @@ with torch.no_grad():
         res[name] = r
         log(f"{name:20} r {r['r']:.4f} (Black to move {r['r Black to move']:.4f})  median |dy| {r['median |dy|']:.4f}  "
             f"colour gap {r['colour gap median']:.4f}")
-json.dump(res, open(ROOT / f"lc0-probe/results_hybrid_reverse_n{N}{a.tag}.json", "w"), indent=1)
+json.dump(res, open(ROOT / f"lc0-probe/results_hybrid_reverse{G}_n{N}{a.tag}.json", "w"), indent=1)
 if a.stages == 3:                                                          # hybrid_decoder.py's format, taps in order
     z = lambda D, mu, sd, h, tap: {"state": {q: p.cpu() for q, p in D.state_dict().items()}, "mu": mu, "sd": sd,
                                    "hidden": h, "tap": tap}
@@ -275,5 +277,5 @@ if a.stages == 3:                                                          # hyb
                 "decoders": [z(D0, np.zeros(256, np.float32), sd0, HID[0], TAPS[0]),
                              z(D2, np.zeros(256, np.float32), sd2, HID[1], TAPS[1]),
                              z(D5, mu5.cpu().numpy(), sd5, HID[2], TAPS[2])]},
-               ROOT / f"lc0-probe/data/hybrid_reverse_n{N}{a.tag}.pt")
+               ROOT / f"lc0-probe/data/hybrid_reverse{G}_n{N}{a.tag}.pt")
 shutil.rmtree(MM)
