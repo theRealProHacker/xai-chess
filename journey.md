@@ -2095,7 +2095,9 @@ Now the trick to using SHAP efficiently is doing it only after we have the integ
 Basically, the idea is to decode several layers at the same time. 
 
 If we decode e.g. L0, then L2 and then L5, L0 catches most of the accuracy and the additional decoding on L2 and L5 don't add that much. 
-For that reason
+For that reason, we have to do it the other way round. I did some experimentation and then came up with this result:
+
+![Multi-layer feature attribution](./image/journey/Multi-Layer%20Feature%20Attribution.png)
 
 ## Notes
 
@@ -2105,7 +2107,110 @@ For that reason
     - Paper: Language Models that Play Chess and Explain Their Moves (Oct 26, Princeton)
         - Flamingo architecture (first VLMs, 2021) with lc0 layers interleaved into SmolLM3-3B
         - [Reddit](https://www.reddit.com/r/chess/comments/1wypz4z/princeton_researchers_train_a_4b_llm_to_reach/) thread 
+        - Small SmolLM3-3B model (4B and 8B final variants), would be interesting to see larger models
+            - Also tried Qwen and Gemma
+        - Flamingo is old VLM architecture, would be interesting to see more modern VLM architecture
+            - -> LLaVA and directly passing to kv cache worse 
+        - Q&A dataset with positions from public Lichess dataset and 4 types
+            - Static/Dynamic x Current/Future
+            - They train on these categories sequentially
+                > This progression teaches the model to first extract all features of the encoded board state; future-position stages introduce an additional state-tracking challenge: the model must first reconstruct the board state resulting from the provided move sequence before answering the query. Question types from earlier stages are replayed at low proportions in subsequent stages to prevent forgetting. In all stages, the encoder and decoder are both frozen 
+            - This model can already answer general questions!!!
+        - Now comes the shady part: They essentially distill GPT-5.6-Sol by letting it generate the supervised training data. 
+        - They use an interesting search distillation idea
+         
+        - Commentary very verbose
+        - Possibly cherry-picked examples
+        - They say it can be extended, but don't show how
+        - They eval by accuracy, substantiation (relevance?) and coherence (language)
+        - 
+    - Paper: [LLAMIA](https://arxiv.org/pdf/2609.00474) (Aug 26, )
+        - LLAMIA-Bench: six tasks
+        - They also had the YT idea, and got the data from Agadmator's YT channel
+        - Verbalization debt
+        - Latent state internalization: Interleaving chain of language, action and latent space tokens
+        - Engine activations are called by the LLM as the result of a tool call
     - [Tutorial](https://www.youtube.com/watch?v=GEJOB_TFYJ0): Training DeepSeek directly to play chess without Leela with GRPO
     - Reading: 
+        - Flamingo (TODO)
+        - DeepSeek R1 (TODO)
 
 # Sixth meeting 
+
+## First Experiments
+
+First, I just trained a LLaVA projector on L9 for Qwen-3.5 0.8B (34x smaller than 27B). Then I tried supervised fine-tuning using LoRA and RL using GRPO with reasoning enabled. 0.8B is actually a vision model and so I wanted to find out if using the existing 2D image slot would be better by any chance. 
+
+50k positions (48-1-1 split), different answer formats to check language generalization, AdamW (1e-3, 2e-4, 1e-5 learning rate), 
+1. Just the projector: Already works quite well
+2. sft: Supervised fine-tuning
+3. vlm: Using the 2D image slot
+4. grpo: RL a la Deepseek
+5. r1zero: RL without any supervised fine-tuning + thinking
+
+On the H100 it went really fast as well (30 min for SFT, 3 hours for r1zero)
+
+```
+Each cell shows bin right, then the average eval error in pawns.
+
+┌────────────────────────────────┬─────────────┬─────────────┬─────────────┬────────────┬────────────┐
+│            Question            │   no LoRA   │     sft     │     vlm     │    grpo    │   r1zero   │
+├────────────────────────────────┼─────────────┼─────────────┼─────────────┼────────────┼────────────┤
+│ What is the evaluation?        │ 98% / 0.22  │ 99% / 0.06  │ 99% / 0.09  │ 99% / 0.09 │ 99% / 0.12 │
+├────────────────────────────────┼─────────────┼─────────────┼─────────────┼────────────┼────────────┤
+│ What's the eval?               │ 95% / 0.13  │ 98% / 0.06  │ 98% / 0.09  │ 95% / 0.07 │ 97% / 0.12 │
+├────────────────────────────────┼─────────────┼─────────────┼─────────────┼────────────┼────────────┤
+│ Who is better, by how much?    │ 100% / 0.11 │ 100% / 0.07 │ 100% / 0.07 │ 99% / 0.05 │ 98% / 0.09 │
+├────────────────────────────────┼─────────────┼─────────────┼─────────────┼────────────┼────────────┤
+│ How good for the side to move? │ 99% / 0.06  │ 100% / 0.05 │ 98% / 0.07  │ 98% / –    │ 98% / –    │
+├────────────────────────────────┼─────────────┼─────────────┼─────────────┼────────────┼────────────┤
+│ Assess this position.          │ 96% / 0.07  │ 99% / 0.02  │ 96% / 0.06  │ 94% / 0.00 │ 93% / –    │
+├────────────────────────────────┼─────────────┼─────────────┼─────────────┼────────────┼────────────┤
+│ Better, worse, or equal?       │ 96% / 0.16  │ 99% / 0.03  │ 99% / 0.09  │ 99% / –    │ 97% / 0.00 │
+├────────────────────────────────┼─────────────┼─────────────┼─────────────┼────────────┼────────────┤
+│ How is it for {colour}?        │ 50% / 4.98  │ 64% / 0.44  │ 58% / 0.32  │ 59% / 2.99 │ 57% / 7.17 │
+├────────────────────────────────┼─────────────┼─────────────┼─────────────┼────────────┼────────────┤
+│ All except colour              │ 97% / 0.15  │ 99% / 0.06  │ 98% / 0.08  │ 97% / 0.07 │ 97% / 0.10 │
+└────────────────────────────────┴─────────────┴─────────────┴─────────────┴────────────┴────────────┘
+```
+
+- Bins: Losing (< −2.0), Clearly worse (−2.0 to −0.7), Slightly worse (−0.7 to −0.3), Equal (−0.3 to +0.3), Slightly better (+0.3 to +0.7), Clearly better (+0.7 to +2.0), Winning (> +2.0)
+- Eval error only when eval explicitly given as number
+
+Interesting findings: 
+1. Regular SFT works best
+2. Just using the 2D image slot doesn't work better than SFT
+3. R1-Zero doesn't work -> doesn't think at all.
+    Probably a result of too strict thinking limit (512 tokens) and the model simply not needing to think. 
+4. Leela doesn't actually know which color is which (at least in L9). Leela is always encoded with White to move (50% without LoRA). 
+    The fascinating part is that the fine-tuning was actually able to get the side to move from just the position. This makes sense if you think about the fact that some positions, especially in the early game, mostly appear for one side or the other. 
+5. Results match LLaVA runs from the QUEEN paper
+
+
+## Next steps
+
+Mostly running tests again as actually intended
+
+- Use the full vision encoder 
+- Use the actual base model for r1zero and allow more reasoning tokens
+- Use the AO approach to the injection. Instead of overwriting tokens, we only add after first attention layer, rescaled to the tokens natural attention.
+
+Of course the next step is to identify further training objectives all using regular SFT. Some candidates:
+
+1. Best move
+2. PV (scored by accuracy + length when accurate)
+3. Which squares does piece x control
+4. Which pieces does piece x control (should include squares)
+5. Game stage
+6. Consequences of a move (deterministic)
+7. Hand labeled datasets (e.g. 500 to 1000 positions) -> we need a process to build these reliably?
+6. LLAMIA-Bench, etc.
+7. Move description
+
+Table 7 of [Language Models that Play Chess and Explain Their Moves](https://arxiv.org/html/2610.03695v1) (Bhaskar, Cheng, Chen, Princeton).
+
+![Four-stage domain adaptation question types](./image/journey/Four-stage%20domain%20adaptation%20question%20types.png)
+
+Still thinking about the following idea to train a teacher: The teacher writes a move description or reason and the student has to say the move. 
+The teacher is trained on decriibing the move as shortly as possible without actually encoding the move (i.e. cheating)
+
