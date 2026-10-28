@@ -1,8 +1,11 @@
 """train.py with the 64 soft tokens in the LLM's image slot instead of <board>...</board>: an 8x8 grid
-of <|image_pad|> (no vision tower) with Qwen-VL M-RoPE (t, h, w) positions, so each square gets its rank/file
+of <|image_pad|> (no vision tower, unless --vision-tower) with Qwen-VL M-RoPE (t, h, w) positions, so each square gets its rank/file
 as 2D image positions. Grid row 0 = the mover's 8th rank, col 0 = a-file. Everything else as in train.py.
 
   python oracle/train_vlm_path.py --data oracle/data_g50k --out oracle/runs/g50k_vlm --lora 16 [--no-square-emb]
+--vision-tower: the projector maps each square to a 768-wide patch embedding instead; every square fills one 2x2
+merge block (16x16 patches), and Qwen's frozen vision encoder (12 blocks, its 2D position embeddings) and merger turn
+those into the 64 LLM tokens. Only the input map (and LoRA) is trained. Eval-only needs the same flag.
 """
 import argparse, contextlib, json, math, os, sys, time
 from pathlib import Path
@@ -29,6 +32,7 @@ ap.add_argument("--grad-ckpt", action="store_true", help="recompute LLM activati
 ap.add_argument("--no-cache",action="store_true", help="generate without KV cache (slow; for checking the cached path)")
 ap.add_argument("--eval-only", nargs="+", metavar="CKPT", help="score saved checkpoints on --data's val split and exit")
 ap.add_argument("--no-square-emb", action="store_true", help="no learned square embedding: positions only (eval-only needs the same flag)")
+ap.add_argument("--vision-tower", action="store_true", help="route the squares through Qwen's frozen vision encoder + merger")
 ap.add_argument("--lora", type=int, default=0, metavar="R", help="LoRA rank on the LLM (0 = frozen LLM, stage 1)")
 ap.add_argument("--lora-alpha", type=float, help="default 2R")
 ap.add_argument("--lora-dropout", type=float, default=0.0)
@@ -70,7 +74,14 @@ else:
 tok = AutoTokenizer.from_pretrained(a.model)
 kw = dict(dtype=dt, device_map=("balanced" if torch.cuda.device_count() > 1 else "auto") if cuda else None)  # "auto" fills GPU 0 first
 llm = AutoModelForImageTextToText.from_pretrained(a.model, **kw)                     # the VL class: M-RoPE index logic
-del llm.model.visual                                                                    # never run: soft tokens replace its output
+if a.vision_tower:
+    vis = llm.model.visual
+    with torch.no_grad():                         # init scale: RMS of real patch embeddings, pixels uniform in Qwen's [-1, 1]
+        px = torch.rand(256, vis.patch_embed.in_channels * vis.patch_embed.temporal_patch_size * vis.patch_size ** 2) * 2 - 1
+        patch_rms = vis.patch_embed(px.to(vis.patch_embed.proj.weight.device)).float().pow(2).mean(1).sqrt().mean().item()
+    vis.patch_embed = nn.Identity()                                                     # the projector's output is the patch embedding
+else:
+    del llm.model.visual                                                                # never run: soft tokens replace its output
 if cuda: torch.cuda.empty_cache()
 core = llm.model                                                                        # get_rope_index; peft wrapping hides it
 llm.requires_grad_(False).eval()
@@ -129,8 +140,11 @@ class Projector(nn.Module):
         return self.norm(self.net(x if self.pos is None else x + self.pos)) * self.scale
 
 
-rms = emb.weight.float().pow(2).mean(1).sqrt().mean().item()
-proj = Projector(256, a.hidden, emb.weight.shape[1], rms, not a.no_square_emb).to(dev)
+if a.vision_tower:
+    proj = Projector(256, a.hidden, cfg.vision_config.hidden_size, patch_rms, not a.no_square_emb).to(dev)
+else:
+    rms = emb.weight.float().pow(2).mean(1).sqrt().mean().item()
+    proj = Projector(256, a.hidden, emb.weight.shape[1], rms, not a.no_square_emb).to(dev)
 groups = [dict(params=list(proj.parameters()), lr=a.lr)] + ([dict(params=lora_params, lr=a.lora_lr)] if lora_params else [])
 opt = torch.optim.AdamW(groups, weight_decay=a.wd)
 steps_per_epoch = max(1, math.ceil(len(tr) / a.batch))                          # eval-only sets have no train split
@@ -154,6 +168,17 @@ elif (a.init_ckpt or a.init_proj) and not a.eval_only:
     print(f"{'projector + LoRA' if a.init_ckpt else 'projector'} from {a.init_ckpt or a.init_proj}", flush=True)
 
 
+def board(x):
+    """(B, 64, 256) lc0 tokens -> (B, 64, d) LLM tokens in image-slot order (row-major, row 0 on top)."""
+    soft = proj(x)[:, ORDER]
+    if not a.vision_tower:
+        return soft
+    # each square fills one 2x2 merge block; Qwen packs patches block by block, so a block's 4 patches are consecutive
+    B = len(soft)
+    out = vis(soft.repeat_interleave(4, 1).flatten(0, 1).to(vis.dtype), grid_thw=GRID.expand(B, 3).to(soft.device))
+    return out.pooler_output.view(B, 64, -1).to(soft.device)
+
+
 def embed(ids_list, soft):
     """Right-padded (B, L, d) inputs with soft tokens on the 8x8 grid at [P, P+64), the attention mask, and
     (4, B, L) position ids as HF generate builds them: text row + M-RoPE (t, h, w) rows."""
@@ -164,7 +189,7 @@ def embed(ids_list, soft):
         ids[k, :len(s)] = torch.tensor(s); mask[k, :len(s)] = 1
     ids, mask = ids.to(dev), mask.to(dev)
     x = emb(ids).clone()
-    x[:, P:P + 64] = soft[:, ORDER].to(x.dtype)
+    x[:, P:P + 64] = soft.to(x.dtype)
     thw, _ = core.get_rope_index(ids, mm_token_type_ids=(ids == IMG).int(), image_grid_thw=GRID.expand(len(ids), 3),
                                       attention_mask=mask)
     text = (mask.cumsum(-1) - 1).masked_fill(mask == 0, 0)
@@ -177,7 +202,7 @@ def batch(idx, rng):
         _, _, _, qt, at = qa.sample(rng, wdl[i], black[i])
         p = prompt_ids(qt); y = tok(at + END, add_special_tokens=False)["input_ids"]
         ids.append(p + y); labels.append([-100] * len(p) + y)
-    x, mask, pos = embed(ids, proj(acts[idx].to(dev)))
+    x, mask, pos = embed(ids, board(acts[idx].to(dev)))
     lab = torch.full(mask.shape, -100, dtype=torch.long)
     for k, l in enumerate(labels): lab[k, :len(l)] = torch.tensor(l)
     # logits only where some row predicts an answer token: the 248k-wide output layer dominates memory
@@ -203,7 +228,7 @@ def generate(rows, idx):
     for ks in groups.values():
         for s in range(0, len(ks), a.eval_batch):
             kk = ks[s:s + a.eval_batch]
-            x, _, pos = embed([prompt_ids(rows[k]["question"]) for k in kk], proj(acts[[idx[k] for k in kk]].to(dev)))
+            x, _, pos = embed([prompt_ids(rows[k]["question"]) for k in kk], board(acts[[idx[k] for k in kk]].to(dev)))
             gen = torch.zeros((len(kk), 0), dtype=torch.long, device=dev)
             o = llm(inputs_embeds=x, position_ids=pos, use_cache=not a.no_cache, logits_to_keep=1)
             for _ in range(a.max_new):
