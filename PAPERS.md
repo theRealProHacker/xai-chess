@@ -2,14 +2,16 @@
 
 IEEE references for every work touched by this project — the original research-proposal citations, the office-hours/landscape corpus, and the completeness-verifier additions. **Titles are clickable** (canonical URL). Sorted by relevance to the benchmark (Core → Supporting → Peripheral); within a tier, by centrality.
 
-*117 works · 37 core / 67 supporting / 13 peripheral · compiled 2026-06-27, extended 2026-08-01, 2026-09-03 and 2026-10-06.*
+*128 works · 39 core / 72 supporting / 17 peripheral · compiled 2026-06-27, extended 2026-08-01, 2026-09-03, 2026-10-06, 2026-10-26 and 2026-10-27.*
 
-References [1]–[64] are the original corpus and their numbers are fixed, because the survey and the summaries both cite them as stable tags. The move-explanation and dataset sweep of 2026-08-01 appended [65]–[87], and the activation-oracle / symbolic-learning / circuits sweep of 2026-09-03 appended [88]–[116], rather than renumbering.
+References [1]–[64] are the original corpus and their numbers are fixed, because the survey and the summaries both cite them as stable tags. The move-explanation and dataset sweep of 2026-08-01 appended [65]–[87], and the activation-oracle / symbolic-learning / circuits sweep of 2026-09-03 appended [88]–[116], rather than renumbering. [118], added 2026-10-26, leads the Core tier: it is the strongest move-explaining system to date and the one the benchmark most directly grades. [119]–[128], added 2026-10-27 ([122]–[127] from the reference lists of [119]–[121]), sit at the end of their tiers.
 
 
-## Core (23)
+## Core (25)
 
 *Directly load-bearing: the methods, oracles, explanation engines, and faithfulness machinery the benchmark builds on or grades.*
+
+[118] A. Bhaskar, J. Cheng, and D. Chen, "[Language Models that Play Chess and Explain Their Moves](https://arxiv.org/abs/2610.03695)," arXiv:2610.03695, 2026. Queen: an Lc0 encoder bridged into an LM by cross-attention; GM-strength play with prose explanations, graded on accuracy, substantiation and LM-judged coherence, never on faithfulness.
 
 [1] T. McGrath, A. Kapishnikov, N. Tomašev, A. Pearce, D. Hassabis, B. Kim, et al., "[Acquisition of chess knowledge in AlphaZero](https://arxiv.org/abs/2111.09259)," arXiv:2111.09259, 2021.
 
@@ -57,8 +59,10 @@ References [1]–[64] are the original corpus and their numbers are fixed, becau
 
 [23] D. Cruz, "[Understanding the Learned Look-Ahead Behavior of Chess Neural Networks](https://arxiv.org/abs/2505.21552)," arXiv:2505.21552, 2025.
 
+[119] H. S I, S. Singh, Y. K. Singla, R. R. Shah, D. Doermann, and B. Krishnamurthy, "[Exploring Collaboration between a Language and a Non-Language Agent](https://arxiv.org/abs/2609.00474)," in Proc. EMNLP, 2026, arXiv:2609.00474. LLAMIA: an MLP projects one pooled Lc0-BT4 activation into 32 soft tokens of Qwen3, trained with DAPO; the closest published counterpart to `oracle/`, and its "verbalization debt" is the unnamed-concepts question seen from downstream.
 
-## Supporting (33)
+
+## Supporting (38)
 
 *Methodologically adjacent: interpretability, simulatability, concept-eval, and search-explanation work that informs the design.*
 
@@ -108,7 +112,7 @@ References [1]–[64] are the original corpus and their numbers are fixed, becau
 
 [46] M. Singh, A. Alabdulkarim, G. Mansi, and M. O. Riedl, "[Explainable Reinforcement Learning Agents Using World Models](https://arxiv.org/abs/2505.08073)," in Workshop on Explainable AI (XAI) at IJCAI, arXiv:2505.08073, 2025.
 
-[47] S. Wang, L. Ji, R. Wang, et al., "[Explore the Reasoning Capability of LLMs in the Chess Testbed](https://arxiv.org/abs/2411.06655)," arXiv:2411.06655, 2024.
+[47] S. Wang, L. Ji, R. Wang, W. Zhao, H. Liu, Y. Hou, and Y. N. Wu, "[Explore the Reasoning Capability of LLMs in the Chess Testbed](https://aclanthology.org/2025.naacl-short.52/)," in Proc. NAACL (Volume 2: Short Papers), 2025, pp. 611–622, doi:10.18653/v1/2025.naacl-short.52. arXiv:2411.06655.
 
 [48] Z. Tang, D. Jiao, E. Xue, et al., "[Learning to Imitate with Less: Efficient Individual Behavior Modeling in Chess](https://arxiv.org/abs/2507.21488)," arXiv:2507.21488, 2025.
 
@@ -128,8 +132,18 @@ References [1]–[64] are the original corpus and their numbers are fixed, becau
 
 [56] M. Guid, M. Možina, C. Bohak, A. Sadikov, and I. Bratko, "[Building an Intelligent Tutoring System for Chess Endgames](https://www.scitepress.org/papers/2013/43891/43891.pdf)," in Proc. 5th Int. Conf. Computer Supported Education (CSEDU), 2013, pp. 263-266, doi:10.5220/0004389102630266.
 
+[120] J. Liu, S. He, J. Wu, X. Wang, Y. Chen, Z. Kuang, S. Bao, and Y. Yao, "[ChessArena: A Chess Testbed for Evaluating Strategic Reasoning Capabilities of Large Language Models](https://aclanthology.org/2026.acl-long.360/)," in Proc. 64th Annu. Meeting Assoc. Comput. Linguistics (ACL), 2026, pp. 7901–7954. arXiv:2509.24239. Glicko-rated arena where 13 LLMs play full games (none beats Maia-1100), plus SFT+GRPO on Stockfish-filtered reasoning traces; reasons are never checked.
 
-## Peripheral (8)
+[122] D. Monroe and P. A. Chalmers, "[Mastering Chess with a Transformer Model](https://arxiv.org/abs/2409.12272)," arXiv:2409.12272, 2024. Lc0's transformer (Chessformer, CF-240M) with Shaw relative position attention; the network family `lc0-probe/` and `oracle/` read (cited by [119] as the BT4 paper) and the predecessor of [8].
+
+[123] T. Duplessis, "[lichess-puzzler](https://github.com/ornicar/lichess-puzzler)," GitHub repository, 2020. The Stockfish-driven generator and heuristic theme tagger behind the Lichess puzzle database, whose `pin` tag labels the xai-chess corpus.
+
+[124] D. Hwang, H. Lee, J. Choo, D. Park, and J. Park, "[Can Large Language Models Develop Strategic Reasoning? Post-training Insights from Learning Chess](https://arxiv.org/abs/2507.00726)," in Proc. COLM 2025 Workshop on Test-time Scaling and Reasoning Models (SCALR), 2025. arXiv:2507.00726. GRPO on Lichess puzzles with a dense reward from a chess action-value network: 3–8B LLMs plateau at 25–30% puzzle accuracy; the closest published analogue of the continuous-reward GRPO in `oracle/grpo.py`.
+
+[128] D. Guo, D. Yang, H. Zhang, J. Song, P. Wang, et al., "[DeepSeek-R1 incentivizes reasoning in LLMs through reinforcement learning](https://doi.org/10.1038/s41586-025-09422-z)," *Nature*, vol. 645, no. 8081, pp. 633–638, 2025. arXiv:2501.12948. GRPO with a reward on the final answer alone turns DeepSeek-V3-Base into a long-chain-of-thought reasoner (R1-Zero, AIME 2024 15.6% → 77.9%). The recipe `oracle/r1zero.py` follows on Qwen3.5-0.8B-Base and `oracle/grpo_think.py` adapts to the post-trained model, and the GRPO that [120], [124] and [127] use; nothing rewards the reasoning for being correct.
+
+
+## Peripheral (12)
 
 *Background and tangential: broader game-AI, human-move modelling, and survey context.*
 
@@ -148,6 +162,14 @@ References [1]–[64] are the original corpus and their numbers are fixed, becau
 [63] D. Zhong, D. Huang, and C. Greenberg, "[Predicting Human Chess Moves: An AI Assisted Analysis of Chess Games Using Skill-group Specific n-gram Language Models](https://arxiv.org/abs/2512.01880)," arXiv:2512.01880, 2025.
 
 [64] C. Riedl and E. Bogert, "[Who Benefits from AI? Self-Selection, Skill Gap, and the Hidden Costs of AI Feedback in Chess](https://arxiv.org/abs/2409.18660)," arXiv:2409.18660, 2024.
+
+[121] A. Selkee, S. Rissanen, X. Feng, T. Zahavy, and E. Malmi, "[Conditional Generation of Creative Chess Puzzles with Diffusion Models](https://arxiv.org/abs/2609.38577)," arXiv:2609.38577, 2026. Masked-diffusion puzzle generator conditioned on Lichess themes, partial boards and the best move; a possible source of theme-tagged test positions, scored by heuristic tags rather than causal checks.
+
+[125] X. Feng, V. Veeriah, M. Chiam, M. Dennis, R. Pachauri, T. Tumiel, F. Barbero, J. Obando-Ceron, J. Shi, S. Singh, S. Hou, N. Tomašev, and T. Zahavy, "[Generating Creative Chess Puzzles](https://arxiv.org/abs/2510.23881)," in Proc. Adv. Neural Inf. Process. Syst. (NeurIPS), 2025. arXiv:2510.23881. Puzzle generators trained on the Lichess puzzle DB, then RL on a Stockfish-search counter-intuitiveness reward; the base of [121], scoring how long the engine took to find a move, not why it works.
+
+[126] S. Kolasani, M. Saplin, N. Crispino, K. Montgomery, J. Q. Davis, M. Zaharia, C. Wang, and C. Wang, "[LLM CHESS: Benchmarking Reasoning and Instruction-Following in LLMs through Chess](https://arxiv.org/abs/2512.01992)," arXiv:2512.01992, 2025. Agentic tool-calling benchmark scoring 50+ LLMs against a random mover and by Elo against Komodo Dragon; measures whether models finish and win games, never whether their reasoning is faithful.
+
+[127] Y. Chen, S. Liu, Y. Lyu, C. Zhang, J. Shi, and T. Xu, "[Xiangqi-R1: Enhancing Spatial Strategic Reasoning in LLMs for Chinese Chess via Reinforcement Learning](https://arxiv.org/abs/2507.12215)," arXiv:2507.12215, 2025. Qwen2.5-7B trained for Xiangqi by move SFT, commentary SFT, then GRPO with engine-judged move and position-label rewards; the reasoning is never scored, and ChessArena [120] borrows the recipe.
 
 
 ## Additions — move-explanation and dataset sweep (2026-08-01)
