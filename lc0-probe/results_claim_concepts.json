@@ -1,0 +1,8824 @@
+{
+ "tap": "/encoder0/ln2",
+ "method": "integrated gradients, 256 steps",
+ "spec": "# Claim concepts: attribution of the claim's concept, with and without the credited pieces\n\nDraft for review. Nothing has run.\n\n**Measure.** Integrated gradients through the /encoder0/ln2 decoder (square_attribution.py --ig 32), per bit.\nA concept's attribution = sum over its bits, signed for the side named. Two kinds of test:\n\n- **With / without**: the quote credits a piece (or a move) with the concept. The concept's attribution on the real\n  board vs the board with that piece taken off (or the move taken back). Each credited piece separately. Reported raw\n  and as a share of the board's total |attribution|, because taking material off shifts every attribution.\n- **Descriptive**: the quote only states the concept. Its attribution for the named side, against the same concept\n  for the other side where the quote compares them.\n\nSquares are real-board squares.\n\n## Concepts (bit sets)\n\n| concept | bits |\n|---|---|\n| Space(X, files) | X's `control.reach.t`, `control.geometry.t` with t in the opponent's half (on those files), plus `square.control.X*` on those t |\n| Centre(X) | same, t in d4 e4 d5 e5 |\n| Hold(X, s) | X's control bits targeting s, `square.control.X*` and `strong.X.*` on s |\n| Outpost(s) | `strong.<owner>.*` on s, `stability.*` on s (an enemy pawn or piece can hit it), `role.protected_by` on s |\n| KingSafety(K) | on K's square and its 8 neighbours: `pawn_shield.*`, `king.castle`, `pawn_cover.<owner>*`, `square.control.*`; the enemy's control bits targeting them; `role.attacks` bits naming K |\n| KingMobility(K) | K's `mobility.*`, `control.*`, `blocked_by.own.*` |\n| Pair(X) | `bishop_pair.*`, `unlike_bishops.*` on X's bishops |\n| Activity(piece) | the piece's `control.*`, `mobility.*`, `xray.*`, `role.*` |\n| Passer(p) | `pawn.passed`, `pawn.rank4_6`, `pawn.rank7` on p; `role.protected_by` on p; `rook.behind_passer` naming p |\n| Threat(s) | `threat.*` on s |\n| Weakness(pawns) | `pawn.isolated`, `pawn.doubled_with.*`, `pawn.hanging`, `weak.<owner>` on the pawns' squares; `role.attacks` and `stability.*` naming them; for 25 also the owner's `role.defends` bits naming them (pieces tied down) |\n\n## With / without\n\n| # | claim | concept | taken off / back | expected |\n|---|---|---|---|---|\n| 1 | W space: two centre pawns, knight on the 4th | Space(W) | Pe4, Pf4, Nd4 | drops for each |\n| 2 | B space: e4, f5, knight e5 | Space(B) | pe4, pf5, ne5 | drops for each (ne5: \u22120.039 raw, done) |\n| 3 | W space: d5, f4, queen d4 | Space(W) | Pd5, Pf4, Qd4 | drops for each |\n| 4 | B space on the queenside | Space(B, a\u2013d) | pb4, pc3 | drops for each |\n| 5 | B cramped on the queen's wing | Activity of B's pieces on a\u2013d (mobility only) | Pa3, Pb4, Pc4, Pd5 | rises for each |\n| 13 | ...b4 supports the c3 knight | Outpost(c3) | pb4 | drops |\n| 14 + 40 | unassailable Nf4; B's bishops have little to say | Pair(B) | Nf4 | rises |\n| 15 | W cannot castle (...Bh3) | KingSafety(Ke1) incl. `king.castle` | bd7 | rises |\n| 16 | O-O-O brought W's king into safety | KingSafety(W king) | take 12.O-O-O back (Ke1, Ra1) | lower before |\n| 19 | ...h6 weakened B's king | KingSafety(kg8) | take ...h6 back (pawn to h7) | higher before |\n| 22 | d6 threatens d7 and Qd6+ | Threat(d6), Passer(d6) | Qd3 | drops |\n| 23 | protected passed pawn | Passer(g5) | Pf4 (the protector) | drops |\n| 30 | B king more mobile, W king hampered by own pawns | KingMobility(Kg1) | Pf2, Pg2, Ph2 | rises |\n| 32 | rook cuts the B king off | KingMobility(kf8), signed for Black | Rh7 | rises |\n\n## Descriptive\n\n| # | claim | concept | expected |\n|---|---|---|---|\n| 6 | W dominates the centre | Centre(W) vs Centre(B) | W > 0, W > B |\n| 7 | B superior in the centre | Centre(B) vs Centre(W) | B > 0, B > W |\n| 8 + 43 | d5 secured for B | Hold(B, d5) | > 0 |\n| 9 + 12 | B's two bishops; strongly posted ne4 | Pair(B), Outpost(e4) | both > 0 |\n| 10 | W's bishops decisive; B's knights lack bases | Pair(W); Outpost(nd7), Outpost(ne5) | Pair(W) > 0; outposts \u2264 0 |\n| 11 | two bishops beat bishop and knight | Pair(B) + Activity(ba6, bb6) vs Activity(Bb4, Nc6) | B > W |\n| 17 | B forced to weaken the kingside | KingSafety(kg8), signed for Black | < 0 |\n| 18 | W king exposed, B king entrenched | KingSafety(Kg2), KingSafety(kg8) | W < 0, B > 0 |\n| 20 | W king exposed | KingSafety(Kd2) | < 0 |\n| 21 | W passed pawn, commanding king | Passer(e4), Activity(Ke3) | both > 0 |\n| 24 | three isolated pawns, attacked | Weakness(a5, d6, f5), signed for Black | < 0 |\n| 25 | isolated pawns tied to pieces | Weakness(a5, c7, e5, e6) incl. defenders | < 0 |\n| 26 | doubled c-pawn | Weakness(c6, c7) | < 0 |\n| 27 | extra pawn doubled, of no account | `material.up` + Weakness(c4, c6), signed for Black | sum \u2248 0 |\n| 28 | isolated d5 weak | Weakness(d5) | < 0 |\n| 29 | isolated h7 weak | Weakness(h7) | < 0 |\n| 31 | W commands the 7th; e3 isolated, g2 backward | `rook.seventh` + Activity(Ra7); Weakness(e3, g2) | > 0; < 0 |\n| 33 | ra2 out of play | Activity(ra2) | \u2248 0 |\n| 39 | B's queenside space not real | Space(B, a\u2013c) + Weakness(b4, c5, a6) | sum \u2264 0 |\n| 41 | bb7 inactive, keeping the pair a mistake | Activity(bb7); Pair(B) | \u2248 0; \u2264 0 |\n| 42 | Nd5 can't be maintained | `stability.*` on d5, signed for White | < 0 |\n\n## Gaps\n\n- **Development (34\u201338):** no bits encode development (moves spent, pieces off the back rank). Drop, or add a feature.\n- **Backward pawn (31's g2):** no `backward` bit; Weakness has only isolated/doubled/hanging and the attacks.\n- **Absences:** \"unassailable\" (14) and \"lack bases\" (10) are the *absence* of `stability.*` / `strong.*` bits, and\n  attribution can't credit a bit that isn't there. 14 is tested through the with/without on Pair(B) instead.\n- **\"\u2248 0\" and \"> 0\" thresholds** for descriptive claims are not fixed yet.\n",
+ "norms": {
+  "R": {
+   "n": 1018,
+   "q25": 0.046647499999999995,
+   "median": 0.088785
+  },
+  "B": {
+   "n": 700,
+   "q25": 0.01695,
+   "median": 0.043935
+  },
+  "up+doubled": {
+   "n": 29,
+   "q25": 0.006030000000000001,
+   "median": 0.0233
+  }
+ },
+ "games": [
+  {
+   "claims": [
+    1
+   ],
+   "claim": [
+    "White has more space: two centre pawns and a knight on the fourth rank."
+   ],
+   "orig_fen": "r1b1r1k1/1pp1nppp/p1pb4/8/3NPP2/2N5/PPP3PP/R1B2RK1 w - - 1 11",
+   "y": -0.20505836606025696,
+   "y decoded": -0.21122804284095764,
+   "tests": [
+    {
+     "kind": "with/without",
+     "concept": "Space(W)",
+     "edit": "off e4",
+     "expected": "drop",
+     "with": -0.0501,
+     "without": -0.0169,
+     "change": 0.0332,
+     "share change": 0.00179,
+     "y decoded without (stm)": -0.912,
+     "fen without": "r1b1r1k1/1pp1nppp/p1pb4/8/3N1P2/2N5/PPP3PP/R1B2RK1 w - - 1 11",
+     "total with": 11.331,
+     "total without": 6.4074,
+     "bits with": [
+      [
+       "f4",
+       "control.geometry.e5",
+       -0.02304
+      ],
+      [
+       "f4",
+       "control.reach.g5",
+       0.01838
+      ],
+      [
+       "e4",
+       "control.reach.f5",
+       -0.0101
+      ],
+      [
+       "f4",
+       "control.geometry.g5",
+       -0.00874
+      ],
+      [
+       "e4",
+       "control.reach.d5",
+       -0.00781
+      ],
+      [
+       "e4",
+       "control.geometry.f5",
+       -0.00317
+      ],
+      [
+       "d4",
+       "control.geometry.f5",
+       -0.00236
+      ],
+      [
+       "f4",
+       "control.reach.e5",
+       -0.00229
+      ],
+      [
+       "e4",
+       "control.geometry.d5",
+       -0.00206
+      ],
+      [
+       "c1",
+       "control.geometry.g5",
+       -0.00168
+      ],
+      [
+       "c3",
+       "control.reach.d5",
+       -0.00155
+      ],
+      [
+       "d4",
+       "control.reach.f5",
+       -0.00153
+      ],
+      [
+       "c3",
+       "control.geometry.d5",
+       -0.0014
+      ],
+      [
+       "d4",
+       "control.reach.b5",
+       -0.00124
+      ],
+      [
+       "c3",
+       "control.reach.b5",
+       -0.00121
+      ],
+      [
+       "d4",
+       "control.reach.e6",
+       -0.00121
+      ],
+      [
+       "g5",
+       "square.control.white2",
+       0.00119
+      ],
+      [
+       "d4",
+       "control.geometry.e6",
+       -0.00058
+      ],
+      [
+       "c3",
+       "control.geometry.b5",
+       0.00012
+      ],
+      [
+       "d4",
+       "control.geometry.c6",
+       7e-05
+      ],
+      [
+       "d4",
+       "control.geometry.b5",
+       6e-05
+      ],
+      [
+       "d4",
+       "control.reach.c6",
+       5e-05
+      ]
+     ],
+     "bits without": [
+      [
+       "f4",
+       "control.geometry.e5",
+       -0.01154
+      ],
+      [
+       "f4",
+       "control.reach.g5",
+       0.00946
+      ],
+      [
+       "f4",
+       "control.geometry.g5",
+       -0.00447
+      ],
+      [
+       "f4",
+       "control.reach.e5",
+       -0.0016
+      ],
+      [
+       "d4",
+       "control.reach.f5",
+       -0.00146
+      ],
+      [
+       "d4",
+       "control.geometry.f5",
+       -0.0013
+      ],
+      [
+       "c3",
+       "control.reach.d5",
+       -0.00117
+      ],
+      [
+       "d4",
+       "control.reach.b5",
+       -0.00104
+      ],
+      [
+       "c1",
+       "control.geometry.g5",
+       -0.00099
+      ],
+      [
+       "c3",
+       "control.geometry.d5",
+       -0.00099
+      ],
+      [
+       "d4",
+       "control.reach.e6",
+       -0.00094
+      ],
+      [
+       "c3",
+       "control.reach.b5",
+       -0.00073
+      ],
+      [
+       "d4",
+       "control.geometry.e6",
+       -0.00048
+      ],
+      [
+       "d4",
+       "control.reach.c6",
+       0.0003
+      ],
+      [
+       "d4",
+       "control.geometry.b5",
+       0.00021
+      ],
+      [
+       "d4",
+       "control.geometry.c6",
+       -0.00015
+      ],
+      [
+       "c3",
+       "control.geometry.b5",
+       0.0001
+      ],
+      [
+       "g5",
+       "square.control.white2",
+       -0.0001
+      ]
+     ],
+     "pass": false
+    },
+    {
+     "kind": "with/without",
+     "concept": "Space(W)",
+     "edit": "off f4",
+     "expected": "drop",
+     "with": -0.0501,
+     "without": -0.0156,
+     "change": 0.0345,
+     "share change": 0.002,
+     "y decoded without (stm)": -0.874,
+     "fen without": "r1b1r1k1/1pp1nppp/p1pb4/8/3NP3/2N5/PPP3PP/R1B2RK1 w - - 1 11",
+     "total with": 11.331,
+     "total without": 6.4589,
+     "bits with": [
+      [
+       "f4",
+       "control.geometry.e5",
+       -0.02304
+      ],
+      [
+       "f4",
+       "control.reach.g5",
+       0.01838
+      ],
+      [
+       "e4",
+       "control.reach.f5",
+       -0.0101
+      ],
+      [
+       "f4",
+       "control.geometry.g5",
+       -0.00874
+      ],
+      [
+       "e4",
+       "control.reach.d5",
+       -0.00781
+      ],
+      [
+       "e4",
+       "control.geometry.f5",
+       -0.00317
+      ],
+      [
+       "d4",
+       "control.geometry.f5",
+       -0.00236
+      ],
+      [
+       "f4",
+       "control.reach.e5",
+       -0.00229
+      ],
+      [
+       "e4",
+       "control.geometry.d5",
+       -0.00206
+      ],
+      [
+       "c1",
+       "control.geometry.g5",
+       -0.00168
+      ],
+      [
+       "c3",
+       "control.reach.d5",
+       -0.00155
+      ],
+      [
+       "d4",
+       "control.reach.f5",
+       -0.00153
+      ],
+      [
+       "c3",
+       "control.geometry.d5",
+       -0.0014
+      ],
+      [
+       "d4",
+       "control.reach.b5",
+       -0.00124
+      ],
+      [
+       "c3",
+       "control.reach.b5",
+       -0.00121
+      ],
+      [
+       "d4",
+       "control.reach.e6",
+       -0.00121
+      ],
+      [
+       "g5",
+       "square.control.white2",
+       0.00119
+      ],
+      [
+       "d4",
+       "control.geometry.e6",
+       -0.00058
+      ],
+      [
+       "c3",
+       "control.geometry.b5",
+       0.00012
+      ],
+      [
+       "d4",
+       "control.geometry.c6",
+       7e-05
+      ],
+      [
+       "d4",
+       "control.geometry.b5",
+       6e-05
+      ],
+      [
+       "d4",
+       "control.reach.c6",
+       5e-05
+      ]
+     ],
+     "bits without": [
+      [
+       "e4",
+       "control.reach.f5",
+       -0.00396
+      ],
+      [
+       "e4",
+       "control.reach.d5",
+       -0.00257
+      ],
+      [
+       "e4",
+       "control.geometry.f5",
+       -0.00255
+      ],
+      [
+       "c3",
+       "control.geometry.d5",
+       -0.0015
+      ],
+      [
+       "c3",
+       "control.reach.d5",
+       -0.00134
+      ],
+      [
+       "d4",
+       "control.geometry.f5",
+       -0.00114
+      ],
+      [
+       "c3",
+       "control.reach.b5",
+       -0.00104
+      ],
+      [
+       "d4",
+       "control.reach.f5",
+       -0.00097
+      ],
+      [
+       "d4",
+       "control.reach.e6",
+       -0.00081
+      ],
+      [
+       "e4",
+       "control.geometry.d5",
+       -0.00079
+      ],
+      [
+       "c1",
+       "control.geometry.h6",
+       0.00073
+      ],
+      [
+       "d4",
+       "control.reach.b5",
+       -0.00061
+      ],
+      [
+       "c1",
+       "control.reach.g5",
+       0.00044
+      ],
+      [
+       "d4",
+       "control.geometry.e6",
+       -0.00042
+      ],
+      [
+       "f1",
+       "control.geometry.f5",
+       0.0003
+      ],
+      [
+       "d4",
+       "control.reach.c6",
+       0.00025
+      ],
+      [
+       "c1",
+       "control.geometry.g5",
+       -0.00024
+      ],
+      [
+       "f1",
+       "control.reach.f5",
+       0.00024
+      ],
+      [
+       "f5",
+       "square.control.white1",
+       -0.00017
+      ],
+      [
+       "d4",
+       "control.geometry.b5",
+       0.00015
+      ],
+      [
+       "f1",
+       "control.geometry.f6",
+       0.00012
+      ],
+      [
+       "f1",
+       "control.geometry.f7",
+       0.0001
+      ],
+      [
+       "c3",
+       "control.geometry.b5",
+       -0.0001
+      ],
+      [
+       "c1",
+       "control.reach.h6",
+       9e-05
+      ],
+      [
+       "f1",
+       "control.reach.f6",
+       8e-05
+      ],
+      [
+       "f1",
+       "control.reach.f7",
+       8e-05
+      ],
+      [
+       "d4",
+       "control.geometry.c6",
+       7e-05
+      ],
+      [
+       "g5",
+       "square.control.white1",
+       -6e-05
+      ]
+     ],
+     "pass": false
+    },
+    {
+     "kind": "with/without",
+     "concept": "Space(W)",
+     "edit": "off d4",
+     "expected": "drop",
+     "with": -0.0501,
+     "without": 0.0302,
+     "change": 0.0803,
+     "share change": 0.00885,
+     "y decoded without (stm)": -0.991,
+     "fen without": "r1b1r1k1/1pp1nppp/p1pb4/8/4PP2/2N5/PPP3PP/R1B2RK1 w - - 1 11",
+     "total with": 11.331,
+     "total without": 6.8262,
+     "bits with": [
+      [
+       "f4",
+       "control.geometry.e5",
+       -0.02304
+      ],
+      [
+       "f4",
+       "control.reach.g5",
+       0.01838
+      ],
+      [
+       "e4",
+       "control.reach.f5",
+       -0.0101
+      ],
+      [
+       "f4",
+       "control.geometry.g5",
+       -0.00874
+      ],
+      [
+       "e4",
+       "control.reach.d5",
+       -0.00781
+      ],
+      [
+       "e4",
+       "control.geometry.f5",
+       -0.00317
+      ],
+      [
+       "d4",
+       "control.geometry.f5",
+       -0.00236
+      ],
+      [
+       "f4",
+       "control.reach.e5",
+       -0.00229
+      ],
+      [
+       "e4",
+       "control.geometry.d5",
+       -0.00206
+      ],
+      [
+       "c1",
+       "control.geometry.g5",
+       -0.00168
+      ],
+      [
+       "c3",
+       "control.reach.d5",
+       -0.00155
+      ],
+      [
+       "d4",
+       "control.reach.f5",
+       -0.00153
+      ],
+      [
+       "c3",
+       "control.geometry.d5",
+       -0.0014
+      ],
+      [
+       "d4",
+       "control.reach.b5",
+       -0.00124
+      ],
+      [
+       "c3",
+       "control.reach.b5",
+       -0.00121
+      ],
+      [
+       "d4",
+       "control.reach.e6",
+       -0.00121
+      ],
+      [
+       "g5",
+       "square.control.white2",
+       0.00119
+      ],
+      [
+       "d4",
+       "control.geometry.e6",
+       -0.00058
+      ],
+      [
+       "c3",
+       "control.geometry.b5",
+       0.00012
+      ],
+      [
+       "d4",
+       "control.geometry.c6",
+       7e-05
+      ],
+      [
+       "d4",
+       "control.geometry.b5",
+       6e-05
+      ],
+      [
+       "d4",
+       "control.reach.c6",
+       5e-05
+      ]
+     ],
+     "bits without": [
+      [
+       "c3",
+       "control.reach.b5",
+       0.0118
+      ],
+      [
+       "c3",
+       "control.reach.d5",
+       0.01033
+      ],
+      [
+       "c3",
+       "control.geometry.d5",
+       0.01026
+      ],
+      [
+       "g5",
+       "square.control.white2",
+       0.00291
+      ],
+      [
+       "c1",
+       "control.geometry.g5",
+       0.00244
+      ],
+      [
+       "f4",
+       "control.reach.e5",
+       -0.00174
+      ],
+      [
+       "e4",
+       "control.reach.f5",
+       -0.00164
+      ],
+      [
+       "f4",
+       "control.reach.g5",
+       -0.00148
+      ],
+      [
+       "e4",
+       "control.geometry.d5",
+       -0.00127
+      ],
+      [
+       "f4",
+       "control.geometry.g5",
+       -0.00099
+      ],
+      [
+       "e4",
+       "control.reach.d5",
+       -0.00057
+      ],
+      [
+       "f4",
+       "control.geometry.e5",
+       0.0002
+      ],
+      [
+       "e4",
+       "control.geometry.f5",
+       -1e-05
+      ],
+      [
+       "c3",
+       "control.geometry.b5",
+       -0.0
+      ]
+     ],
+     "pass": false
+    }
+   ],
+   "quote": "Force and time on both sides are alike; the difference is only in space. White has two centre Pawns and a Knight on the fourth rank, while Black has all his pieces on the first three ranks.",
+   "source": "Znosko-Borovsky, The Middle Game in Chess (1922), Superior Positions, Advantage in Space, Diagram LXIII; Lasker \u2013 Capablanca, St Petersburg 1914, after 10...Re8",
+   "url": "https://archive.org/download/middlegameinches00znos/middlegameinches00znos_djvu.txt",
+   "topic": "space",
+   "favours": "white",
+   "side_to_move": "white",
+   "verdict": "not supported"
+  },
+  {
+   "claims": [
+    2
+   ],
+   "claim": [
+    "Black has gained space with pawns on e4 and f5 and the knight on e5."
+   ],
+   "orig_fen": "3r1rk1/1bp1q1pp/pp1b4/4np2/2P1p3/1PB1P2P/P2RBPP1/3RQNK1 w - - 4 22",
+   "y": -0.16091132164001465,
+   "y decoded": -0.43221452832221985,
+   "tests": [
+    {
+     "kind": "with/without",
+     "concept": "Space(B)",
+     "edit": "off e4",
+     "expected": "drop",
+     "with": 0.4624,
+     "without": 0.7786,
+     "change": 0.3162,
+     "share change": 0.00047,
+     "y decoded without (stm)": -0.13,
+     "fen without": "3r1rk1/1bp1q1pp/pp1b4/4np2/2P5/1PB1P2P/P2RBPP1/3RQNK1 w - - 4 22",
+     "total with": 54.1973,
+     "total without": 86.5204,
+     "bits with": [
+      [
+       "e7",
+       "control.reach.h4",
+       0.06503
+      ],
+      [
+       "d6",
+       "control.reach.b4",
+       0.05195
+      ],
+      [
+       "b7",
+       "control.reach.e4",
+       0.04825
+      ],
+      [
+       "e7",
+       "control.geometry.a3",
+       0.03829
+      ],
+      [
+       "b7",
+       "control.geometry.e4",
+       0.03487
+      ],
+      [
+       "d6",
+       "control.reach.a3",
+       0.02628
+      ],
+      [
+       "e7",
+       "control.geometry.b4",
+       0.0251
+      ],
+      [
+       "e5",
+       "control.reach.g4",
+       0.02445
+      ],
+      [
+       "e5",
+       "control.reach.c4",
+       0.02304
+      ],
+      [
+       "b7",
+       "control.geometry.f3",
+       0.02293
+      ],
+      [
+       "e5",
+       "control.reach.f3",
+       0.02039
+      ],
+      [
+       "e7",
+       "control.geometry.h4",
+       0.01969
+      ],
+      [
+       "e5",
+       "control.reach.d3",
+       0.0158
+      ],
+      [
+       "d6",
+       "control.geometry.a3",
+       0.01275
+      ],
+      [
+       "e5",
+       "control.geometry.f3",
+       -0.01224
+      ],
+      [
+       "f5",
+       "control.reach.g4",
+       0.01091
+      ],
+      [
+       "e5",
+       "control.geometry.g4",
+       -0.01087
+      ],
+      [
+       "e4",
+       "control.geometry.d3",
+       0.00874
+      ],
+      [
+       "e4",
+       "control.reach.f3",
+       0.00844
+      ],
+      [
+       "e5",
+       "control.geometry.d3",
+       0.00777
+      ],
+      [
+       "a3",
+       "square.control.black2",
+       0.00744
+      ],
+      [
+       "f5",
+       "control.geometry.e4",
+       -0.00743
+      ],
+      [
+       "e4",
+       "control.reach.d3",
+       0.00601
+      ],
+      [
+       "h4",
+       "square.control.black1",
+       0.00467
+      ],
+      [
+       "f5",
+       "control.reach.e4",
+       0.00422
+      ],
+      [
+       "b4",
+       "square.control.black1",
+       0.0039
+      ],
+      [
+       "f5",
+       "control.geometry.g4",
+       0.00354
+      ],
+      [
+       "f3",
+       "square.control.black1",
+       0.00119
+      ],
+      [
+       "e4",
+       "square.control.black2",
+       -0.00097
+      ],
+      [
+       "e5",
+       "control.geometry.c4",
+       -0.00086
+      ],
+      [
+       "d6",
+       "control.geometry.b4",
+       -0.00047
+      ],
+      [
+       "e4",
+       "control.geometry.f3",
+       -0.00045
+      ]
+     ],
+     "bits without": [
+      [
+       "e7",
+       "control.reach.h4",
+       0.09915
+      ],
+      [
+       "d6",
+       "control.reach.b4",
+       0.08426
+      ],
+      [
+       "b7",
+       "control.geometry.e4",
+       0.0697
+      ],
+      [
+       "b7",
+       "control.reach.e4",
+       0.06709
+      ],
+      [
+       "b7",
+       "control.reach.g2",
+       0.06612
+      ],
+      [
+       "e7",
+       "control.geometry.a3",
+       0.05744
+      ],
+      [
+       "e5",
+       "control.reach.c4",
+       0.0436
+      ],
+      [
+       "b7",
+       "control.geometry.f3",
+       0.04136
+      ],
+      [
+       "e7",
+       "control.geometry.b4",
+       0.04116
+      ],
+      [
+       "d6",
+       "control.reach.a3",
+       0.04094
+      ],
+      [
+       "b7",
+       "control.reach.f3",
+       0.03486
+      ],
+      [
+       "e5",
+       "control.geometry.g4",
+       -0.031
+      ],
+      [
+       "e7",
+       "control.geometry.h4",
+       0.02891
+      ],
+      [
+       "e5",
+       "control.reach.d3",
+       0.0271
+      ],
+      [
+       "e5",
+       "control.reach.f3",
+       0.02469
+      ],
+      [
+       "e5",
+       "control.reach.g4",
+       0.0244
+      ],
+      [
+       "e5",
+       "control.geometry.f3",
+       -0.02433
+      ],
+      [
+       "e4",
+       "square.control.black2",
+       0.02139
+      ],
+      [
+       "d6",
+       "control.geometry.a3",
+       0.02067
+      ],
+      [
+       "e5",
+       "control.geometry.d3",
+       0.0123
+      ],
+      [
+       "f5",
+       "control.reach.g4",
+       0.01117
+      ],
+      [
+       "a3",
+       "square.control.black2",
+       0.00974
+      ],
+      [
+       "e5",
+       "control.geometry.c4",
+       -0.00961
+      ],
+      [
+       "f5",
+       "control.reach.e4",
+       0.00751
+      ],
+      [
+       "b4",
+       "square.control.black1",
+       0.00525
+      ],
+      [
+       "h4",
+       "square.control.black1",
+       0.0042
+      ],
+      [
+       "b7",
+       "control.geometry.g2",
+       0.0024
+      ],
+      [
+       "f5",
+       "control.geometry.g4",
+       -0.00218
+      ],
+      [
+       "f5",
+       "control.geometry.e4",
+       0.00019
+      ],
+      [
+       "d6",
+       "control.geometry.b4",
+       9e-05
+      ]
+     ],
+     "pass": false
+    },
+    {
+     "kind": "with/without",
+     "concept": "Space(B)",
+     "edit": "off f5",
+     "expected": "drop",
+     "with": 0.4624,
+     "without": 0.7522,
+     "change": 0.2898,
+     "share change": 0.00055,
+     "y decoded without (stm)": -0.23,
+     "fen without": "3r1rk1/1bp1q1pp/pp1b4/4n3/2P1p3/1PB1P2P/P2RBPP1/3RQNK1 w - - 4 22",
+     "total with": 54.1973,
+     "total without": 82.7952,
+     "bits with": [
+      [
+       "e7",
+       "control.reach.h4",
+       0.06503
+      ],
+      [
+       "d6",
+       "control.reach.b4",
+       0.05195
+      ],
+      [
+       "b7",
+       "control.reach.e4",
+       0.04825
+      ],
+      [
+       "e7",
+       "control.geometry.a3",
+       0.03829
+      ],
+      [
+       "b7",
+       "control.geometry.e4",
+       0.03487
+      ],
+      [
+       "d6",
+       "control.reach.a3",
+       0.02628
+      ],
+      [
+       "e7",
+       "control.geometry.b4",
+       0.0251
+      ],
+      [
+       "e5",
+       "control.reach.g4",
+       0.02445
+      ],
+      [
+       "e5",
+       "control.reach.c4",
+       0.02304
+      ],
+      [
+       "b7",
+       "control.geometry.f3",
+       0.02293
+      ],
+      [
+       "e5",
+       "control.reach.f3",
+       0.02039
+      ],
+      [
+       "e7",
+       "control.geometry.h4",
+       0.01969
+      ],
+      [
+       "e5",
+       "control.reach.d3",
+       0.0158
+      ],
+      [
+       "d6",
+       "control.geometry.a3",
+       0.01275
+      ],
+      [
+       "e5",
+       "control.geometry.f3",
+       -0.01224
+      ],
+      [
+       "f5",
+       "control.reach.g4",
+       0.01091
+      ],
+      [
+       "e5",
+       "control.geometry.g4",
+       -0.01087
+      ],
+      [
+       "e4",
+       "control.geometry.d3",
+       0.00874
+      ],
+      [
+       "e4",
+       "control.reach.f3",
+       0.00844
+      ],
+      [
+       "e5",
+       "control.geometry.d3",
+       0.00777
+      ],
+      [
+       "a3",
+       "square.control.black2",
+       0.00744
+      ],
+      [
+       "f5",
+       "control.geometry.e4",
+       -0.00743
+      ],
+      [
+       "e4",
+       "control.reach.d3",
+       0.00601
+      ],
+      [
+       "h4",
+       "square.control.black1",
+       0.00467
+      ],
+      [
+       "f5",
+       "control.reach.e4",
+       0.00422
+      ],
+      [
+       "b4",
+       "square.control.black1",
+       0.0039
+      ],
+      [
+       "f5",
+       "control.geometry.g4",
+       0.00354
+      ],
+      [
+       "f3",
+       "square.control.black1",
+       0.00119
+      ],
+      [
+       "e4",
+       "square.control.black2",
+       -0.00097
+      ],
+      [
+       "e5",
+       "control.geometry.c4",
+       -0.00086
+      ],
+      [
+       "d6",
+       "control.geometry.b4",
+       -0.00047
+      ],
+      [
+       "e4",
+       "control.geometry.f3",
+       -0.00045
+      ]
+     ],
+     "bits without": [
+      [
+       "e7",
+       "control.reach.h4",
+       0.09043
+      ],
+      [
+       "d6",
+       "control.reach.b4",
+       0.08263
+      ],
+      [
+       "b7",
+       "control.reach.e4",
+       0.07629
+      ],
+      [
+       "e7",
+       "control.geometry.a3",
+       0.0581
+      ],
+      [
+       "b7",
+       "control.geometry.e4",
+       0.05585
+      ],
+      [
+       "e5",
+       "control.reach.c4",
+       0.04597
+      ],
+      [
+       "e5",
+       "control.reach.g4",
+       0.04499
+      ],
+      [
+       "d6",
+       "control.reach.a3",
+       0.04065
+      ],
+      [
+       "b7",
+       "control.geometry.f3",
+       0.03571
+      ],
+      [
+       "e7",
+       "control.geometry.b4",
+       0.03482
+      ],
+      [
+       "f8",
+       "control.reach.f3",
+       0.03386
+      ],
+      [
+       "e7",
+       "control.geometry.h4",
+       0.0323
+      ],
+      [
+       "e5",
+       "control.reach.f3",
+       0.03182
+      ],
+      [
+       "e5",
+       "control.reach.d3",
+       0.02763
+      ],
+      [
+       "d6",
+       "control.geometry.a3",
+       0.02089
+      ],
+      [
+       "f8",
+       "control.geometry.f2",
+       0.01957
+      ],
+      [
+       "f8",
+       "control.reach.f2",
+       -0.01843
+      ],
+      [
+       "e5",
+       "control.geometry.f3",
+       -0.01818
+      ],
+      [
+       "e4",
+       "control.reach.d3",
+       0.01548
+      ],
+      [
+       "e5",
+       "control.geometry.g4",
+       -0.01546
+      ],
+      [
+       "f8",
+       "control.geometry.f4",
+       0.01423
+      ],
+      [
+       "e4",
+       "control.geometry.d3",
+       0.01324
+      ],
+      [
+       "e5",
+       "control.geometry.d3",
+       0.01147
+      ],
+      [
+       "f3",
+       "square.control.black2",
+       0.01039
+      ],
+      [
+       "a3",
+       "square.control.black2",
+       0.00806
+      ],
+      [
+       "e4",
+       "square.control.black1",
+       -0.00702
+      ],
+      [
+       "h4",
+       "square.control.black1",
+       0.00637
+      ],
+      [
+       "b4",
+       "square.control.black1",
+       0.0056
+      ],
+      [
+       "e5",
+       "control.geometry.c4",
+       -0.00343
+      ],
+      [
+       "f8",
+       "control.reach.f4",
+       -0.00341
+      ],
+      [
+       "f8",
+       "control.geometry.f3",
+       0.00208
+      ],
+      [
+       "e4",
+       "control.reach.f3",
+       0.00167
+      ],
+      [
+       "d6",
+       "control.geometry.b4",
+       -0.00141
+      ],
+      [
+       "e4",
+       "control.geometry.f3",
+       -0.0006
+      ]
+     ],
+     "pass": false
+    },
+    {
+     "kind": "with/without",
+     "concept": "Space(B)",
+     "edit": "off e5",
+     "expected": "drop",
+     "with": 0.4624,
+     "without": 0.4214,
+     "change": -0.041,
+     "share change": 0.0028,
+     "y decoded without (stm)": 0.82,
+     "fen without": "3r1rk1/1bp1q1pp/pp1b4/5p2/2P1p3/1PB1P2P/P2RBPP1/3RQNK1 w - - 4 22",
+     "total with": 54.1973,
+     "total without": 37.1809,
+     "bits with": [
+      [
+       "e7",
+       "control.reach.h4",
+       0.06503
+      ],
+      [
+       "d6",
+       "control.reach.b4",
+       0.05195
+      ],
+      [
+       "b7",
+       "control.reach.e4",
+       0.04825
+      ],
+      [
+       "e7",
+       "control.geometry.a3",
+       0.03829
+      ],
+      [
+       "b7",
+       "control.geometry.e4",
+       0.03487
+      ],
+      [
+       "d6",
+       "control.reach.a3",
+       0.02628
+      ],
+      [
+       "e7",
+       "control.geometry.b4",
+       0.0251
+      ],
+      [
+       "e5",
+       "control.reach.g4",
+       0.02445
+      ],
+      [
+       "e5",
+       "control.reach.c4",
+       0.02304
+      ],
+      [
+       "b7",
+       "control.geometry.f3",
+       0.02293
+      ],
+      [
+       "e5",
+       "control.reach.f3",
+       0.02039
+      ],
+      [
+       "e7",
+       "control.geometry.h4",
+       0.01969
+      ],
+      [
+       "e5",
+       "control.reach.d3",
+       0.0158
+      ],
+      [
+       "d6",
+       "control.geometry.a3",
+       0.01275
+      ],
+      [
+       "e5",
+       "control.geometry.f3",
+       -0.01224
+      ],
+      [
+       "f5",
+       "control.reach.g4",
+       0.01091
+      ],
+      [
+       "e5",
+       "control.geometry.g4",
+       -0.01087
+      ],
+      [
+       "e4",
+       "control.geometry.d3",
+       0.00874
+      ],
+      [
+       "e4",
+       "control.reach.f3",
+       0.00844
+      ],
+      [
+       "e5",
+       "control.geometry.d3",
+       0.00777
+      ],
+      [
+       "a3",
+       "square.control.black2",
+       0.00744
+      ],
+      [
+       "f5",
+       "control.geometry.e4",
+       -0.00743
+      ],
+      [
+       "e4",
+       "control.reach.d3",
+       0.00601
+      ],
+      [
+       "h4",
+       "square.control.black1",
+       0.00467
+      ],
+      [
+       "f5",
+       "control.reach.e4",
+       0.00422
+      ],
+      [
+       "b4",
+       "square.control.black1",
+       0.0039
+      ],
+      [
+       "f5",
+       "control.geometry.g4",
+       0.00354
+      ],
+      [
+       "f3",
+       "square.control.black1",
+       0.00119
+      ],
+      [
+       "e4",
+       "square.control.black2",
+       -0.00097
+      ],
+      [
+       "e5",
+       "control.geometry.c4",
+       -0.00086
+      ],
+      [
+       "d6",
+       "control.geometry.b4",
+       -0.00047
+      ],
+      [
+       "e4",
+       "control.geometry.f3",
+       -0.00045
+      ]
+     ],
+     "bits without": [
+      [
+       "e7",
+       "control.reach.h4",
+       0.04569
+      ],
+      [
+       "d6",
+       "control.reach.b4",
+       0.03482
+      ],
+      [
+       "d6",
+       "control.reach.f4",
+       0.03254
+      ],
+      [
+       "d6",
+       "control.reach.g3",
+       0.03197
+      ],
+      [
+       "b7",
+       "control.reach.e4",
+       0.02942
+      ],
+      [
+       "d6",
+       "control.geometry.h2",
+       0.02555
+      ],
+      [
+       "e7",
+       "control.geometry.a3",
+       0.02392
+      ],
+      [
+       "b7",
+       "control.geometry.e4",
+       0.01984
+      ],
+      [
+       "e7",
+       "control.geometry.b4",
+       0.01925
+      ],
+      [
+       "e7",
+       "control.geometry.e4",
+       0.01898
+      ],
+      [
+       "e7",
+       "control.reach.e4",
+       0.01719
+      ],
+      [
+       "d6",
+       "control.geometry.f4",
+       0.01666
+      ],
+      [
+       "e7",
+       "control.geometry.h4",
+       0.01482
+      ],
+      [
+       "b7",
+       "control.geometry.f3",
+       0.01335
+      ],
+      [
+       "e4",
+       "control.reach.f3",
+       0.01332
+      ],
+      [
+       "f5",
+       "control.geometry.e4",
+       -0.01274
+      ],
+      [
+       "d6",
+       "control.geometry.a3",
+       0.01248
+      ],
+      [
+       "d6",
+       "control.geometry.g3",
+       0.01231
+      ],
+      [
+       "d6",
+       "control.reach.a3",
+       0.01182
+      ],
+      [
+       "f5",
+       "control.reach.g4",
+       0.01
+      ],
+      [
+       "f5",
+       "control.geometry.g4",
+       0.00995
+      ],
+      [
+       "e4",
+       "control.geometry.d3",
+       0.0073
+      ],
+      [
+       "d6",
+       "control.geometry.b4",
+       0.00484
+      ],
+      [
+       "a3",
+       "square.control.black2",
+       0.00482
+      ],
+      [
+       "e4",
+       "control.reach.d3",
+       -0.00464
+      ],
+      [
+       "h4",
+       "square.control.black1",
+       0.00339
+      ],
+      [
+       "d6",
+       "control.reach.h2",
+       0.0033
+      ],
+      [
+       "e4",
+       "square.control.black3plus",
+       -0.00163
+      ],
+      [
+       "e4",
+       "control.geometry.f3",
+       0.00125
+      ],
+      [
+       "f5",
+       "control.reach.e4",
+       0.00119
+      ],
+      [
+       "b4",
+       "square.control.black1",
+       0.00039
+      ]
+     ],
+     "pass": false
+    }
+   ],
+   "quote": "As regards space, Black has undoubtedly gained, thanks to his advanced Pawns on [e4] and [f5] and the Knight on [e5]. White has only one Pawn on the fourth rank ([c4]), all his other men being crowded together on the first three ranks.",
+   "source": "Znosko-Borovsky, The Middle Game in Chess (1922), Valuation of the Position, Diagram XLIII; Vergani \u2013 Teichmann, Hastings 1895, after 21...Ne5",
+   "url": "https://archive.org/download/middlegameinches00znos/middlegameinches00znos_djvu.txt",
+   "topic": "space",
+   "favours": "black",
+   "side_to_move": "white",
+   "verdict": "not supported"
+  },
+  {
+   "claims": [
+    3
+   ],
+   "claim": [
+    "White has gained space with pawns on d5 and f4 and the queen on d4."
+   ],
+   "orig_fen": "3rr1k1/ppp2ppp/1n1q1n2/3P4/3Q1P2/2N2N1P/PPP3P1/2KR3R w - - 1 16",
+   "y": 0.03322398662567139,
+   "y decoded": -0.0016326904296875,
+   "tests": [
+    {
+     "kind": "with/without",
+     "concept": "Space(W)",
+     "edit": "off d5",
+     "expected": "drop",
+     "with": 0.0919,
+     "without": 0.0408,
+     "change": -0.0512,
+     "share change": -0.00463,
+     "y decoded without (stm)": -0.017,
+     "fen without": "3rr1k1/ppp2ppp/1n1q1n2/8/3Q1P2/2N2N1P/PPP3P1/2KR3R w - - 1 16",
+     "total with": 11.6765,
+     "total without": 12.5806,
+     "bits with": [
+      [
+       "f4",
+       "control.geometry.e5",
+       -0.00956
+      ],
+      [
+       "f4",
+       "control.reach.g5",
+       0.00852
+      ],
+      [
+       "d4",
+       "control.geometry.e5",
+       0.00759
+      ],
+      [
+       "c3",
+       "control.reach.b5",
+       0.00721
+      ],
+      [
+       "d5",
+       "control.reach.c6",
+       0.00707
+      ],
+      [
+       "f3",
+       "control.reach.g5",
+       0.00684
+      ],
+      [
+       "c3",
+       "control.geometry.d5",
+       0.00612
+      ],
+      [
+       "d4",
+       "control.geometry.b6",
+       0.00583
+      ],
+      [
+       "d4",
+       "control.reach.d5",
+       0.00563
+      ],
+      [
+       "d4",
+       "control.reach.c5",
+       0.00551
+      ],
+      [
+       "d4",
+       "control.geometry.d5",
+       0.00537
+      ],
+      [
+       "d4",
+       "control.reach.e5",
+       0.00518
+      ],
+      [
+       "d4",
+       "control.geometry.f6",
+       0.00517
+      ],
+      [
+       "c3",
+       "control.reach.d5",
+       0.00515
+      ],
+      [
+       "d4",
+       "control.geometry.c5",
+       0.0051
+      ],
+      [
+       "d4",
+       "control.reach.b6",
+       0.00484
+      ],
+      [
+       "f3",
+       "control.geometry.e5",
+       0.00454
+      ],
+      [
+       "f4",
+       "control.geometry.g5",
+       -0.0044
+      ],
+      [
+       "f3",
+       "control.reach.e5",
+       0.00353
+      ],
+      [
+       "d5",
+       "control.geometry.c6",
+       0.00339
+      ],
+      [
+       "e5",
+       "square.control.white1",
+       0.00289
+      ],
+      [
+       "f4",
+       "control.reach.e5",
+       -0.00283
+      ],
+      [
+       "g5",
+       "square.control.white2",
+       0.00283
+      ],
+      [
+       "d5",
+       "control.reach.e6",
+       -0.00275
+      ],
+      [
+       "d1",
+       "control.geometry.d5",
+       0.00262
+      ],
+      [
+       "b5",
+       "square.control.white1",
+       0.00178
+      ],
+      [
+       "d5",
+       "control.geometry.e6",
+       -0.00172
+      ],
+      [
+       "d4",
+       "control.reach.f6",
+       0.00118
+      ],
+      [
+       "c3",
+       "control.geometry.b5",
+       -0.00057
+      ],
+      [
+       "f3",
+       "control.geometry.g5",
+       -0.00015
+      ]
+     ],
+     "bits without": [
+      [
+       "f4",
+       "control.geometry.e5",
+       -0.01721
+      ],
+      [
+       "f4",
+       "control.reach.g5",
+       0.01649
+      ],
+      [
+       "f4",
+       "control.geometry.g5",
+       -0.00876
+      ],
+      [
+       "d4",
+       "control.geometry.d6",
+       0.00702
+      ],
+      [
+       "d4",
+       "control.geometry.e5",
+       0.00644
+      ],
+      [
+       "d4",
+       "control.reach.d5",
+       0.00498
+      ],
+      [
+       "d4",
+       "control.reach.c5",
+       0.00472
+      ],
+      [
+       "d4",
+       "control.reach.e5",
+       0.00452
+      ],
+      [
+       "d4",
+       "control.geometry.b6",
+       0.00447
+      ],
+      [
+       "d4",
+       "control.reach.b6",
+       0.00408
+      ],
+      [
+       "d4",
+       "control.geometry.f6",
+       0.00405
+      ],
+      [
+       "d4",
+       "control.geometry.d5",
+       0.00357
+      ],
+      [
+       "d4",
+       "control.geometry.c5",
+       0.003
+      ],
+      [
+       "f4",
+       "control.reach.e5",
+       -0.00299
+      ],
+      [
+       "d1",
+       "control.geometry.d5",
+       0.00258
+      ],
+      [
+       "f3",
+       "control.reach.g5",
+       0.00183
+      ],
+      [
+       "d1",
+       "control.geometry.d6",
+       0.00149
+      ],
+      [
+       "e5",
+       "square.control.white1",
+       0.00125
+      ],
+      [
+       "f3",
+       "control.geometry.g5",
+       -0.00109
+      ],
+      [
+       "c3",
+       "control.reach.b5",
+       0.00095
+      ],
+      [
+       "d4",
+       "control.reach.f6",
+       -0.00083
+      ],
+      [
+       "c3",
+       "control.geometry.d5",
+       -0.00052
+      ],
+      [
+       "f3",
+       "control.geometry.e5",
+       0.00052
+      ],
+      [
+       "b5",
+       "square.control.white1",
+       0.00041
+      ],
+      [
+       "g5",
+       "square.control.white2",
+       0.00038
+      ],
+      [
+       "c3",
+       "control.geometry.b5",
+       -0.00033
+      ],
+      [
+       "d4",
+       "control.reach.d6",
+       -0.0003
+      ],
+      [
+       "c3",
+       "control.reach.d5",
+       0.00013
+      ],
+      [
+       "f3",
+       "control.reach.e5",
+       -0.0001
+      ]
+     ],
+     "pass": true
+    },
+    {
+     "kind": "with/without",
+     "concept": "Space(W)",
+     "edit": "off f4",
+     "expected": "drop",
+     "with": 0.0919,
+     "without": 0.039,
+     "change": -0.0529,
+     "share change": -0.00366,
+     "y decoded without (stm)": -0.507,
+     "fen without": "3rr1k1/ppp2ppp/1n1q1n2/3P4/3Q4/2N2N1P/PPP3P1/2KR3R w - - 1 16",
+     "total with": 11.6765,
+     "total without": 9.2608,
+     "bits with": [
+      [
+       "f4",
+       "control.geometry.e5",
+       -0.00956
+      ],
+      [
+       "f4",
+       "control.reach.g5",
+       0.00852
+      ],
+      [
+       "d4",
+       "control.geometry.e5",
+       0.00759
+      ],
+      [
+       "c3",
+       "control.reach.b5",
+       0.00721
+      ],
+      [
+       "d5",
+       "control.reach.c6",
+       0.00707
+      ],
+      [
+       "f3",
+       "control.reach.g5",
+       0.00684
+      ],
+      [
+       "c3",
+       "control.geometry.d5",
+       0.00612
+      ],
+      [
+       "d4",
+       "control.geometry.b6",
+       0.00583
+      ],
+      [
+       "d4",
+       "control.reach.d5",
+       0.00563
+      ],
+      [
+       "d4",
+       "control.reach.c5",
+       0.00551
+      ],
+      [
+       "d4",
+       "control.geometry.d5",
+       0.00537
+      ],
+      [
+       "d4",
+       "control.reach.e5",
+       0.00518
+      ],
+      [
+       "d4",
+       "control.geometry.f6",
+       0.00517
+      ],
+      [
+       "c3",
+       "control.reach.d5",
+       0.00515
+      ],
+      [
+       "d4",
+       "control.geometry.c5",
+       0.0051
+      ],
+      [
+       "d4",
+       "control.reach.b6",
+       0.00484
+      ],
+      [
+       "f3",
+       "control.geometry.e5",
+       0.00454
+      ],
+      [
+       "f4",
+       "control.geometry.g5",
+       -0.0044
+      ],
+      [
+       "f3",
+       "control.reach.e5",
+       0.00353
+      ],
+      [
+       "d5",
+       "control.geometry.c6",
+       0.00339
+      ],
+      [
+       "e5",
+       "square.control.white1",
+       0.00289
+      ],
+      [
+       "f4",
+       "control.reach.e5",
+       -0.00283
+      ],
+      [
+       "g5",
+       "square.control.white2",
+       0.00283
+      ],
+      [
+       "d5",
+       "control.reach.e6",
+       -0.00275
+      ],
+      [
+       "d1",
+       "control.geometry.d5",
+       0.00262
+      ],
+      [
+       "b5",
+       "square.control.white1",
+       0.00178
+      ],
+      [
+       "d5",
+       "control.geometry.e6",
+       -0.00172
+      ],
+      [
+       "d4",
+       "control.reach.f6",
+       0.00118
+      ],
+      [
+       "c3",
+       "control.geometry.b5",
+       -0.00057
+      ],
+      [
+       "f3",
+       "control.geometry.g5",
+       -0.00015
+      ]
+     ],
+     "bits without": [
+      [
+       "d5",
+       "control.reach.c6",
+       0.01047
+      ],
+      [
+       "d4",
+       "control.geometry.e5",
+       0.00414
+      ],
+      [
+       "d4",
+       "control.geometry.f6",
+       0.00323
+      ],
+      [
+       "d5",
+       "control.geometry.c6",
+       0.00319
+      ],
+      [
+       "d4",
+       "control.reach.c5",
+       0.00318
+      ],
+      [
+       "d4",
+       "control.reach.d5",
+       0.00308
+      ],
+      [
+       "d4",
+       "control.geometry.d5",
+       0.00305
+      ],
+      [
+       "d4",
+       "control.geometry.b6",
+       0.00292
+      ],
+      [
+       "d4",
+       "control.reach.b6",
+       0.00277
+      ],
+      [
+       "d5",
+       "control.reach.e6",
+       -0.00257
+      ],
+      [
+       "d4",
+       "control.reach.e5",
+       0.00245
+      ],
+      [
+       "d4",
+       "control.geometry.c5",
+       0.00242
+      ],
+      [
+       "d5",
+       "control.geometry.e6",
+       -0.00241
+      ],
+      [
+       "d1",
+       "control.geometry.d5",
+       0.00185
+      ],
+      [
+       "f3",
+       "control.reach.e5",
+       -0.00069
+      ],
+      [
+       "g5",
+       "square.control.white1",
+       0.00067
+      ],
+      [
+       "f3",
+       "control.reach.g5",
+       0.00065
+      ],
+      [
+       "d4",
+       "control.reach.f6",
+       0.00055
+      ],
+      [
+       "b5",
+       "square.control.white1",
+       0.0005
+      ],
+      [
+       "c3",
+       "control.reach.b5",
+       0.0004
+      ],
+      [
+       "f3",
+       "control.geometry.g5",
+       -0.00033
+      ],
+      [
+       "c3",
+       "control.geometry.d5",
+       -0.00031
+      ],
+      [
+       "c3",
+       "control.reach.d5",
+       -0.00028
+      ],
+      [
+       "f3",
+       "control.geometry.e5",
+       0.00017
+      ],
+      [
+       "c3",
+       "control.geometry.b5",
+       -8e-05
+      ]
+     ],
+     "pass": true
+    },
+    {
+     "kind": "with/without",
+     "concept": "Space(W)",
+     "edit": "off d4",
+     "expected": "drop",
+     "with": 0.0919,
+     "without": 0.0235,
+     "change": -0.0684,
+     "share change": -0.00211,
+     "y decoded without (stm)": -0.999,
+     "fen without": "3rr1k1/ppp2ppp/1n1q1n2/3P4/5P2/2N2N1P/PPP3P1/2KR3R w - - 1 16",
+     "total with": 11.6765,
+     "total without": 4.0832,
+     "bits with": [
+      [
+       "f4",
+       "control.geometry.e5",
+       -0.00956
+      ],
+      [
+       "f4",
+       "control.reach.g5",
+       0.00852
+      ],
+      [
+       "d4",
+       "control.geometry.e5",
+       0.00759
+      ],
+      [
+       "c3",
+       "control.reach.b5",
+       0.00721
+      ],
+      [
+       "d5",
+       "control.reach.c6",
+       0.00707
+      ],
+      [
+       "f3",
+       "control.reach.g5",
+       0.00684
+      ],
+      [
+       "c3",
+       "control.geometry.d5",
+       0.00612
+      ],
+      [
+       "d4",
+       "control.geometry.b6",
+       0.00583
+      ],
+      [
+       "d4",
+       "control.reach.d5",
+       0.00563
+      ],
+      [
+       "d4",
+       "control.reach.c5",
+       0.00551
+      ],
+      [
+       "d4",
+       "control.geometry.d5",
+       0.00537
+      ],
+      [
+       "d4",
+       "control.reach.e5",
+       0.00518
+      ],
+      [
+       "d4",
+       "control.geometry.f6",
+       0.00517
+      ],
+      [
+       "c3",
+       "control.reach.d5",
+       0.00515
+      ],
+      [
+       "d4",
+       "control.geometry.c5",
+       0.0051
+      ],
+      [
+       "d4",
+       "control.reach.b6",
+       0.00484
+      ],
+      [
+       "f3",
+       "control.geometry.e5",
+       0.00454
+      ],
+      [
+       "f4",
+       "control.geometry.g5",
+       -0.0044
+      ],
+      [
+       "f3",
+       "control.reach.e5",
+       0.00353
+      ],
+      [
+       "d5",
+       "control.geometry.c6",
+       0.00339
+      ],
+      [
+       "e5",
+       "square.control.white1",
+       0.00289
+      ],
+      [
+       "f4",
+       "control.reach.e5",
+       -0.00283
+      ],
+      [
+       "g5",
+       "square.control.white2",
+       0.00283
+      ],
+      [
+       "d5",
+       "control.reach.e6",
+       -0.00275
+      ],
+      [
+       "d1",
+       "control.geometry.d5",
+       0.00262
+      ],
+      [
+       "b5",
+       "square.control.white1",
+       0.00178
+      ],
+      [
+       "d5",
+       "control.geometry.e6",
+       -0.00172
+      ],
+      [
+       "d4",
+       "control.reach.f6",
+       0.00118
+      ],
+      [
+       "c3",
+       "control.geometry.b5",
+       -0.00057
+      ],
+      [
+       "f3",
+       "control.geometry.g5",
+       -0.00015
+      ]
+     ],
+     "bits without": [
+      [
+       "f3",
+       "control.reach.g5",
+       0.00378
+      ],
+      [
+       "c3",
+       "control.reach.b5",
+       0.00363
+      ],
+      [
+       "f3",
+       "control.reach.e5",
+       0.00345
+      ],
+      [
+       "c3",
+       "control.geometry.d5",
+       0.00312
+      ],
+      [
+       "c3",
+       "control.reach.d5",
+       0.00309
+      ],
+      [
+       "f3",
+       "control.geometry.e5",
+       0.00272
+      ],
+      [
+       "d1",
+       "control.geometry.d5",
+       0.00193
+      ],
+      [
+       "f4",
+       "control.geometry.e5",
+       0.00176
+      ],
+      [
+       "d5",
+       "control.reach.c6",
+       -0.00159
+      ],
+      [
+       "f4",
+       "control.reach.g5",
+       -0.00158
+      ],
+      [
+       "b5",
+       "square.control.white1",
+       0.00093
+      ],
+      [
+       "f3",
+       "control.geometry.g5",
+       0.00092
+      ],
+      [
+       "f4",
+       "control.geometry.g5",
+       0.00088
+      ],
+      [
+       "g5",
+       "square.control.white2",
+       0.00064
+      ],
+      [
+       "d5",
+       "control.geometry.e6",
+       0.00058
+      ],
+      [
+       "d5",
+       "control.geometry.c6",
+       -0.00057
+      ],
+      [
+       "d1",
+       "control.reach.d5",
+       0.0005
+      ],
+      [
+       "d5",
+       "control.reach.e6",
+       -0.00041
+      ],
+      [
+       "c3",
+       "control.geometry.b5",
+       -0.0003
+      ],
+      [
+       "f4",
+       "control.reach.e5",
+       5e-05
+      ]
+     ],
+     "pass": true
+    }
+   ],
+   "quote": "We can further easily see that White has gained also in space, because his Pawns stand on [d5] and [f4], and the Queen on [d4], while Black has all his pieces posted on three ranks.",
+   "source": "Znosko-Borovsky, The Middle Game in Chess (1922), Valuation of the Position, Diagram XLII; Leonhardt \u2013 Marshall, San Sebastian 1911, after 15...Rad8",
+   "url": "https://archive.org/download/middlegameinches00znos/middlegameinches00znos_djvu.txt",
+   "topic": "space",
+   "favours": "white",
+   "side_to_move": "white",
+   "verdict": "supported"
+  },
+  {
+   "claims": [
+    4
+   ],
+   "claim": [
+    "Black's lead in time has become a lead in space on the queenside."
+   ],
+   "orig_fen": "4r1k1/3nr1pp/p4p2/3b1P2/qp1Pp1NQ/2p1P3/PP3RPP/2N2RK1 w - - 0 32",
+   "y": -0.6187765598297119,
+   "y decoded": -0.6606866121292114,
+   "tests": [
+    {
+     "kind": "with/without",
+     "concept": "Space(B, a-d)",
+     "edit": "off b4",
+     "expected": "drop",
+     "with": 0.2037,
+     "without": 0.4747,
+     "change": 0.271,
+     "share change": 0.00449,
+     "y decoded without (stm)": -0.233,
+     "fen without": "4r1k1/3nr1pp/p4p2/3b1P2/q2Pp1NQ/2p1P3/PP3RPP/2N2RK1 w - - 0 32",
+     "total with": 20.326,
+     "total without": 32.7114,
+     "bits with": [
+      [
+       "a4",
+       "control.reach.a2",
+       0.03697
+      ],
+      [
+       "a4",
+       "control.geometry.a3",
+       0.02487
+      ],
+      [
+       "a4",
+       "control.geometry.d1",
+       0.02318
+      ],
+      [
+       "a4",
+       "control.reach.d1",
+       -0.01775
+      ],
+      [
+       "a4",
+       "control.geometry.b4",
+       0.01526
+      ],
+      [
+       "a4",
+       "control.geometry.c2",
+       0.01488
+      ],
+      [
+       "d5",
+       "control.geometry.b3",
+       0.0125
+      ],
+      [
+       "a4",
+       "control.reach.a3",
+       0.01225
+      ],
+      [
+       "a4",
+       "control.geometry.a2",
+       0.01111
+      ],
+      [
+       "c3",
+       "control.geometry.b2",
+       0.01107
+      ],
+      [
+       "d5",
+       "control.reach.b3",
+       0.01086
+      ],
+      [
+       "a4",
+       "control.reach.b4",
+       0.01025
+      ],
+      [
+       "d5",
+       "control.geometry.c4",
+       0.01021
+      ],
+      [
+       "a4",
+       "control.reach.c2",
+       0.00979
+      ],
+      [
+       "d5",
+       "control.reach.a2",
+       0.00769
+      ],
+      [
+       "c3",
+       "control.geometry.d2",
+       -0.00607
+      ],
+      [
+       "b4",
+       "control.reach.a3",
+       -0.00526
+      ],
+      [
+       "b4",
+       "control.geometry.a3",
+       -0.0052
+      ],
+      [
+       "b4",
+       "control.reach.c3",
+       0.00484
+      ],
+      [
+       "b4",
+       "square.control.black1",
+       0.0048
+      ],
+      [
+       "c3",
+       "control.reach.b2",
+       0.00477
+      ],
+      [
+       "d5",
+       "control.geometry.a2",
+       0.0041
+      ],
+      [
+       "a4",
+       "control.geometry.b3",
+       0.00408
+      ],
+      [
+       "a2",
+       "square.control.black1",
+       -0.00331
+      ],
+      [
+       "c4",
+       "square.control.black1",
+       0.00224
+      ],
+      [
+       "e4",
+       "control.geometry.d3",
+       0.00221
+      ],
+      [
+       "a4",
+       "control.reach.b3",
+       0.00204
+      ],
+      [
+       "a3",
+       "square.control.black1",
+       0.00153
+      ],
+      [
+       "c3",
+       "control.reach.d2",
+       -0.00125
+      ],
+      [
+       "d5",
+       "control.reach.c4",
+       0.00084
+      ],
+      [
+       "e4",
+       "control.reach.d3",
+       0.00062
+      ],
+      [
+       "b4",
+       "control.geometry.c3",
+       -0.00042
+      ]
+     ],
+     "bits without": [
+      [
+       "a4",
+       "control.reach.a2",
+       0.06445
+      ],
+      [
+       "a4",
+       "control.reach.d4",
+       0.03759
+      ],
+      [
+       "a4",
+       "control.geometry.a3",
+       0.03394
+      ],
+      [
+       "a4",
+       "control.geometry.d1",
+       0.03195
+      ],
+      [
+       "a4",
+       "control.geometry.d4",
+       0.02811
+      ],
+      [
+       "a4",
+       "control.reach.a3",
+       0.02788
+      ],
+      [
+       "a4",
+       "control.geometry.b4",
+       0.0265
+      ],
+      [
+       "a4",
+       "control.geometry.c2",
+       0.02623
+      ],
+      [
+       "a4",
+       "control.geometry.a2",
+       0.0239
+      ],
+      [
+       "a4",
+       "control.geometry.c4",
+       0.02387
+      ],
+      [
+       "d5",
+       "control.geometry.b3",
+       0.02186
+      ],
+      [
+       "d5",
+       "control.geometry.c4",
+       0.01956
+      ],
+      [
+       "a4",
+       "control.reach.b3",
+       0.01781
+      ],
+      [
+       "d5",
+       "control.reach.a2",
+       0.01751
+      ],
+      [
+       "d5",
+       "control.reach.b3",
+       0.01751
+      ],
+      [
+       "a4",
+       "control.reach.d1",
+       -0.01158
+      ],
+      [
+       "c4",
+       "square.control.black2",
+       0.01089
+      ],
+      [
+       "c3",
+       "control.geometry.b2",
+       0.00847
+      ],
+      [
+       "a4",
+       "control.reach.b4",
+       0.00812
+      ],
+      [
+       "a4",
+       "control.geometry.b3",
+       0.00702
+      ],
+      [
+       "d5",
+       "control.geometry.a2",
+       0.00653
+      ],
+      [
+       "a4",
+       "control.reach.c2",
+       0.00613
+      ],
+      [
+       "e4",
+       "control.geometry.d3",
+       0.00441
+      ],
+      [
+       "d5",
+       "control.reach.c4",
+       0.00434
+      ],
+      [
+       "c3",
+       "control.reach.b2",
+       0.00374
+      ],
+      [
+       "e4",
+       "control.reach.d3",
+       0.00354
+      ],
+      [
+       "a2",
+       "square.control.black1",
+       -0.00348
+      ],
+      [
+       "b4",
+       "square.control.black1",
+       0.00338
+      ],
+      [
+       "a4",
+       "control.reach.c4",
+       0.00336
+      ],
+      [
+       "c3",
+       "control.reach.d2",
+       0.00234
+      ],
+      [
+       "c3",
+       "control.geometry.d2",
+       -0.00119
+      ]
+     ],
+     "pass": false
+    },
+    {
+     "kind": "with/without",
+     "concept": "Space(B, a-d)",
+     "edit": "off c3",
+     "expected": "drop",
+     "with": 0.2037,
+     "without": 0.4061,
+     "change": 0.2024,
+     "share change": 0.0,
+     "y decoded without (stm)": -0.053,
+     "fen without": "4r1k1/3nr1pp/p4p2/3b1P2/qp1Pp1NQ/4P3/PP3RPP/2N2RK1 w - - 0 32",
+     "total with": 20.326,
+     "total without": 40.5153,
+     "bits with": [
+      [
+       "a4",
+       "control.reach.a2",
+       0.03697
+      ],
+      [
+       "a4",
+       "control.geometry.a3",
+       0.02487
+      ],
+      [
+       "a4",
+       "control.geometry.d1",
+       0.02318
+      ],
+      [
+       "a4",
+       "control.reach.d1",
+       -0.01775
+      ],
+      [
+       "a4",
+       "control.geometry.b4",
+       0.01526
+      ],
+      [
+       "a4",
+       "control.geometry.c2",
+       0.01488
+      ],
+      [
+       "d5",
+       "control.geometry.b3",
+       0.0125
+      ],
+      [
+       "a4",
+       "control.reach.a3",
+       0.01225
+      ],
+      [
+       "a4",
+       "control.geometry.a2",
+       0.01111
+      ],
+      [
+       "c3",
+       "control.geometry.b2",
+       0.01107
+      ],
+      [
+       "d5",
+       "control.reach.b3",
+       0.01086
+      ],
+      [
+       "a4",
+       "control.reach.b4",
+       0.01025
+      ],
+      [
+       "d5",
+       "control.geometry.c4",
+       0.01021
+      ],
+      [
+       "a4",
+       "control.reach.c2",
+       0.00979
+      ],
+      [
+       "d5",
+       "control.reach.a2",
+       0.00769
+      ],
+      [
+       "c3",
+       "control.geometry.d2",
+       -0.00607
+      ],
+      [
+       "b4",
+       "control.reach.a3",
+       -0.00526
+      ],
+      [
+       "b4",
+       "control.geometry.a3",
+       -0.0052
+      ],
+      [
+       "b4",
+       "control.reach.c3",
+       0.00484
+      ],
+      [
+       "b4",
+       "square.control.black1",
+       0.0048
+      ],
+      [
+       "c3",
+       "control.reach.b2",
+       0.00477
+      ],
+      [
+       "d5",
+       "control.geometry.a2",
+       0.0041
+      ],
+      [
+       "a4",
+       "control.geometry.b3",
+       0.00408
+      ],
+      [
+       "a2",
+       "square.control.black1",
+       -0.00331
+      ],
+      [
+       "c4",
+       "square.control.black1",
+       0.00224
+      ],
+      [
+       "e4",
+       "control.geometry.d3",
+       0.00221
+      ],
+      [
+       "a4",
+       "control.reach.b3",
+       0.00204
+      ],
+      [
+       "a3",
+       "square.control.black1",
+       0.00153
+      ],
+      [
+       "c3",
+       "control.reach.d2",
+       -0.00125
+      ],
+      [
+       "d5",
+       "control.reach.c4",
+       0.00084
+      ],
+      [
+       "e4",
+       "control.reach.d3",
+       0.00062
+      ],
+      [
+       "b4",
+       "control.geometry.c3",
+       -0.00042
+      ]
+     ],
+     "bits without": [
+      [
+       "a4",
+       "control.reach.a2",
+       0.07095
+      ],
+      [
+       "a4",
+       "control.geometry.a3",
+       0.0437
+      ],
+      [
+       "a4",
+       "control.geometry.d1",
+       0.03343
+      ],
+      [
+       "d5",
+       "control.reach.b3",
+       0.02898
+      ],
+      [
+       "d5",
+       "control.geometry.b3",
+       0.02756
+      ],
+      [
+       "a4",
+       "control.geometry.c2",
+       0.02491
+      ],
+      [
+       "d5",
+       "control.geometry.c4",
+       0.02448
+      ],
+      [
+       "a4",
+       "control.reach.b4",
+       0.02358
+      ],
+      [
+       "a4",
+       "control.geometry.a2",
+       0.02171
+      ],
+      [
+       "a4",
+       "control.geometry.b4",
+       0.0202
+      ],
+      [
+       "a4",
+       "control.reach.a3",
+       0.01972
+      ],
+      [
+       "a4",
+       "control.reach.d1",
+       -0.01793
+      ],
+      [
+       "d5",
+       "control.reach.a2",
+       0.01785
+      ],
+      [
+       "a4",
+       "control.reach.c2",
+       0.01767
+      ],
+      [
+       "a4",
+       "control.geometry.b3",
+       0.01658
+      ],
+      [
+       "d5",
+       "control.geometry.a2",
+       0.0093
+      ],
+      [
+       "a4",
+       "control.reach.b3",
+       0.0092
+      ],
+      [
+       "b4",
+       "square.control.black1",
+       0.00815
+      ],
+      [
+       "a2",
+       "square.control.black1",
+       -0.00658
+      ],
+      [
+       "b4",
+       "control.reach.a3",
+       -0.00599
+      ],
+      [
+       "e4",
+       "control.geometry.d3",
+       0.00491
+      ],
+      [
+       "d5",
+       "control.reach.c4",
+       0.0042
+      ],
+      [
+       "e4",
+       "control.reach.d3",
+       0.00384
+      ],
+      [
+       "b4",
+       "control.reach.c3",
+       0.00304
+      ],
+      [
+       "a3",
+       "square.control.black1",
+       0.00148
+      ],
+      [
+       "c4",
+       "square.control.black1",
+       0.00135
+      ],
+      [
+       "b4",
+       "control.geometry.c3",
+       -0.00095
+      ],
+      [
+       "b4",
+       "control.geometry.a3",
+       0.0008
+      ]
+     ],
+     "pass": false
+    }
+   ],
+   "quote": "Only his advantage in time has turned into advantage in space, for he has succeeded in advancing his Queen's side Pawns, bringing one of them to the sixth rank.",
+   "source": "Znosko-Borovsky, The Middle Game in Chess (1922), Construction and Execution of the Plan, Diagram LII; Pillsbury \u2013 Tarrasch, Hastings 1895, after 31...c3",
+   "url": "https://archive.org/download/middlegameinches00znos/middlegameinches00znos_djvu.txt",
+   "topic": "space",
+   "favours": "black",
+   "side_to_move": "white",
+   "verdict": "not supported"
+  },
+  {
+   "claims": [
+    5
+   ],
+   "claim": [
+    "Black is much cramped on the queen's wing."
+   ],
+   "orig_fen": "r2q1rk1/pb1nbpnp/1ppp2p1/3Pp3/1PP1P1P1/P2B1NN1/1B1Q1P1P/R4RK1 w - - 0 17",
+   "y": 0.0168132483959198,
+   "y decoded": 0.02919784188270569,
+   "tests": [
+    {
+     "kind": "with/without",
+     "concept": "B mobility on a-d",
+     "edit": "off a3",
+     "expected": "rise",
+     "with": -0.0034,
+     "without": 0.0007,
+     "change": 0.004,
+     "share change": 0.00039,
+     "y decoded without (stm)": -0.321,
+     "fen without": "r2q1rk1/pb1nbpnp/1ppp2p1/3Pp3/1PP1P1P1/3B1NN1/1B1Q1P1P/R4RK1 w - - 0 17",
+     "total with": 9.9075,
+     "total without": 12.1552,
+     "bits with": [
+      [
+       "a8",
+       "mobility.rel.b8",
+       -0.00343
+      ],
+      [
+       "d8",
+       "mobility.rel.c8",
+       0.00224
+      ],
+      [
+       "a8",
+       "mobility.abs.c8",
+       -0.00188
+      ],
+      [
+       "d8",
+       "mobility.abs.c7",
+       0.00182
+      ],
+      [
+       "d7",
+       "mobility.rel.b8",
+       -0.00157
+      ],
+      [
+       "d7",
+       "mobility.rel.f6",
+       -0.00153
+      ],
+      [
+       "a8",
+       "mobility.abs.b8",
+       0.00144
+      ],
+      [
+       "b7",
+       "mobility.rel.c8",
+       -0.0011
+      ],
+      [
+       "d7",
+       "mobility.abs.c5",
+       -0.00106
+      ],
+      [
+       "d8",
+       "mobility.abs.c8",
+       -0.00078
+      ],
+      [
+       "d8",
+       "mobility.rel.b8",
+       0.00076
+      ],
+      [
+       "b7",
+       "mobility.abs.c8",
+       0.00074
+      ],
+      [
+       "b7",
+       "mobility.abs.a6",
+       -0.0007
+      ],
+      [
+       "d7",
+       "mobility.abs.b8",
+       0.0006
+      ],
+      [
+       "a8",
+       "mobility.rel.c8",
+       0.00055
+      ],
+      [
+       "d8",
+       "mobility.abs.e8",
+       0.00049
+      ],
+      [
+       "d8",
+       "mobility.abs.b8",
+       0.00043
+      ],
+      [
+       "d8",
+       "mobility.rel.e8",
+       -0.00026
+      ],
+      [
+       "d8",
+       "mobility.rel.c7",
+       -0.00024
+      ],
+      [
+       "d7",
+       "mobility.abs.f6",
+       0.00022
+      ],
+      [
+       "b7",
+       "mobility.rel.a6",
+       -9e-05
+      ]
+     ],
+     "bits without": [
+      [
+       "a8",
+       "mobility.rel.b8",
+       -0.00703
+      ],
+      [
+       "d8",
+       "mobility.rel.c8",
+       0.00424
+      ],
+      [
+       "a8",
+       "mobility.abs.c8",
+       -0.00371
+      ],
+      [
+       "d8",
+       "mobility.abs.c7",
+       0.00285
+      ],
+      [
+       "a8",
+       "mobility.abs.b8",
+       0.00228
+      ],
+      [
+       "d8",
+       "mobility.abs.b8",
+       0.0015
+      ],
+      [
+       "d8",
+       "mobility.abs.c8",
+       -0.00144
+      ],
+      [
+       "a8",
+       "mobility.rel.c8",
+       0.00137
+      ],
+      [
+       "d7",
+       "mobility.rel.b8",
+       -0.00134
+      ],
+      [
+       "d7",
+       "mobility.abs.b8",
+       0.00133
+      ],
+      [
+       "d8",
+       "mobility.rel.b8",
+       0.0013
+      ],
+      [
+       "d8",
+       "mobility.abs.e8",
+       0.00105
+      ],
+      [
+       "d8",
+       "mobility.rel.c7",
+       -0.00092
+      ],
+      [
+       "d7",
+       "mobility.rel.f6",
+       -0.00084
+      ],
+      [
+       "d7",
+       "mobility.abs.c5",
+       -0.0006
+      ],
+      [
+       "b7",
+       "mobility.rel.c8",
+       -0.00056
+      ],
+      [
+       "d7",
+       "mobility.abs.f6",
+       0.00056
+      ],
+      [
+       "b7",
+       "mobility.abs.c8",
+       0.00055
+      ],
+      [
+       "d8",
+       "mobility.rel.e8",
+       0.0004
+      ],
+      [
+       "b7",
+       "mobility.abs.a6",
+       -0.00033
+      ]
+     ],
+     "pass": true
+    },
+    {
+     "kind": "with/without",
+     "concept": "B mobility on a-d",
+     "edit": "off b4",
+     "expected": "rise",
+     "with": -0.0034,
+     "without": 0.0012,
+     "change": 0.0046,
+     "share change": 0.00046,
+     "y decoded without (stm)": -0.704,
+     "fen without": "r2q1rk1/pb1nbpnp/1ppp2p1/3Pp3/2P1P1P1/P2B1NN1/1B1Q1P1P/R4RK1 w - - 0 17",
+     "total with": 9.9075,
+     "total without": 9.9782,
+     "bits with": [
+      [
+       "a8",
+       "mobility.rel.b8",
+       -0.00343
+      ],
+      [
+       "d8",
+       "mobility.rel.c8",
+       0.00224
+      ],
+      [
+       "a8",
+       "mobility.abs.c8",
+       -0.00188
+      ],
+      [
+       "d8",
+       "mobility.abs.c7",
+       0.00182
+      ],
+      [
+       "d7",
+       "mobility.rel.b8",
+       -0.00157
+      ],
+      [
+       "d7",
+       "mobility.rel.f6",
+       -0.00153
+      ],
+      [
+       "a8",
+       "mobility.abs.b8",
+       0.00144
+      ],
+      [
+       "b7",
+       "mobility.rel.c8",
+       -0.0011
+      ],
+      [
+       "d7",
+       "mobility.abs.c5",
+       -0.00106
+      ],
+      [
+       "d8",
+       "mobility.abs.c8",
+       -0.00078
+      ],
+      [
+       "d8",
+       "mobility.rel.b8",
+       0.00076
+      ],
+      [
+       "b7",
+       "mobility.abs.c8",
+       0.00074
+      ],
+      [
+       "b7",
+       "mobility.abs.a6",
+       -0.0007
+      ],
+      [
+       "d7",
+       "mobility.abs.b8",
+       0.0006
+      ],
+      [
+       "a8",
+       "mobility.rel.c8",
+       0.00055
+      ],
+      [
+       "d8",
+       "mobility.abs.e8",
+       0.00049
+      ],
+      [
+       "d8",
+       "mobility.abs.b8",
+       0.00043
+      ],
+      [
+       "d8",
+       "mobility.rel.e8",
+       -0.00026
+      ],
+      [
+       "d8",
+       "mobility.rel.c7",
+       -0.00024
+      ],
+      [
+       "d7",
+       "mobility.abs.f6",
+       0.00022
+      ],
+      [
+       "b7",
+       "mobility.rel.a6",
+       -9e-05
+      ]
+     ],
+     "bits without": [
+      [
+       "a8",
+       "mobility.rel.b8",
+       -0.00422
+      ],
+      [
+       "d8",
+       "mobility.rel.c8",
+       0.00289
+      ],
+      [
+       "a8",
+       "mobility.abs.c8",
+       -0.00248
+      ],
+      [
+       "d8",
+       "mobility.abs.c7",
+       0.00202
+      ],
+      [
+       "a8",
+       "mobility.abs.b8",
+       0.00168
+      ],
+      [
+       "d8",
+       "mobility.abs.c8",
+       -0.00101
+      ],
+      [
+       "d7",
+       "mobility.abs.b8",
+       0.00087
+      ],
+      [
+       "d8",
+       "mobility.abs.b8",
+       0.00082
+      ],
+      [
+       "b7",
+       "mobility.rel.c8",
+       -0.0007
+      ],
+      [
+       "a8",
+       "mobility.rel.c8",
+       0.0007
+      ],
+      [
+       "d8",
+       "mobility.rel.b8",
+       0.00067
+      ],
+      [
+       "d8",
+       "mobility.abs.e8",
+       0.00065
+      ],
+      [
+       "d8",
+       "mobility.rel.c7",
+       -0.00053
+      ],
+      [
+       "d7",
+       "mobility.rel.b8",
+       -0.00051
+      ],
+      [
+       "d7",
+       "mobility.rel.c5",
+       0.00047
+      ],
+      [
+       "b7",
+       "mobility.abs.a6",
+       -0.00044
+      ],
+      [
+       "b7",
+       "mobility.abs.c8",
+       0.00027
+      ],
+      [
+       "d7",
+       "mobility.abs.f6",
+       0.00024
+      ],
+      [
+       "d7",
+       "mobility.abs.c5",
+       -0.00012
+      ],
+      [
+       "b7",
+       "mobility.rel.a6",
+       -0.0001
+      ],
+      [
+       "d7",
+       "mobility.rel.f6",
+       7e-05
+      ],
+      [
+       "d8",
+       "mobility.rel.e8",
+       0.0
+      ]
+     ],
+     "pass": true
+    },
+    {
+     "kind": "with/without",
+     "concept": "B mobility on a-d",
+     "edit": "off c4",
+     "expected": "rise",
+     "with": -0.0034,
+     "without": 0.0044,
+     "change": 0.0078,
+     "share change": 0.00076,
+     "y decoded without (stm)": -0.612,
+     "fen without": "r2q1rk1/pb1nbpnp/1ppp2p1/3Pp3/1P2P1P1/P2B1NN1/1B1Q1P1P/R4RK1 w - - 0 17",
+     "total with": 9.9075,
+     "total without": 10.4345,
+     "bits with": [
+      [
+       "a8",
+       "mobility.rel.b8",
+       -0.00343
+      ],
+      [
+       "d8",
+       "mobility.rel.c8",
+       0.00224
+      ],
+      [
+       "a8",
+       "mobility.abs.c8",
+       -0.00188
+      ],
+      [
+       "d8",
+       "mobility.abs.c7",
+       0.00182
+      ],
+      [
+       "d7",
+       "mobility.rel.b8",
+       -0.00157
+      ],
+      [
+       "d7",
+       "mobility.rel.f6",
+       -0.00153
+      ],
+      [
+       "a8",
+       "mobility.abs.b8",
+       0.00144
+      ],
+      [
+       "b7",
+       "mobility.rel.c8",
+       -0.0011
+      ],
+      [
+       "d7",
+       "mobility.abs.c5",
+       -0.00106
+      ],
+      [
+       "d8",
+       "mobility.abs.c8",
+       -0.00078
+      ],
+      [
+       "d8",
+       "mobility.rel.b8",
+       0.00076
+      ],
+      [
+       "b7",
+       "mobility.abs.c8",
+       0.00074
+      ],
+      [
+       "b7",
+       "mobility.abs.a6",
+       -0.0007
+      ],
+      [
+       "d7",
+       "mobility.abs.b8",
+       0.0006
+      ],
+      [
+       "a8",
+       "mobility.rel.c8",
+       0.00055
+      ],
+      [
+       "d8",
+       "mobility.abs.e8",
+       0.00049
+      ],
+      [
+       "d8",
+       "mobility.abs.b8",
+       0.00043
+      ],
+      [
+       "d8",
+       "mobility.rel.e8",
+       -0.00026
+      ],
+      [
+       "d8",
+       "mobility.rel.c7",
+       -0.00024
+      ],
+      [
+       "d7",
+       "mobility.abs.f6",
+       0.00022
+      ],
+      [
+       "b7",
+       "mobility.rel.a6",
+       -9e-05
+      ]
+     ],
+     "bits without": [
+      [
+       "a8",
+       "mobility.rel.b8",
+       -0.00404
+      ],
+      [
+       "d8",
+       "mobility.rel.c8",
+       0.00291
+      ],
+      [
+       "b7",
+       "mobility.abs.a6",
+       0.00287
+      ],
+      [
+       "a8",
+       "mobility.abs.c8",
+       -0.00268
+      ],
+      [
+       "d8",
+       "mobility.abs.c7",
+       0.00223
+      ],
+      [
+       "a8",
+       "mobility.abs.b8",
+       0.00188
+      ],
+      [
+       "d7",
+       "mobility.rel.b8",
+       -0.00168
+      ],
+      [
+       "d7",
+       "mobility.rel.f6",
+       -0.00155
+      ],
+      [
+       "b7",
+       "mobility.rel.c8",
+       0.00132
+      ],
+      [
+       "d7",
+       "mobility.abs.b8",
+       0.00104
+      ],
+      [
+       "b7",
+       "mobility.abs.c8",
+       0.00101
+      ],
+      [
+       "d8",
+       "mobility.abs.c8",
+       -0.001
+      ],
+      [
+       "a8",
+       "mobility.rel.c8",
+       0.00099
+      ],
+      [
+       "d7",
+       "mobility.abs.c5",
+       -0.00091
+      ],
+      [
+       "d8",
+       "mobility.abs.b8",
+       0.0008
+      ],
+      [
+       "d8",
+       "mobility.abs.e8",
+       0.00069
+      ],
+      [
+       "d8",
+       "mobility.rel.b8",
+       0.00066
+      ],
+      [
+       "d8",
+       "mobility.rel.c7",
+       -0.00044
+      ],
+      [
+       "d7",
+       "mobility.abs.f6",
+       0.00021
+      ],
+      [
+       "d8",
+       "mobility.rel.e8",
+       0.00014
+      ]
+     ],
+     "pass": true
+    },
+    {
+     "kind": "with/without",
+     "concept": "B mobility on a-d",
+     "edit": "off d5",
+     "expected": "rise",
+     "with": -0.0034,
+     "without": -0.003,
+     "change": 0.0003,
+     "share change": -2e-05,
+     "y decoded without (stm)": -0.768,
+     "fen without": "r2q1rk1/pb1nbpnp/1ppp2p1/4p3/1PP1P1P1/P2B1NN1/1B1Q1P1P/R4RK1 w - - 0 17",
+     "total with": 9.9075,
+     "total without": 8.4271,
+     "bits with": [
+      [
+       "a8",
+       "mobility.rel.b8",
+       -0.00343
+      ],
+      [
+       "d8",
+       "mobility.rel.c8",
+       0.00224
+      ],
+      [
+       "a8",
+       "mobility.abs.c8",
+       -0.00188
+      ],
+      [
+       "d8",
+       "mobility.abs.c7",
+       0.00182
+      ],
+      [
+       "d7",
+       "mobility.rel.b8",
+       -0.00157
+      ],
+      [
+       "d7",
+       "mobility.rel.f6",
+       -0.00153
+      ],
+      [
+       "a8",
+       "mobility.abs.b8",
+       0.00144
+      ],
+      [
+       "b7",
+       "mobility.rel.c8",
+       -0.0011
+      ],
+      [
+       "d7",
+       "mobility.abs.c5",
+       -0.00106
+      ],
+      [
+       "d8",
+       "mobility.abs.c8",
+       -0.00078
+      ],
+      [
+       "d8",
+       "mobility.rel.b8",
+       0.00076
+      ],
+      [
+       "b7",
+       "mobility.abs.c8",
+       0.00074
+      ],
+      [
+       "b7",
+       "mobility.abs.a6",
+       -0.0007
+      ],
+      [
+       "d7",
+       "mobility.abs.b8",
+       0.0006
+      ],
+      [
+       "a8",
+       "mobility.rel.c8",
+       0.00055
+      ],
+      [
+       "d8",
+       "mobility.abs.e8",
+       0.00049
+      ],
+      [
+       "d8",
+       "mobility.abs.b8",
+       0.00043
+      ],
+      [
+       "d8",
+       "mobility.rel.e8",
+       -0.00026
+      ],
+      [
+       "d8",
+       "mobility.rel.c7",
+       -0.00024
+      ],
+      [
+       "d7",
+       "mobility.abs.f6",
+       0.00022
+      ],
+      [
+       "b7",
+       "mobility.rel.a6",
+       -9e-05
+      ]
+     ],
+     "bits without": [
+      [
+       "a8",
+       "mobility.rel.b8",
+       -0.00358
+      ],
+      [
+       "a8",
+       "mobility.abs.c8",
+       -0.00176
+      ],
+      [
+       "d8",
+       "mobility.rel.c8",
+       0.00176
+      ],
+      [
+       "d8",
+       "mobility.abs.c7",
+       0.00165
+      ],
+      [
+       "a8",
+       "mobility.abs.b8",
+       0.00154
+      ],
+      [
+       "d7",
+       "mobility.rel.f6",
+       -0.00151
+      ],
+      [
+       "d7",
+       "mobility.rel.b8",
+       -0.00108
+      ],
+      [
+       "d7",
+       "mobility.abs.b8",
+       0.00089
+      ],
+      [
+       "d7",
+       "mobility.abs.c5",
+       -0.00069
+      ],
+      [
+       "d8",
+       "mobility.abs.c8",
+       -0.00064
+      ],
+      [
+       "b7",
+       "mobility.rel.c8",
+       -0.00063
+      ],
+      [
+       "d8",
+       "mobility.abs.e8",
+       0.00046
+      ],
+      [
+       "d8",
+       "mobility.rel.c7",
+       -0.00036
+      ],
+      [
+       "a8",
+       "mobility.rel.c8",
+       0.00034
+      ],
+      [
+       "d8",
+       "mobility.abs.b8",
+       0.00034
+      ],
+      [
+       "b7",
+       "mobility.abs.c8",
+       0.00023
+      ],
+      [
+       "b7",
+       "mobility.rel.a6",
+       -0.00021
+      ],
+      [
+       "b7",
+       "mobility.abs.a6",
+       0.00015
+      ],
+      [
+       "d8",
+       "mobility.rel.b8",
+       0.0001
+      ],
+      [
+       "d8",
+       "mobility.rel.e8",
+       -7e-05
+      ],
+      [
+       "d7",
+       "mobility.abs.f6",
+       3e-05
+      ]
+     ],
+     "pass": false
+    }
+   ],
+   "quote": "The diversion of the [knight], now completed, has so altered the situation that Black, though much cramped on the Q\u2019s Wing, can venture to proceed to the attack!",
+   "source": "Nimzowitsch, My System (1930), Part II, Elements of Position Play, \u00a7 6 over-protection of the centre, Diagram CXXIII; Opocensky \u2013 Nimzowitsch, Marienbad 1925, after 16...c6",
+   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
+   "topic": "space",
+   "favours": "white",
+   "side_to_move": "white",
+   "verdict": "not supported"
+  },
+  {
+   "claims": [
+    13
+   ],
+   "claim": [
+    "...b4 supports Black's knight on c3 and gives Black winning chances."
+   ],
+   "orig_fen": "r2r2k1/5pp1/4p1p1/8/1p3P2/1Pn5/2R2PPP/4RBK1 w - - 0 30",
+   "y": -0.1942463219165802,
+   "y decoded": -0.22195713222026825,
+   "tests": [
+    {
+     "kind": "with/without",
+     "concept": "Outpost(c3)",
+     "edit": "off b4",
+     "expected": "drop",
+     "with": 0.0107,
+     "without": 0,
+     "change": -0.0107,
+     "share change": -0.00145,
+     "y decoded without (stm)": 0.976,
+     "fen without": "r2r2k1/5pp1/4p1p1/8/5P2/1Pn5/2R2PPP/4RBK1 w - - 0 30",
+     "total with": 7.3841,
+     "total without": 5.0898,
+     "bits with": [
+      [
+       "c3",
+       "role.protected_by.pawn.b4",
+       0.01234
+      ],
+      [
+       "c3",
+       "strong.black.one",
+       -0.0016
+      ]
+     ],
+     "bits without": [],
+     "pass": true
+    }
+   ],
+   "quote": "The continuation of the game shows that the text-move offers Black a chance of victory, by allowing him to support his [knight on c3] by [...b4] on his 29th move.",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 70, note to White's 20th move; Rubinstein \u2013 Alekhine, London 1922, after 29...b4",
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "outpost",
+   "favours": "black",
+   "side_to_move": "white",
+   "verdict": "supported"
+  },
+  {
+   "claims": [
+    14,
+    40
+   ],
+   "claim": [
+    "White's unassailable knight on f4 outweighs the two bishops.",
+    "Black's two bishops have little to say against White's unassailable knight."
+   ],
+   "orig_fen": "r1b2k2/p3qpb1/7r/2ppPp1p/5Np1/4Q2P/PPP2PPB/R3R1K1 b - - 1 19",
+   "y": -0.29851627349853516,
+   "y decoded": -0.3060619533061981,
+   "tests": [
+    {
+     "kind": "with/without",
+     "concept": "Pair(B)",
+     "edit": "off f4",
+     "expected": "rise",
+     "with": 0.003,
+     "without": -0.0013,
+     "change": -0.0043,
+     "share change": -0.00021,
+     "y decoded without (stm)": 0.987,
+     "fen without": "r1b2k2/p3qpb1/7r/2ppPp1p/6p1/4Q2P/PPP2PPB/R3R1K1 b - - 1 19",
+     "total with": 23.2164,
+     "total without": 16.4552,
+     "bits with": [
+      [
+       "g7",
+       "bishop_pair.c8",
+       0.00409
+      ],
+      [
+       "c8",
+       "bishop_pair.g7",
+       -0.00113
+      ]
+     ],
+     "bits without": [
+      [
+       "c8",
+       "bishop_pair.g7",
+       -0.00084
+      ],
+      [
+       "g7",
+       "bishop_pair.c8",
+       -0.00049
+      ]
+     ],
+     "pass": false
+    }
+   ],
+   "quote": "White has the better game, for the two [bishops] have little to say in view of the strength of the unassailable [knight]",
+   "source": "Nimzowitsch, My System (1930), Part II ch. 5 (Over-protection), position after Diagram CLXVI (Game No. 15), text after 19. Kt-B4; Nimzowitsch \u2013 von Freymann, Wilna 1912, after 19.Nf4",
+   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
+   "topic": "outpost",
+   "favours": "white",
+   "side_to_move": "black",
+   "verdict": "not supported"
+  },
+  {
+   "claims": [
+    15
+   ],
+   "claim": [
+    "White cannot castle and is in a very difficult position."
+   ],
+   "orig_fen": "rn2r1k1/1p1b1ppp/p5q1/8/3QP3/3B4/P2B1PPP/1R2K2R w K - 3 18",
+   "y": -0.2095886468887329,
+   "y decoded": -0.10213693976402283,
+   "tests": [
+    {
+     "kind": "with/without",
+     "concept": "KingSafety(W)",
+     "edit": "off d7",
+     "expected": "rise",
+     "with": 0.0088,
+     "without": 0.0018,
+     "change": -0.007,
+     "share change": -0.00132,
+     "y decoded without (stm)": 0.971,
+     "fen without": "rn2r1k1/1p3ppp/p5q1/8/3QP3/3B4/P2B1PPP/1R2K2R w K - 3 18",
+     "total with": 6.3126,
+     "total without": 27.4501,
+     "bits with": [
+      [
+       "f1",
+       "square.control.white3plus",
+       0.00573
+      ],
+      [
+       "f2",
+       "square.control.white2",
+       0.00377
+      ],
+      [
+       "d2",
+       "square.control.white1",
+       0.00295
+      ],
+      [
+       "f2",
+       "pawn_cover.white.none",
+       -0.00202
+      ],
+      [
+       "d2",
+       "pawn_cover.white.none",
+       -0.00198
+      ],
+      [
+       "e1",
+       "pawn_cover.white.none",
+       0.00139
+      ],
+      [
+       "f1",
+       "pawn_cover.white.none",
+       -0.00118
+      ],
+      [
+       "e1",
+       "king.castle.kingside",
+       0.00116
+      ],
+      [
+       "e1",
+       "square.control.white3plus",
+       -0.00086
+      ],
+      [
+       "e2",
+       "square.control.white2",
+       -0.00065
+      ],
+      [
+       "d1",
+       "square.control.white2",
+       0.00051
+      ],
+      [
+       "d1",
+       "pawn_cover.white.none",
+       -5e-05
+      ],
+      [
+       "e2",
+       "pawn_cover.white.none",
+       -1e-05
+      ]
+     ],
+     "bits without": [
+      [
+       "d2",
+       "pawn_cover.white.none",
+       -0.0482
+      ],
+      [
+       "f1",
+       "square.control.white3plus",
+       0.01692
+      ],
+      [
+       "d1",
+       "square.control.white2",
+       0.01165
+      ],
+      [
+       "e2",
+       "square.control.white2",
+       0.00945
+      ],
+      [
+       "e1",
+       "square.control.white3plus",
+       0.0092
+      ],
+      [
+       "d2",
+       "square.control.white1",
+       0.00831
+      ],
+      [
+       "e2",
+       "pawn_cover.white.none",
+       -0.00621
+      ],
+      [
+       "e1",
+       "pawn_cover.white.none",
+       0.00219
+      ],
+      [
+       "f1",
+       "pawn_cover.white.none",
+       -0.002
+      ],
+      [
+       "d1",
+       "pawn_cover.white.none",
+       -0.0018
+      ],
+      [
+       "f2",
+       "square.control.white2",
+       0.00163
+      ],
+      [
+       "e1",
+       "king.castle.kingside",
+       0.00044
+      ],
+      [
+       "f2",
+       "pawn_cover.white.none",
+       0.00019
+      ]
+     ],
+     "pass": false
+    }
+   ],
+   "quote": "White already finds himself in a very difficult position, since he cannot Castle on account of 18...[Bh3], winning the Exchange.",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 64, position after Black's 17th move; Johner \u2013 Alekhine, Pistyan 1922, after 17...Qg6",
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "king safety",
+   "favours": "black",
+   "side_to_move": "white",
+   "verdict": "not supported"
+  },
+  {
+   "claims": [
+    16
+   ],
+   "claim": [
+    "12.O-O-O brings White's king into safety."
+   ],
+   "orig_fen": "r3k2r/pbpn1p1p/1p2pp2/5q2/2PP4/5N2/P1PQBPPP/2KR3R b kq - 2 12",
+   "y": 0.04222521185874939,
+   "y decoded": -0.03478410840034485,
+   "tests": [
+    {
+     "kind": "with/without",
+     "concept": "KingSafety(W)",
+     "edit": "take back O-O-O",
+     "expected": "drop",
+     "with": -0.1082,
+     "without": -0.0138,
+     "change": 0.0944,
+     "share change": 0.00187,
+     "y decoded without (stm)": -0.114,
+     "fen without": "r3k2r/pbpn1p1p/1p2pp2/5q2/2PP4/5N2/P1PQBPPP/R3K2R w Qkq - 2 12",
+     "total with": 42.328,
+     "total without": 20.2059,
+     "bits with": [
+      [
+       "d2",
+       "pawn_cover.black.none",
+       -0.09408
+      ],
+      [
+       "f5",
+       "control.reach.c2",
+       -0.03059
+      ],
+      [
+       "f5",
+       "control.geometry.c2",
+       -0.01857
+      ],
+      [
+       "d2",
+       "square.control.black3plus",
+       0.01526
+      ],
+      [
+       "c1",
+       "square.control.black3plus",
+       0.01322
+      ],
+      [
+       "b2",
+       "pawn_cover.black.none",
+       0.00879
+      ],
+      [
+       "b1",
+       "pawn_cover.black.none",
+       0.0047
+      ],
+      [
+       "b1",
+       "square.control.black1",
+       -0.00319
+      ],
+      [
+       "d1",
+       "pawn_cover.black.none",
+       -0.00226
+      ],
+      [
+       "c2",
+       "square.control.black1",
+       -0.00153
+      ],
+      [
+       "c2",
+       "pawn_cover.black.none",
+       0.00135
+      ],
+      [
+       "c1",
+       "pawn_cover.black.none",
+       -0.00109
+      ],
+      [
+       "d1",
+       "square.control.black3plus",
+       -0.00053
+      ],
+      [
+       "b2",
+       "square.control.black1",
+       0.00028
+      ]
+     ],
+     "bits without": [
+      [
+       "e2",
+       "pawn_cover.white.none",
+       -0.02979
+      ],
+      [
+       "d2",
+       "pawn_cover.white.none",
+       -0.01963
+      ],
+      [
+       "e2",
+       "square.control.white2",
+       0.01458
+      ],
+      [
+       "f1",
+       "square.control.white3plus",
+       0.01082
+      ],
+      [
+       "d1",
+       "square.control.white3plus",
+       0.0097
+      ],
+      [
+       "e1",
+       "square.control.white3plus",
+       0.00473
+      ],
+      [
+       "f2",
+       "pawn_cover.white.none",
+       -0.00351
+      ],
+      [
+       "f2",
+       "square.control.white1",
+       0.00125
+      ],
+      [
+       "d2",
+       "square.control.white2",
+       -0.00085
+      ],
+      [
+       "e1",
+       "pawn_cover.white.none",
+       0.00073
+      ],
+      [
+       "d1",
+       "pawn_cover.white.none",
+       -0.0007
+      ],
+      [
+       "e1",
+       "king.castle.queenside",
+       -0.00062
+      ],
+      [
+       "f1",
+       "pawn_cover.white.none",
+       -0.00055
+      ]
+     ],
+     "pass": false
+    }
+   ],
+   "quote": "In addition to the attacking probabilities of the text move, White in one move brings his King into safety and brings one of his Rooks into play.",
+   "source": "Capablanca, Chess Fundamentals (1921), ch. VI, Game 4, note to White's 12th move; Capablanca \u2013 Znosko-Borovsky, St Petersburg 1913, after 12.O-O-O",
+   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt",
+   "topic": "king safety",
+   "favours": "white",
+   "side_to_move": "black",
+   "verdict": "not supported"
+  },
+  {
+   "claims": [
+    19
+   ],
+   "claim": [
+    "8...h6 has weakened Black's king position."
+   ],
+   "orig_fen": "r1bq1rk1/pp1nbpp1/2pp1n1p/4p3/P1BPP3/2N2N2/1PP1QPPP/R1B2RK1 w - - 0 9",
+   "y": 0.0981861799955368,
+   "y decoded": 0.09551465511322021,
+   "tests": [
+    {
+     "kind": "with/without",
+     "concept": "KingSafety(B)",
+     "edit": "take back ...h6",
+     "expected": "rise",
+     "with": -0.0267,
+     "without": -0.0342,
+     "change": -0.0075,
+     "share change": 0.00036,
+     "y decoded without (stm)": -0.217,
+     "fen without": "r1bq1rk1/pp1nbppp/2pp1n2/4p3/P1BPP3/2N2N2/1PP1QPPP/R1B2RK1 b - - 0 9",
+     "total with": 13.2359,
+     "total without": 20.6478,
+     "bits with": [
+      [
+       "g7",
+       "pawn_cover.black.none",
+       -0.00835
+      ],
+      [
+       "f7",
+       "pawn_cover.black.none",
+       -0.00509
+      ],
+      [
+       "f7",
+       "square.control.black1",
+       -0.00464
+      ],
+      [
+       "g7",
+       "square.control.black1",
+       -0.00296
+      ],
+      [
+       "c4",
+       "control.geometry.f7",
+       -0.00262
+      ],
+      [
+       "h8",
+       "square.control.black1",
+       -0.00242
+      ],
+      [
+       "g8",
+       "pawn_cover.black.none",
+       -0.00225
+      ],
+      [
+       "g8",
+       "square.control.black3plus",
+       0.00155
+      ],
+      [
+       "h7",
+       "square.control.black2",
+       -0.00146
+      ],
+      [
+       "h7",
+       "pawn_cover.black.none",
+       0.00135
+      ],
+      [
+       "c4",
+       "control.reach.f7",
+       -0.00127
+      ],
+      [
+       "h8",
+       "pawn_cover.black.none",
+       0.00088
+      ],
+      [
+       "f8",
+       "square.control.black3plus",
+       0.00081
+      ],
+      [
+       "f8",
+       "pawn_cover.black.none",
+       -0.0002
+      ]
+     ],
+     "bits without": [
+      [
+       "h7",
+       "pawn_cover.white.none",
+       -0.01621
+      ],
+      [
+       "f8",
+       "square.control.white3plus",
+       0.01594
+      ],
+      [
+       "g7",
+       "pawn_cover.white.none",
+       -0.01169
+      ],
+      [
+       "f8",
+       "pawn_cover.white.none",
+       -0.00949
+      ],
+      [
+       "h7",
+       "square.control.white2",
+       -0.00653
+      ],
+      [
+       "f7",
+       "pawn_cover.white.none",
+       -0.00562
+      ],
+      [
+       "h8",
+       "square.control.white1",
+       0.00548
+      ],
+      [
+       "c4",
+       "control.reach.f7",
+       -0.00432
+      ],
+      [
+       "g8",
+       "pawn_cover.white.none",
+       -0.00383
+      ],
+      [
+       "g8",
+       "square.control.white3plus",
+       0.0036
+      ],
+      [
+       "g7",
+       "square.control.white1",
+       -0.00226
+      ],
+      [
+       "f7",
+       "square.control.white1",
+       0.00106
+      ],
+      [
+       "c4",
+       "control.geometry.f7",
+       -0.00068
+      ],
+      [
+       "h8",
+       "pawn_cover.white.none",
+       0.00036
+      ]
+     ],
+     "pass": false
+    }
+   ],
+   "quote": "The anxiety to provide against [Ng5] or [Bg5] is natural enough, but the resultant weakening of the King\u2019s position may have unfortunate consequences, as the bad development of the Black pieces does not warrant this move.",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 9, note to Black's 8th move; Alekhine \u2013 Marco, Stockholm 1912, after 8...h6",
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "king safety",
+   "favours": "white",
+   "side_to_move": "white",
+   "verdict": "not supported"
+  },
+  {
+   "claims": [
+    22
+   ],
+   "claim": [
+    "White's passed d6 pawn threatens d7 and Qd6+."
+   ],
+   "orig_fen": "r4kr1/5p2/3P1n2/p3p2p/2P1P1q1/P2Q2P1/5P2/3RR1K1 b - - 1 26",
+   "y": 0.8479185104370117,
+   "y decoded": 0.8285284638404846,
+   "tests": [
+    {
+     "kind": "with/without",
+     "concept": "Threat(d6) + Passer(d6)",
+     "edit": "off d3",
+     "expected": "drop",
+     "with": 0.0956,
+     "without": -0.0018,
+     "change": -0.0974,
+     "share change": -0.00359,
+     "y decoded without (stm)": 1.0,
+     "fen without": "r4kr1/5p2/3P1n2/p3p2p/2P1P1q1/P5P1/5P2/3RR1K1 b - - 1 26",
+     "total with": 32.5233,
+     "total without": 2.8184,
+     "bits with": [
+      [
+       "d6",
+       "pawn.rank4_6.on",
+       0.08588
+      ],
+      [
+       "d6",
+       "role.protected_by.queen.d3",
+       0.00308
+      ],
+      [
+       "d6",
+       "threat.move.d7",
+       0.00283
+      ],
+      [
+       "d1",
+       "rook.behind_passer.d6",
+       0.00237
+      ],
+      [
+       "d6",
+       "pawn.passed.on",
+       0.00142
+      ]
+     ],
+     "bits without": [
+      [
+       "d6",
+       "pawn.rank4_6.on",
+       -0.00129
+      ],
+      [
+       "d6",
+       "role.protected_by.rook.d1",
+       -0.00022
+      ],
+      [
+       "d6",
+       "pawn.passed.on",
+       -0.00022
+      ],
+      [
+       "d6",
+       "threat.move.d7",
+       -0.00021
+      ],
+      [
+       "d1",
+       "rook.behind_passer.d6",
+       0.00011
+      ]
+     ],
+     "pass": true
+    }
+   ],
+   "quote": "Threatening 27. [d7] followed by [Qd6+] \u2026",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 18, note to White's 26th move (QR-Q1); Olland \u2013 Alekhine, Scheveningen 1913, after 26.Rad1",
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "passed pawn",
+   "favours": "white",
+   "side_to_move": "black",
+   "verdict": "supported"
+  },
+  {
+   "claims": [
+    23
+   ],
+   "claim": [
+    "White has a protected passed pawn."
+   ],
+   "orig_fen": "5k2/p1p4R/1pr5/3p1pP1/P2P1P2/2P2K2/8/8 w - - 0 35",
+   "y": 0.2656550705432892,
+   "y decoded": 0.14984595775604248,
+   "tests": [
+    {
+     "kind": "with/without",
+     "concept": "Passer(g5)",
+     "edit": "off f4",
+     "expected": "drop",
+     "with": 0.0498,
+     "without": 0.0725,
+     "change": 0.0227,
+     "share change": 0.00506,
+     "y decoded without (stm)": 0.24,
+     "fen without": "5k2/p1p4R/1pr5/3p1pP1/P2P4/2P2K2/8/8 w - - 0 35",
+     "total with": 5.9072,
+     "total without": 5.372,
+     "bits with": [
+      [
+       "g5",
+       "pawn.rank4_6.on",
+       0.04431
+      ],
+      [
+       "g5",
+       "role.protected_by.pawn.f4",
+       0.00475
+      ],
+      [
+       "g5",
+       "pawn.passed.on",
+       0.00073
+      ]
+     ],
+     "bits without": [
+      [
+       "g5",
+       "pawn.rank4_6.on",
+       0.07093
+      ],
+      [
+       "g5",
+       "pawn.passed.on",
+       0.00154
+      ]
+     ],
+     "pass": false
+    }
+   ],
+   "quote": "White has a protected Passed Pawn and his Rook cuts the Black King off; hence, White is bound to attack.",
+   "source": "Emanuel Lasker, Lasker's Manual of Chess (1927), rook-ending diagram 'White, Capablanca to play'; Capablanca \u2013 Tartakower, New York 1924, after 34...gxf5",
+   "url": "https://archive.org/download/bwb_S0-CIH-670/bwb_S0-CIH-670_djvu.txt",
+   "topic": "passed pawn",
+   "favours": "white",
+   "side_to_move": "white",
+   "verdict": "not supported"
+  },
+  {
+   "claims": [
+    30
+   ],
+   "claim": [
+    "Black's rook dominates the only open file."
+   ],
+   "orig_fen": "3r2k1/pp4pp/4b3/5p2/1PP1p3/P7/5PPP/2R2BK1 w - - 1 26",
+   "y": -0.18226680159568787,
+   "y decoded": -0.16758917272090912,
+   "tests": [
+    {
+     "kind": "with/without",
+     "concept": "KingMobility(W)",
+     "edit": "off f2 g2 h2",
+     "expected": "rise",
+     "with": -0.0004,
+     "without": 0.0035,
+     "change": 0.0039,
+     "share change": 0.00142,
+     "y decoded without (stm)": -0.994,
+     "fen without": "3r2k1/pp4pp/4b3/5p2/1PP1p3/P7/8/2R2BK1 w - - 1 26",
+     "total with": 11.4916,
+     "total without": 2.5306,
+     "bits with": [
+      [
+       "g1",
+       "control.reach.f2",
+       0.00159
+      ],
+      [
+       "g1",
+       "mobility.abs.h1",
+       -0.00096
+      ],
+      [
+       "g1",
+       "control.geometry.h1",
+       0.0008
+      ],
+      [
+       "g1",
+       "blocked_by.own.pawn.h2",
+       -0.00067
+      ],
+      [
+       "g1",
+       "blocked_by.own.bishop.f1",
+       -0.00064
+      ],
+      [
+       "g1",
+       "control.reach.g2",
+       -0.00062
+      ],
+      [
+       "g1",
+       "control.reach.h2",
+       -0.00056
+      ],
+      [
+       "g1",
+       "mobility.rel.h1",
+       0.00046
+      ],
+      [
+       "g1",
+       "blocked_by.own.pawn.f2",
+       0.00044
+      ],
+      [
+       "g1",
+       "blocked_by.own.pawn.g2",
+       -0.00035
+      ],
+      [
+       "g1",
+       "control.reach.f1",
+       0.00026
+      ],
+      [
+       "g1",
+       "control.geometry.f1",
+       -0.00024
+      ],
+      [
+       "g1",
+       "control.geometry.f2",
+       0.00012
+      ],
+      [
+       "g1",
+       "control.geometry.g2",
+       -8e-05
+      ],
+      [
+       "g1",
+       "control.reach.h1",
+       4e-05
+      ],
+      [
+       "g1",
+       "control.geometry.h2",
+       4e-05
+      ]
+     ],
+     "bits without": [
+      [
+       "g1",
+       "mobility.abs.g2",
+       -0.00092
+      ],
+      [
+       "g1",
+       "control.reach.g2",
+       0.00078
+      ],
+      [
+       "g1",
+       "mobility.rel.g2",
+       0.00078
+      ],
+      [
+       "g1",
+       "mobility.rel.f2",
+       0.00062
+      ],
+      [
+       "g1",
+       "control.reach.h2",
+       0.00061
+      ],
+      [
+       "g1",
+       "control.geometry.h1",
+       0.0006
+      ],
+      [
+       "g1",
+       "control.geometry.g2",
+       0.00057
+      ],
+      [
+       "g1",
+       "control.reach.f2",
+       0.00053
+      ],
+      [
+       "g1",
+       "mobility.rel.h2",
+       0.00051
+      ],
+      [
+       "g1",
+       "mobility.abs.f2",
+       -0.00047
+      ],
+      [
+       "g1",
+       "mobility.abs.h2",
+       -0.00046
+      ],
+      [
+       "g1",
+       "control.geometry.f2",
+       0.00041
+      ],
+      [
+       "g1",
+       "control.geometry.f1",
+       -0.00038
+      ],
+      [
+       "g1",
+       "control.reach.h1",
+       0.00032
+      ],
+      [
+       "g1",
+       "control.geometry.h2",
+       0.0003
+      ],
+      [
+       "g1",
+       "mobility.abs.h1",
+       -0.00019
+      ],
+      [
+       "g1",
+       "blocked_by.own.bishop.f1",
+       -7e-05
+      ],
+      [
+       "g1",
+       "control.reach.f1",
+       -3e-05
+      ],
+      [
+       "g1",
+       "mobility.rel.h1",
+       1e-05
+      ]
+     ],
+     "pass": true
+    }
+   ],
+   "quote": "In the present game Black has very evident compensations: (1) the greater mobility of the Black King, the adverse King being hampered by his own Pawns. (2) the dominating position of the Black Rook on the only open file.",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 60, note to Black's 23rd move (23...Q-B6!), describing the ending reached after 24.Q-B1 QxQ 25.RxQ R-Q1; Yates \u2013 Alekhine, The Hague 1921, after 25...Rd8",
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "rook activity",
+   "favours": "black",
+   "side_to_move": "white",
+   "verdict": "supported"
+  },
+  {
+   "claims": [
+    32
+   ],
+   "claim": [
+    "White's rook on the seventh cuts the Black king off."
+   ],
+   "orig_fen": "5k2/p1p4R/1pr5/3p1pP1/P2P1P2/2P2K2/8/8 w - - 0 35",
+   "y": 0.2656550705432892,
+   "y decoded": 0.14984595775604248,
+   "tests": [
+    {
+     "kind": "with/without",
+     "concept": "KingMobility(B)",
+     "edit": "off h7",
+     "expected": "rise",
+     "with": 0.0258,
+     "without": 0.0104,
+     "change": -0.0154,
+     "share change": 0.00134,
+     "y decoded without (stm)": -0.998,
+     "fen without": "5k2/p1p5/1pr5/3p1pP1/P2P1P2/2P2K2/8/8 w - - 0 35",
+     "total with": 5.9072,
+     "total without": 1.8263,
+     "bits with": [
+      [
+       "f8",
+       "control.reach.f7",
+       0.00433
+      ],
+      [
+       "f8",
+       "control.reach.g8",
+       0.0032
+      ],
+      [
+       "f8",
+       "control.geometry.f7",
+       0.00304
+      ],
+      [
+       "f8",
+       "control.geometry.g7",
+       0.003
+      ],
+      [
+       "f8",
+       "control.geometry.e7",
+       0.0028
+      ],
+      [
+       "f8",
+       "control.reach.e7",
+       0.00264
+      ],
+      [
+       "f8",
+       "control.reach.g7",
+       0.00262
+      ],
+      [
+       "f8",
+       "control.geometry.e8",
+       0.00206
+      ],
+      [
+       "f8",
+       "control.reach.e8",
+       0.00093
+      ],
+      [
+       "f8",
+       "mobility.rel.e8",
+       0.0006
+      ],
+      [
+       "f8",
+       "control.geometry.g8",
+       0.00043
+      ],
+      [
+       "f8",
+       "mobility.rel.g8",
+       0.00036
+      ],
+      [
+       "f8",
+       "mobility.abs.g8",
+       -0.00014
+      ],
+      [
+       "f8",
+       "mobility.abs.e8",
+       -8e-05
+      ]
+     ],
+     "bits without": [
+      [
+       "f8",
+       "control.reach.f7",
+       0.00158
+      ],
+      [
+       "f8",
+       "control.reach.g7",
+       0.00147
+      ],
+      [
+       "f8",
+       "control.reach.g8",
+       0.00115
+      ],
+      [
+       "f8",
+       "control.geometry.f7",
+       0.00109
+      ],
+      [
+       "f8",
+       "control.geometry.g7",
+       0.00108
+      ],
+      [
+       "f8",
+       "control.geometry.e8",
+       0.00102
+      ],
+      [
+       "f8",
+       "control.geometry.e7",
+       0.00096
+      ],
+      [
+       "f8",
+       "control.reach.e7",
+       0.00087
+      ],
+      [
+       "f8",
+       "control.reach.e8",
+       0.00056
+      ],
+      [
+       "f8",
+       "mobility.abs.e7",
+       -0.00035
+      ],
+      [
+       "f8",
+       "mobility.rel.g8",
+       0.00032
+      ],
+      [
+       "f8",
+       "control.geometry.g8",
+       0.00026
+      ],
+      [
+       "f8",
+       "mobility.abs.g7",
+       -0.00023
+      ],
+      [
+       "f8",
+       "mobility.abs.e8",
+       0.0002
+      ],
+      [
+       "f8",
+       "mobility.rel.g7",
+       0.00019
+      ],
+      [
+       "f8",
+       "mobility.rel.e7",
+       0.00015
+      ],
+      [
+       "f8",
+       "mobility.abs.g8",
+       9e-05
+      ],
+      [
+       "f8",
+       "mobility.abs.f7",
+       -5e-05
+      ],
+      [
+       "f8",
+       "mobility.rel.f7",
+       4e-05
+      ],
+      [
+       "f8",
+       "mobility.rel.e8",
+       2e-05
+      ]
+     ],
+     "pass": false
+    }
+   ],
+   "quote": "White has a protected Passed Pawn and his Rook cuts the Black King off; hence, White is bound to attack.",
+   "source": "Emanuel Lasker, Lasker's Manual of Chess (1927), rook-ending diagram 'White, Capablanca to play'; Capablanca \u2013 Tartakower, New York 1924, after 34...gxf5",
+   "url": "https://archive.org/download/bwb_S0-CIH-670/bwb_S0-CIH-670_djvu.txt",
+   "topic": "rook activity",
+   "favours": "white",
+   "side_to_move": "white",
+   "verdict": "not supported"
+  },
+  {
+   "claims": [
+    6
+   ],
+   "claim": [
+    "White dominates the centre."
+   ],
+   "orig_fen": "r1bqr1k1/pp1nppbp/2p2np1/8/3PP3/2NBBN1P/PP1Q1PP1/R3K2R w KQ - 4 11",
+   "y": 0.40287521481513977,
+   "y decoded": 0.4223874807357788,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "Centre(W) - Centre(B)",
+     "expected": ">0",
+     "value": -0.0047,
+     "bits": [
+      [
+       "c6",
+       "control.geometry.d5",
+       -0.02532
+      ],
+      [
+       "d4",
+       "control.geometry.e5",
+       -0.01975
+      ],
+      [
+       "c6",
+       "control.reach.d5",
+       -0.0135
+      ],
+      [
+       "f3",
+       "control.reach.d4",
+       -0.00581
+      ],
+      [
+       "e4",
+       "control.reach.d5",
+       -0.00557
+      ],
+      [
+       "d7",
+       "control.geometry.e5",
+       -0.00426
+      ],
+      [
+       "f3",
+       "control.geometry.d4",
+       -0.00386
+      ],
+      [
+       "c3",
+       "control.reach.e4",
+       -0.00296
+      ],
+      [
+       "c3",
+       "control.reach.d5",
+       -0.00287
+      ],
+      [
+       "c3",
+       "control.geometry.d5",
+       -0.00278
+      ],
+      [
+       "f6",
+       "control.reach.d5",
+       -0.00254
+      ],
+      [
+       "e5",
+       "square.control.white1",
+       -0.00235
+      ],
+      [
+       "d4",
+       "control.reach.e5",
+       -0.00226
+      ],
+      [
+       "f3",
+       "control.geometry.e5",
+       -0.00215
+      ],
+      [
+       "f3",
+       "control.reach.e5",
+       -0.00196
+      ],
+      [
+       "c3",
+       "control.geometry.e4",
+       -0.00155
+      ],
+      [
+       "f6",
+       "control.geometry.e4",
+       -0.00147
+      ],
+      [
+       "f6",
+       "control.reach.e4",
+       -0.00126
+      ],
+      [
+       "e3",
+       "control.reach.d4",
+       0.00119
+      ],
+      [
+       "f6",
+       "control.geometry.d5",
+       -0.00101
+      ],
+      [
+       "e4",
+       "square.control.white1",
+       -0.00073
+      ],
+      [
+       "e3",
+       "control.geometry.d4",
+       0.00058
+      ],
+      [
+       "d4",
+       "square.control.white2",
+       -0.00056
+      ],
+      [
+       "d3",
+       "control.reach.e4",
+       -0.0005
+      ],
+      [
+       "e4",
+       "control.geometry.d5",
+       -0.00041
+      ],
+      [
+       "d7",
+       "control.reach.e5",
+       -0.00014
+      ],
+      [
+       "d3",
+       "control.geometry.e4",
+       0.00012
+      ]
+     ],
+     "pass": false
+    },
+    {
+     "kind": "descriptive",
+     "concept": "Centre(W)",
+     "expected": ">0",
+     "value": -0.0542,
+     "bits": [
+      [
+       "d4",
+       "control.geometry.e5",
+       -0.01975
+      ],
+      [
+       "f3",
+       "control.reach.d4",
+       -0.00581
+      ],
+      [
+       "e4",
+       "control.reach.d5",
+       -0.00557
+      ],
+      [
+       "f3",
+       "control.geometry.d4",
+       -0.00386
+      ],
+      [
+       "c3",
+       "control.reach.e4",
+       -0.00296
+      ],
+      [
+       "c3",
+       "control.reach.d5",
+       -0.00287
+      ],
+      [
+       "c3",
+       "control.geometry.d5",
+       -0.00278
+      ],
+      [
+       "e5",
+       "square.control.white1",
+       -0.00235
+      ],
+      [
+       "d4",
+       "control.reach.e5",
+       -0.00226
+      ],
+      [
+       "f3",
+       "control.geometry.e5",
+       -0.00215
+      ],
+      [
+       "f3",
+       "control.reach.e5",
+       -0.00196
+      ],
+      [
+       "c3",
+       "control.geometry.e4",
+       -0.00155
+      ],
+      [
+       "e3",
+       "control.reach.d4",
+       0.00119
+      ],
+      [
+       "e4",
+       "square.control.white1",
+       -0.00073
+      ],
+      [
+       "e3",
+       "control.geometry.d4",
+       0.00058
+      ],
+      [
+       "d4",
+       "square.control.white2",
+       -0.00056
+      ],
+      [
+       "d3",
+       "control.reach.e4",
+       -0.0005
+      ],
+      [
+       "e4",
+       "control.geometry.d5",
+       -0.00041
+      ],
+      [
+       "d3",
+       "control.geometry.e4",
+       0.00012
+      ]
+     ],
+     "pass": false
+    }
+   ],
+   "quote": "White dominates the centre, but Black wants to simplify his game by [...e5] and to regain a share of the centre.",
+   "source": "Emanuel Lasker, Lasker's Manual of Chess (1927), Bogoljubow v. Romanowski (Reti Opening), note to Black's 10th move; Bogoljubow \u2013 Romanovsky, Leningrad match 1924, after 10...Nbd7",
+   "url": "https://archive.org/download/bwb_S0-CIH-670/bwb_S0-CIH-670_djvu.txt",
+   "topic": "centre",
+   "favours": "white",
+   "side_to_move": "white",
+   "verdict": "not supported"
+  },
+  {
+   "claims": [
+    7
+   ],
+   "claim": [
+    "Black has the superiority in the centre."
+   ],
+   "orig_fen": "2rqb1k1/2r1bpp1/p2npn1p/1p2N3/3P4/2NBB2Q/PP3PPP/R2R2K1 w - - 2 25",
+   "y": -0.07301993668079376,
+   "y decoded": -0.13930144906044006,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "Centre(B) - Centre(W)",
+     "expected": ">0",
+     "value": -0.0281,
+     "bits": [
+      [
+       "e6",
+       "control.geometry.d5",
+       -0.01678
+      ],
+      [
+       "e6",
+       "control.reach.d5",
+       -0.00939
+      ],
+      [
+       "e5",
+       "square.control.white1",
+       0.00468
+      ],
+      [
+       "d4",
+       "control.geometry.e5",
+       -0.0043
+      ],
+      [
+       "e3",
+       "control.geometry.d4",
+       0.00261
+      ],
+      [
+       "e3",
+       "control.reach.d4",
+       0.00244
+      ],
+      [
+       "d3",
+       "control.geometry.e4",
+       0.00184
+      ],
+      [
+       "d4",
+       "control.reach.e5",
+       -0.00178
+      ],
+      [
+       "d4",
+       "square.control.white1",
+       0.00174
+      ],
+      [
+       "d5",
+       "square.control.black1",
+       0.00148
+      ],
+      [
+       "f6",
+       "control.geometry.d5",
+       0.00138
+      ],
+      [
+       "f6",
+       "control.geometry.e4",
+       -0.00135
+      ],
+      [
+       "f6",
+       "control.reach.e4",
+       0.00117
+      ],
+      [
+       "c3",
+       "control.reach.e4",
+       -0.00113
+      ],
+      [
+       "c3",
+       "control.geometry.d5",
+       -0.00096
+      ],
+      [
+       "d6",
+       "control.geometry.e4",
+       0.0006
+      ],
+      [
+       "d3",
+       "control.reach.e4",
+       0.00045
+      ],
+      [
+       "c3",
+       "control.reach.d5",
+       -0.00042
+      ],
+      [
+       "c3",
+       "control.geometry.e4",
+       -0.00019
+      ],
+      [
+       "f6",
+       "control.reach.d5",
+       -0.00013
+      ],
+      [
+       "d6",
+       "control.reach.e4",
+       -7e-05
+      ]
+     ],
+     "pass": false
+    },
+    {
+     "kind": "descriptive",
+     "concept": "Centre(B)",
+     "expected": ">0",
+     "value": -0.0231,
+     "bits": [
+      [
+       "e6",
+       "control.geometry.d5",
+       -0.01678
+      ],
+      [
+       "e6",
+       "control.reach.d5",
+       -0.00939
+      ],
+      [
+       "d5",
+       "square.control.black1",
+       0.00148
+      ],
+      [
+       "f6",
+       "control.geometry.d5",
+       0.00138
+      ],
+      [
+       "f6",
+       "control.geometry.e4",
+       -0.00135
+      ],
+      [
+       "f6",
+       "control.reach.e4",
+       0.00117
+      ],
+      [
+       "d6",
+       "control.geometry.e4",
+       0.0006
+      ],
+      [
+       "f6",
+       "control.reach.d5",
+       -0.00013
+      ],
+      [
+       "d6",
+       "control.reach.e4",
+       -7e-05
+      ]
+     ],
+     "pass": false
+    }
+   ],
+   "quote": "Black is well developed, he has the superiority in the centre and is aggressive on the Queen\u2019s side.",
+   "source": "Emanuel Lasker, Lasker's Manual of Chess (1927), Zukertort v. Steinitz (13th game of the match), note to Black's 24th move; Zukertort \u2013 Steinitz, World Championship 1886, after 24...Rac7",
+   "url": "https://archive.org/download/bwb_S0-CIH-670/bwb_S0-CIH-670_djvu.txt",
+   "topic": "centre",
+   "favours": "black",
+   "side_to_move": "white",
+   "verdict": "not supported"
+  },
+  {
+   "claims": [
+    8,
+    43
+   ],
+   "claim": [
+    "Black permanently holds the centre: d5 is secured.",
+    "Black's d5 is definitely secured."
+   ],
+   "orig_fen": "1r1q1rk1/p1n1p1bp/4b1p1/1p3p2/2pP4/P1P1P2P/2QNBPP1/1RBR2K1 w - - 0 17",
+   "y": -0.05561929941177368,
+   "y decoded": -0.08218657970428467,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "Hold(B, d5)",
+     "expected": ">0",
+     "value": 0.0228,
+     "bits": [
+      [
+       "d5",
+       "square.control.black3plus",
+       0.00739
+      ],
+      [
+       "e6",
+       "control.geometry.d5",
+       0.0061
+      ],
+      [
+       "d8",
+       "control.geometry.d5",
+       0.00468
+      ],
+      [
+       "d8",
+       "control.reach.d5",
+       0.00328
+      ],
+      [
+       "c7",
+       "control.geometry.d5",
+       0.00133
+      ],
+      [
+       "e6",
+       "control.reach.d5",
+       6e-05
+      ],
+      [
+       "c7",
+       "control.reach.d5",
+       -1e-05
+      ]
+     ],
+     "pass": true
+    }
+   ],
+   "quote": "Permanently taking hold of the centre, as his [d5] is definitely secured. From the strategic point of view this consideration is of paramount importance.",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 12, note to Black's 16th move; Bernstein \u2013 Alekhine, Vilna 1912, after 16...f5",
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "centre",
+   "favours": "black",
+   "side_to_move": "white",
+   "verdict": "supported"
+  },
+  {
+   "claims": [
+    9,
+    12
+   ],
+   "claim": [
+    "Black has the better game with his two bishops.",
+    "Black's knight on e4 is strongly posted in the centre."
+   ],
+   "orig_fen": "r1bqkb1r/2p3pp/p1p5/3pPp2/4n3/5N2/PPP2PPP/RNBQR1K1 w kq - 0 10",
+   "y": 0.021211668848991394,
+   "y decoded": 0.04719799757003784,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "Pair(B)",
+     "expected": ">0",
+     "value": 0.0016,
+     "bits": [
+      [
+       "c8",
+       "bishop_pair.f8",
+       0.00208
+      ],
+      [
+       "f8",
+       "bishop_pair.c8",
+       -0.00052
+      ]
+     ],
+     "pass": true
+    },
+    {
+     "kind": "descriptive",
+     "concept": "Outpost(e4)",
+     "expected": ">0",
+     "value": 0.0251,
+     "bits": [
+      [
+       "e4",
+       "role.protected_by.pawn.f5",
+       0.01322
+      ],
+      [
+       "e4",
+       "role.protected_by.pawn.d5",
+       0.01247
+      ],
+      [
+       "e4",
+       "stability.pawn_ever.f2",
+       -0.00176
+      ],
+      [
+       "e4",
+       "stability.attacked_in.in1.knight.f3",
+       0.00125
+      ],
+      [
+       "e4",
+       "stability.attacked_in.in1.knight.b1",
+       -7e-05
+      ]
+     ],
+     "pass": true
+    }
+   ],
+   "quote": "Now Black has undoubtedly the better game, with his two Bishops and his strongly-posted Knight in the centre.",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 96, note to Black's 9th move; Torres \u2013 Alekhine, Seville 1922, after 9...d5",
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "bishop pair",
+   "favours": "black",
+   "side_to_move": "white",
+   "verdict": "supported"
+  },
+  {
+   "claims": [
+    10
+   ],
+   "claim": [
+    "The two bishops are a decisive advantage for White."
+   ],
+   "orig_fen": "4rrk1/2pnqppp/pp6/2p1n3/4P3/1BPPB2P/PP3QP1/3R1RK1 b - - 0 17",
+   "y": -0.5647299885749817,
+   "y decoded": -0.5997977256774902,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "Pair(W)",
+     "expected": ">0",
+     "value": 0.0061,
+     "bits": [
+      [
+       "e3",
+       "bishop_pair.b3",
+       0.00437
+      ],
+      [
+       "b3",
+       "bishop_pair.e3",
+       0.0017
+      ]
+     ],
+     "pass": true
+    },
+    {
+     "kind": "descriptive",
+     "concept": "Outpost(d7)+Outpost(e5)",
+     "expected": "<=0",
+     "value": -0.0023,
+     "bits": [
+      [
+       "d7",
+       "role.protected_by.knight.e5",
+       0.00303
+      ],
+      [
+       "d7",
+       "role.protected_by.queen.e7",
+       -0.00202
+      ],
+      [
+       "e5",
+       "stability.pawn_ever.d3",
+       -0.00198
+      ],
+      [
+       "e5",
+       "role.protected_by.queen.e7",
+       -0.00177
+      ],
+      [
+       "e5",
+       "role.protected_by.knight.d7",
+       0.00136
+      ],
+      [
+       "d7",
+       "stability.attacked_in.in1.bishop.b3",
+       -0.0009
+      ],
+      [
+       "e5",
+       "stability.pawn_direct.d3",
+       -0.00074
+      ],
+      [
+       "e5",
+       "stability.attacked_in.in1.bishop.e3",
+       0.0006
+      ],
+      [
+       "d7",
+       "stability.pawn_ever.e4",
+       9e-05
+      ]
+     ],
+     "pass": true
+    }
+   ],
+   "quote": "The loss of the present game by Black can be attributed to the fact that his Knights lack bases in the centre, and that in positions of this character the possession of the two Bishops constitutes a decisive advantage for the opponent.",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 90 (match, Berlin 1921), note to White's 17th move; Alekhine \u2013 Teichmann, Berlin 1921, after 17.c3",
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "bishop pair",
+   "favours": "white",
+   "side_to_move": "black",
+   "verdict": "supported"
+  },
+  {
+   "claims": [
+    11
+   ],
+   "claim": [
+    "In this open position two bishops beat bishop and knight."
+   ],
+   "orig_fen": "4r1k1/p1p3pp/bbN2p2/8/1B6/8/P4PPP/4R1K1 b - - 1 23",
+   "y": 0.925832986831665,
+   "y decoded": 0.48095813393592834,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "Pair(B)+Act(a6,b6) - Act(b4,c6)",
+     "expected": ">0",
+     "value": 0.1484,
+     "bits": [
+      [
+       "b4",
+       "control.reach.c3",
+       0.07451
+      ],
+      [
+       "a6",
+       "control.geometry.b7",
+       0.06226
+      ],
+      [
+       "a6",
+       "control.reach.b7",
+       0.06056
+      ],
+      [
+       "b6",
+       "control.geometry.c7",
+       0.05824
+      ],
+      [
+       "b4",
+       "control.geometry.c3",
+       0.05227
+      ],
+      [
+       "a6",
+       "control.reach.f1",
+       -0.05223
+      ],
+      [
+       "b4",
+       "mobility.abs.d2",
+       0.05107
+      ],
+      [
+       "b4",
+       "control.reach.e1",
+       0.05083
+      ],
+      [
+       "b6",
+       "control.geometry.d4",
+       0.04905
+      ],
+      [
+       "b6",
+       "control.reach.f2",
+       0.04894
+      ],
+      [
+       "b6",
+       "role.protected_by.pawn.c7",
+       0.04602
+      ],
+      [
+       "b6",
+       "control.geometry.a5",
+       0.04486
+      ],
+      [
+       "b4",
+       "control.geometry.d2",
+       0.04431
+      ],
+      [
+       "b6",
+       "role.defends.pawn.c7",
+       0.04303
+      ],
+      [
+       "a6",
+       "control.reach.b5",
+       0.04042
+      ],
+      [
+       "b6",
+       "control.reach.c7",
+       0.04006
+      ],
+      [
+       "a6",
+       "control.geometry.c4",
+       0.03926
+      ],
+      [
+       "b6",
+       "role.protected_by.pawn.a7",
+       0.03658
+      ],
+      [
+       "b4",
+       "control.geometry.a5",
+       0.03539
+      ],
+      [
+       "b6",
+       "control.reach.e3",
+       0.03338
+      ],
+      [
+       "a6",
+       "control.geometry.e2",
+       0.03305
+      ],
+      [
+       "c6",
+       "control.reach.a5",
+       0.03284
+      ],
+      [
+       "b4",
+       "mobility.abs.a3",
+       0.03109
+      ],
+      [
+       "b4",
+       "control.reach.a5",
+       0.03054
+      ],
+      [
+       "b4",
+       "control.geometry.f8",
+       0.03051
+      ],
+      [
+       "b4",
+       "mobility.rel.a5",
+       0.02995
+      ],
+      [
+       "b6",
+       "control.reach.d4",
+       0.02986
+      ],
+      [
+       "b4",
+       "mobility.abs.e7",
+       0.02964
+      ],
+      [
+       "b6",
+       "control.geometry.c5",
+       0.02951
+      ],
+      [
+       "b6",
+       "control.geometry.f2",
+       0.02881
+      ],
+      [
+       "b4",
+       "control.geometry.d6",
+       0.02818
+      ],
+      [
+       "b4",
+       "control.geometry.c5",
+       0.02769
+      ],
+      [
+       "c6",
+       "role.attacks.pawn.a7",
+       0.02762
+      ],
+      [
+       "b6",
+       "control.geometry.a7",
+       0.02672
+      ],
+      [
+       "b6",
+       "role.defends.pawn.a7",
+       0.02642
+      ],
+      [
+       "c6",
+       "control.reach.b4",
+       0.02589
+      ],
+      [
+       "b4",
+       "role.protected_by.knight.c6",
+       -0.02514
+      ],
+      [
+       "b6",
+       "control.geometry.e3",
+       0.02503
+      ],
+      [
+       "b4",
+       "control.geometry.a3",
+       0.02455
+      ],
+      [
+       "b6",
+       "control.reach.c5",
+       0.02247
+      ],
+      [
+       "a6",
+       "control.geometry.d3",
+       0.02242
+      ],
+      [
+       "a6",
+       "control.geometry.b5",
+       0.02236
+      ],
+      [
+       "b4",
+       "control.reach.a3",
+       0.02198
+      ],
+      [
+       "c6",
+       "mobility.abs.e5",
+       0.0216
+      ],
+      [
+       "b4",
+       "control.geometry.e7",
+       0.02035
+      ],
+      [
+       "c6",
+       "control.reach.b8",
+       -0.01997
+      ],
+      [
+       "c6",
+       "mobility.rel.e7",
+       0.01978
+      ],
+      [
+       "b4",
+       "mobility.rel.c3",
+       0.01953
+      ],
+      [
+       "a6",
+       "control.reach.e2",
+       0.01942
+      ],
+      [
+       "a6",
+       "control.reach.c8",
+       0.01929
+      ],
+      [
+       "b6",
+       "role.attacks.pawn.f2",
+       0.01864
+      ],
+      [
+       "c6",
+       "control.geometry.d4",
+       0.01852
+      ],
+      [
+       "b4",
+       "control.reach.d2",
+       0.01851
+      ],
+      [
+       "b6",
+       "xray.pawn.king.ne.4_1",
+       0.01802
+      ],
+      [
+       "c6",
+       "control.geometry.b8",
+       -0.01797
+      ],
+      [
+       "b4",
+       "control.reach.e7",
+       0.01747
+      ],
+      [
+       "b4",
+       "mobility.abs.f8",
+       0.01742
+      ],
+      [
+       "c6",
+       "role.restricts.rook.d8",
+       0.01728
+      ],
+      [
+       "c6",
+       "control.reach.e5",
+       0.01674
+      ],
+      [
+       "b4",
+       "role.defends.rook.e1",
+       0.01665
+      ],
+      [
+       "c6",
+       "control.reach.e7",
+       0.0166
+      ],
+      [
+       "a6",
+       "mobility.abs.c8",
+       0.01639
+      ],
+      [
+       "b4",
+       "role.restricts.bishop.a5",
+       0.01596
+      ],
+      [
+       "c6",
+       "mobility.abs.a5",
+       -0.01573
+      ],
+      [
+       "a6",
+       "mobility.abs.e2",
+       0.01561
+      ],
+      [
+       "b6",
+       "control.reach.a5",
+       0.01553
+      ],
+      [
+       "c6",
+       "control.reach.a7",
+       0.01506
+      ],
+      [
+       "b6",
+       "bishop_pair.a6",
+       0.01505
+      ],
+      [
+       "c6",
+       "role.restricts.rook.b8",
+       0.01497
+      ],
+      [
+       "b4",
+       "mobility.rel.d2",
+       -0.01479
+      ],
+      [
+       "c6",
+       "mobility.abs.d8",
+       0.01434
+      ],
+      [
+       "b4",
+       "mobility.abs.a5",
+       0.01412
+      ],
+      [
+       "c6",
+       "control.geometry.d8",
+       -0.0136
+      ],
+      [
+       "c6",
+       "control.reach.d4",
+       0.0131
+      ],
+      [
+       "b6",
+       "control.reach.a7",
+       0.01292
+      ],
+      [
+       "c6",
+       "control.reach.d8",
+       -0.01284
+      ],
+      [
+       "c6",
+       "role.restricts.rook.e7",
+       0.01242
+      ],
+      [
+       "a6",
+       "mobility.rel.b5",
+       0.01215
+      ],
+      [
+       "a6",
+       "mobility.abs.f1",
+       -0.01161
+      ],
+      [
+       "c6",
+       "role.defends.bishop.b4",
+       0.0116
+      ],
+      [
+       "c6",
+       "control.geometry.a7",
+       -0.01097
+      ],
+      [
+       "c6",
+       "mobility.abs.a7",
+       0.01086
+      ],
+      [
+       "b4",
+       "mobility.abs.c3",
+       0.01059
+      ],
+      [
+       "c6",
+       "control.geometry.a5",
+       -0.01035
+      ],
+      [
+       "a6",
+       "control.geometry.f1",
+       0.01026
+      ],
+      [
+       "c6",
+       "control.geometry.b4",
+       -0.01003
+      ],
+      [
+       "a6",
+       "control.reach.d3",
+       0.00938
+      ],
+      [
+       "a6",
+       "mobility.rel.c4",
+       0.00935
+      ],
+      [
+       "b4",
+       "role.restricts.bishop.c5",
+       0.00926
+      ],
+      [
+       "b6",
+       "mobility.abs.e3",
+       0.00848
+      ],
+      [
+       "b6",
+       "role.restricts.bishop.c5",
+       -0.00843
+      ],
+      [
+       "b4",
+       "control.reach.f8",
+       -0.00785
+      ],
+      [
+       "a6",
+       "control.reach.c4",
+       0.00679
+      ],
+      [
+       "a6",
+       "mobility.abs.b7",
+       0.00647
+      ],
+      [
+       "b6",
+       "mobility.abs.a5",
+       0.00639
+      ],
+      [
+       "c6",
+       "mobility.rel.a5",
+       0.0062
+      ],
+      [
+       "a6",
+       "mobility.rel.d3",
+       -0.00611
+      ],
+      [
+       "c6",
+       "role.restricts.bishop.d4",
+       0.00548
+      ],
+      [
+       "b4",
+       "control.geometry.e1",
+       -0.0054
+      ],
+      [
+       "c6",
+       "mobility.abs.d4",
+       0.00536
+      ],
+      [
+       "b6",
+       "role.needed_for.pawn.a7",
+       -0.00507
+      ],
+      [
+       "a6",
+       "role.restricts.rook.f1",
+       0.00487
+      ],
+      [
+       "a6",
+       "mobility.rel.e2",
+       0.00482
+      ],
+      [
+       "b4",
+       "control.reach.c5",
+       0.00462
+      ],
+      [
+       "b4",
+       "role.restricts.rook.e1",
+       -0.00462
+      ],
+      [
+       "b6",
+       "mobility.abs.c5",
+       0.00461
+      ],
+      [
+       "b6",
+       "mobility.abs.d4",
+       0.00446
+      ],
+      [
+       "b4",
+       "mobility.abs.c5",
+       0.00427
+      ],
+      [
+       "c6",
+       "control.geometry.e5",
+       -0.00411
+      ],
+      [
+       "b4",
+       "role.restricts.rook.e7",
+       0.00402
+      ],
+      [
+       "b4",
+       "mobility.rel.a3",
+       -0.00399
+      ],
+      [
+       "c6",
+       "mobility.abs.e7",
+       -0.0039
+      ],
+      [
+       "b4",
+       "role.needed_for.rook.e1",
+       0.00388
+      ],
+      [
+       "a6",
+       "mobility.rel.c8",
+       -0.00384
+      ],
+      [
+       "b4",
+       "control.reach.d6",
+       0.0037
+      ],
+      [
+       "a6",
+       "mobility.abs.d3",
+       -0.00322
+      ],
+      [
+       "b6",
+       "role.restricts.knight.d4",
+       0.00305
+      ],
+      [
+       "a6",
+       "bishop_pair.b6",
+       -0.00298
+      ],
+      [
+       "c6",
+       "role.restricts.rook.e5",
+       0.00292
+      ],
+      [
+       "a6",
+       "role.restricts.rook.e2",
+       0.00277
+      ],
+      [
+       "b4",
+       "mobility.rel.e7",
+       -0.00277
+      ],
+      [
+       "c6",
+       "control.geometry.e7",
+       -0.0026
+      ],
+      [
+       "a6",
+       "mobility.rel.b7",
+       -0.00236
+      ],
+      [
+       "c6",
+       "role.restricts.bishop.a5",
+       0.00236
+      ],
+      [
+       "a6",
+       "mobility.abs.c4",
+       0.00205
+      ],
+      [
+       "a6",
+       "mobility.abs.b5",
+       -0.00152
+      ],
+      [
+       "a6",
+       "control.geometry.c8",
+       0.00124
+      ],
+      [
+       "b6",
+       "mobility.abs.f2",
+       -0.00113
+      ],
+      [
+       "b4",
+       "mobility.abs.d6",
+       0.00113
+      ],
+      [
+       "b4",
+       "role.restricts.rook.f8",
+       0.00093
+      ],
+      [
+       "b6",
+       "role.restricts.rook.e3",
+       -0.00075
+      ],
+      [
+       "c6",
+       "mobility.abs.b8",
+       -0.00068
+      ],
+      [
+       "b6",
+       "role.restricts.knight.a7",
+       -0.00051
+      ]
+     ],
+     "pass": true
+    }
+   ],
+   "quote": "In an open position such as this, two Bishops are more powerful than a Bishop and Knight.",
+   "source": "Mason, The Principles of Chess (1894), Master Play, Evans Gambit, Martinez v. Zukertort, note to White's 23rd move; Martinez \u2013 Zukertort, Philadelphia 1884, after 23.Re1",
+   "url": "https://archive.org/download/principlesofches00masoiala/principlesofches00masoiala_djvu.txt",
+   "topic": "bishop pair",
+   "favours": "black",
+   "side_to_move": "black",
+   "verdict": "supported"
+  },
+  {
+   "claims": [
+    17
+   ],
+   "claim": [
+    "Black is forced to weaken his king-side still more."
+   ],
+   "orig_fen": "r2r1bk1/p7/2ppqp1p/2p1nNp1/4P3/1PQ3B1/P1P2PPP/3RR1K1 w - - 0 27",
+   "y": 0.6504450440406799,
+   "y decoded": 0.5202645063400269,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "KingSafety(B)",
+     "expected": "<0",
+     "value": 0.0738,
+     "bits": [
+      [
+       "f8",
+       "square.control.black3plus",
+       0.08023
+      ],
+      [
+       "f8",
+       "pawn_cover.black.none",
+       -0.03413
+      ],
+      [
+       "g7",
+       "pawn_cover.black.none",
+       0.01072
+      ],
+      [
+       "f5",
+       "control.geometry.g7",
+       0.00689
+      ],
+      [
+       "h7",
+       "pawn_cover.black.none",
+       0.00587
+      ],
+      [
+       "f7",
+       "pawn_cover.black.none",
+       0.00516
+      ],
+      [
+       "h8",
+       "pawn_cover.black.none",
+       0.00479
+      ],
+      [
+       "h8",
+       "square.control.black1",
+       -0.00381
+      ],
+      [
+       "g7",
+       "square.control.black1",
+       -0.00298
+      ],
+      [
+       "f7",
+       "square.control.black3plus",
+       0.00187
+      ],
+      [
+       "h7",
+       "square.control.black1",
+       -0.00092
+      ],
+      [
+       "g8",
+       "pawn_cover.black.none",
+       -0.00057
+      ],
+      [
+       "f5",
+       "control.reach.g7",
+       0.00045
+      ],
+      [
+       "g8",
+       "square.control.black1",
+       0.00026
+      ]
+     ],
+     "pass": false
+    }
+   ],
+   "quote": "Now the threat of 27. [f4] \u2026 forces Black to weaken his King-side still more.",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 37, note to White's 26th move; Alekhine \u2013 von Freymann, Cologne 1911, after 26...f6",
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "king safety",
+   "favours": "white",
+   "side_to_move": "white",
+   "verdict": "not supported"
+  },
+  {
+   "claims": [
+    18
+   ],
+   "claim": [
+    "White's king is exposed; Black's is safely entrenched behind his pawns."
+   ],
+   "orig_fen": "3r1rk1/2q2pp1/p6p/1p6/8/1PP2P2/1PQB1PKb/R3R3 b - - 1 21",
+   "y": 0.17051962018013,
+   "y decoded": 0.08530722558498383,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "KingSafety(W)",
+     "expected": "<0",
+     "value": -0.0384,
+     "bits": [
+      [
+       "f3",
+       "pawn_cover.black.none",
+       -0.00802
+      ],
+      [
+       "f2",
+       "pawn_cover.black.none",
+       -0.00754
+      ],
+      [
+       "g3",
+       "pawn_cover.black.one",
+       -0.00462
+      ],
+      [
+       "h1",
+       "square.control.black3plus",
+       -0.00443
+      ],
+      [
+       "f2",
+       "square.control.black1",
+       -0.00321
+      ],
+      [
+       "h2",
+       "pawn_cover.black.none",
+       -0.00297
+      ],
+      [
+       "g2",
+       "pawn_cover.black.none",
+       -0.00282
+      ],
+      [
+       "c7",
+       "control.geometry.g3",
+       -0.00274
+      ],
+      [
+       "f3",
+       "square.control.black1",
+       -0.00262
+      ],
+      [
+       "c7",
+       "control.reach.h2",
+       -0.00219
+      ],
+      [
+       "f1",
+       "pawn_cover.black.none",
+       0.00169
+      ],
+      [
+       "c7",
+       "control.geometry.h2",
+       -0.00159
+      ],
+      [
+       "h2",
+       "control.geometry.g1",
+       0.00143
+      ],
+      [
+       "h2",
+       "control.reach.g3",
+       0.00141
+      ],
+      [
+       "g1",
+       "square.control.black2",
+       -0.00131
+      ],
+      [
+       "c7",
+       "control.reach.g3",
+       -0.00121
+      ],
+      [
+       "h2",
+       "control.geometry.g3",
+       0.00096
+      ],
+      [
+       "g2",
+       "square.control.equal",
+       0.00079
+      ],
+      [
+       "f1",
+       "square.control.black3plus",
+       -0.00079
+      ],
+      [
+       "h3",
+       "square.control.black1",
+       0.00069
+      ],
+      [
+       "h1",
+       "pawn_cover.black.none",
+       0.00055
+      ],
+      [
+       "h2",
+       "square.control.equal",
+       -0.00045
+      ],
+      [
+       "h3",
+       "pawn_cover.black.none",
+       0.00041
+      ],
+      [
+       "h2",
+       "control.reach.g1",
+       0.00027
+      ],
+      [
+       "g1",
+       "pawn_cover.black.none",
+       -0.00015
+      ],
+      [
+       "g3",
+       "square.control.equal",
+       0.00011
+      ],
+      [
+       "g3",
+       "pawn_cover.black_ever.on",
+       -4e-05
+      ]
+     ],
+     "pass": true
+    },
+    {
+     "kind": "descriptive",
+     "concept": "KingSafety(B)",
+     "expected": ">0",
+     "value": -0.0132,
+     "bits": [
+      [
+       "g7",
+       "pawn_cover.white.none",
+       -0.007
+      ],
+      [
+       "f7",
+       "pawn_cover.white.none",
+       -0.00557
+      ],
+      [
+       "f8",
+       "square.control.white2",
+       0.004
+      ],
+      [
+       "g7",
+       "square.control.white1",
+       -0.00327
+      ],
+      [
+       "f8",
+       "pawn_cover.white.none",
+       -0.00279
+      ],
+      [
+       "h8",
+       "square.control.white1",
+       0.00213
+      ],
+      [
+       "h7",
+       "pawn_cover.white.none",
+       0.0016
+      ],
+      [
+       "f7",
+       "square.control.white3plus",
+       0.00122
+      ],
+      [
+       "c2",
+       "control.reach.h7",
+       -0.00104
+      ],
+      [
+       "c2",
+       "control.geometry.h7",
+       -0.00103
+      ],
+      [
+       "g8",
+       "pawn_cover.white.none",
+       -0.00075
+      ],
+      [
+       "h8",
+       "pawn_cover.white.none",
+       -0.00074
+      ],
+      [
+       "g8",
+       "square.control.white2",
+       0.00041
+      ],
+      [
+       "h7",
+       "square.control.equal",
+       -0.00036
+      ]
+     ],
+     "pass": false
+    }
+   ],
+   "quote": "Moreover, White's King is rather exposed while Black's King is safely entrenched behind his Pawns.",
+   "source": "Edward Lasker, Chess and Checkers: The Way to Mastership (1918), Illustrative Game No. 1, note after White's 21st move (Diagram 68); Showalter \u2013 Ed. Lasker, Western Championship, Lexington 1917, after 21.Kg2",
+   "url": "https://www.gutenberg.org/cache/epub/4913/pg4913.txt",
+   "topic": "king safety",
+   "favours": "black",
+   "side_to_move": "black",
+   "verdict": "not supported"
+  },
+  {
+   "claims": [
+    20
+   ],
+   "claim": [
+    "White's king is exposed and Black takes the initiative."
+   ],
+   "orig_fen": "rn2k2r/pbp2p1p/1p2pp2/8/3Pq3/2P2NP1/P1PK1PBP/R2Q3R b kq - 4 11",
+   "y": -0.027140706777572632,
+   "y decoded": -0.10553401708602905,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "KingSafety(W)",
+     "expected": "<0",
+     "value": -0.0843,
+     "bits": [
+      [
+       "d1",
+       "pawn_cover.black.none",
+       -0.01791
+      ],
+      [
+       "e4",
+       "control.reach.c2",
+       -0.01358
+      ],
+      [
+       "d1",
+       "square.control.black3plus",
+       0.01277
+      ],
+      [
+       "e4",
+       "control.geometry.e3",
+       -0.01141
+      ],
+      [
+       "e4",
+       "control.geometry.d3",
+       -0.01102
+      ],
+      [
+       "e4",
+       "control.geometry.e1",
+       -0.01069
+      ],
+      [
+       "e4",
+       "control.geometry.e2",
+       -0.01019
+      ],
+      [
+       "c3",
+       "pawn_cover.black.none",
+       -0.01009
+      ],
+      [
+       "e4",
+       "control.geometry.c2",
+       -0.00854
+      ],
+      [
+       "c2",
+       "pawn_cover.black.none",
+       -0.00637
+      ],
+      [
+       "e4",
+       "control.reach.e1",
+       0.00483
+      ],
+      [
+       "e4",
+       "control.reach.d3",
+       -0.004
+      ],
+      [
+       "e1",
+       "square.control.black3plus",
+       -0.00391
+      ],
+      [
+       "e2",
+       "pawn_cover.black.none",
+       0.00378
+      ],
+      [
+       "e2",
+       "square.control.black1",
+       0.00372
+      ],
+      [
+       "e3",
+       "square.control.black1",
+       0.00366
+      ],
+      [
+       "e4",
+       "control.reach.e2",
+       -0.00362
+      ],
+      [
+       "e3",
+       "pawn_cover.black.one",
+       -0.00342
+      ],
+      [
+       "d3",
+       "square.control.black1",
+       0.00307
+      ],
+      [
+       "e4",
+       "control.reach.e3",
+       0.00281
+      ],
+      [
+       "d3",
+       "pawn_cover.black.one",
+       -0.00217
+      ],
+      [
+       "d3",
+       "pawn_cover.black_ever.on",
+       -0.00183
+      ],
+      [
+       "e1",
+       "pawn_cover.black.none",
+       0.00152
+      ],
+      [
+       "e3",
+       "pawn_cover.black_ever.on",
+       -0.00129
+      ],
+      [
+       "c2",
+       "square.control.black1",
+       -0.00104
+      ],
+      [
+       "d2",
+       "pawn_cover.black.none",
+       -0.00102
+      ],
+      [
+       "c1",
+       "square.control.black3plus",
+       -0.00099
+      ],
+      [
+       "c1",
+       "pawn_cover.black.none",
+       0.00098
+      ],
+      [
+       "d2",
+       "square.control.black2",
+       0.00096
+      ],
+      [
+       "c3",
+       "square.control.black1",
+       0.00066
+      ]
+     ],
+     "pass": true
+    }
+   ],
+   "quote": "The text-move, just as 11. [Kf1] (R\u00e9ti\u2014Bogoljuboff, Berlin, 1920) is insufficient, in view of the exposed position of his King. Black at once assumes the initiative and keeps it to the end.",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 26, note to White's 11th move; Tarrasch \u2013 Alekhine, St Petersburg 1914, after 11.Kd2",
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "king safety",
+   "favours": "black",
+   "side_to_move": "black",
+   "verdict": "supported"
+  },
+  {
+   "claims": [
+    21
+   ],
+   "claim": [
+    "White has a passed pawn and a commanding king."
+   ],
+   "orig_fen": "8/1kp1r1pp/p1p1r3/Pp4R1/1P2P3/3PK2P/2P5/5R2 b - - 0 36",
+   "y": -0.8125944137573242,
+   "y decoded": -0.8255695104598999,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "Passer(e4)",
+     "expected": ">0",
+     "value": 0.1797,
+     "bits": [
+      [
+       "e4",
+       "pawn.rank4_6.on",
+       0.12074
+      ],
+      [
+       "e4",
+       "role.protected_by.pawn.d3",
+       0.03214
+      ],
+      [
+       "e4",
+       "role.protected_by.king.e3",
+       0.02243
+      ],
+      [
+       "e4",
+       "pawn.passed.on",
+       0.00435
+      ]
+     ],
+     "pass": true
+    },
+    {
+     "kind": "descriptive",
+     "concept": "Activity(Ke3)",
+     "expected": ">0",
+     "value": 0.0451,
+     "bits": [
+      [
+       "e3",
+       "role.defends.pawn.e4",
+       0.00588
+      ],
+      [
+       "e3",
+       "control.geometry.d2",
+       0.00413
+      ],
+      [
+       "e3",
+       "control.geometry.e2",
+       0.00368
+      ],
+      [
+       "e3",
+       "control.reach.d3",
+       0.00366
+      ],
+      [
+       "e3",
+       "control.reach.f2",
+       0.00312
+      ],
+      [
+       "e3",
+       "control.reach.e2",
+       0.00264
+      ],
+      [
+       "e3",
+       "control.reach.e4",
+       0.0026
+      ],
+      [
+       "e3",
+       "mobility.rel.d4",
+       0.00246
+      ],
+      [
+       "e3",
+       "mobility.abs.d4",
+       -0.00241
+      ],
+      [
+       "e3",
+       "control.reach.f4",
+       0.00222
+      ],
+      [
+       "e3",
+       "control.reach.d4",
+       0.0022
+      ],
+      [
+       "e3",
+       "control.geometry.f2",
+       0.0018
+      ],
+      [
+       "e3",
+       "control.geometry.d4",
+       0.00177
+      ],
+      [
+       "e3",
+       "control.geometry.f4",
+       -0.00173
+      ],
+      [
+       "e3",
+       "mobility.rel.f4",
+       0.00171
+      ],
+      [
+       "e3",
+       "role.defends.pawn.d3",
+       0.0017
+      ],
+      [
+       "e3",
+       "control.reach.f3",
+       0.00145
+      ],
+      [
+       "e3",
+       "mobility.rel.d2",
+       0.00143
+      ],
+      [
+       "e3",
+       "control.geometry.d3",
+       0.00119
+      ],
+      [
+       "e3",
+       "control.reach.d2",
+       0.00115
+      ],
+      [
+       "e3",
+       "mobility.rel.f2",
+       0.00075
+      ],
+      [
+       "e3",
+       "mobility.abs.d2",
+       0.00062
+      ],
+      [
+       "e3",
+       "control.geometry.e4",
+       0.00059
+      ],
+      [
+       "e3",
+       "mobility.abs.f4",
+       0.00054
+      ],
+      [
+       "e3",
+       "mobility.rel.e2",
+       0.00054
+      ],
+      [
+       "e3",
+       "role.restricts.rook.e4",
+       0.00051
+      ],
+      [
+       "e3",
+       "mobility.abs.e2",
+       0.00042
+      ],
+      [
+       "e3",
+       "mobility.rel.f3",
+       0.00037
+      ],
+      [
+       "e3",
+       "mobility.abs.f3",
+       0.00022
+      ],
+      [
+       "e3",
+       "control.geometry.f3",
+       -0.00015
+      ],
+      [
+       "e3",
+       "mobility.abs.f2",
+       4e-05
+      ]
+     ],
+     "pass": true
+    }
+   ],
+   "quote": "White not only has a passed Pawn, but his King is in a commanding position in the centre of the board ready to support the advance of White's Pawns, or, if necessary, to go to [c5], or to move to the right wing in case of danger.",
+   "source": "Capablanca, Chess Fundamentals (1921), ch. V, \u00a729, Example 61, note after White's 10th move (game move 36); Capablanca \u2013 Janowski, New York 1913, after 36.Rxg5",
+   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt",
+   "topic": "passed pawn",
+   "favours": "white",
+   "side_to_move": "black",
+   "verdict": "supported"
+  },
+  {
+   "claims": [
+    24
+   ],
+   "claim": [
+    "Black has three isolated pawns, one attacked now and d6 next."
+   ],
+   "orig_fen": "7r/2R1N3/3p3k/p3np2/r6P/6P1/2P3K1/4R3 b - - 2 46",
+   "y": -0.5673970580101013,
+   "y decoded": -0.4983001947402954,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "Weakness(a5 d6 f5)",
+     "expected": "<0",
+     "value": -0.0055,
+     "bits": [
+      [
+       "a5",
+       "weak.white",
+       -0.00217
+      ],
+      [
+       "d6",
+       "weak.white",
+       -0.00199
+      ],
+      [
+       "f5",
+       "stability.pawn_direct.g3",
+       -0.00127
+      ],
+      [
+       "e7",
+       "role.attacks.pawn.f5",
+       -0.00107
+      ],
+      [
+       "f5",
+       "weak.white",
+       -0.00099
+      ],
+      [
+       "f5",
+       "stability.pawn_ever.g3",
+       0.0009
+      ],
+      [
+       "d6",
+       "pawn.isolated.on",
+       0.00073
+      ],
+      [
+       "d6",
+       "stability.pawn_ever.c2",
+       0.00047
+      ],
+      [
+       "f5",
+       "pawn.isolated.on",
+       -0.0001
+      ],
+      [
+       "a5",
+       "pawn.isolated.on",
+       -1e-05
+      ]
+     ],
+     "pass": true
+    }
+   ],
+   "quote": "He has three isolated Pawns, one of which is now attacked, another ([d6]) will be attacked next move.",
+   "source": "Znosko-Borovsky, The Middle Game in Chess (1922), Inferiority in Force, Diagram LXVI, note to White's 4th move (game move 46); Schlechter \u2013 Lasker, World Championship match (game 1) 1910, after 46.Ne7",
+   "url": "https://archive.org/download/middlegameinches00znos/middlegameinches00znos_djvu.txt",
+   "topic": "weak pawns",
+   "favours": "white",
+   "side_to_move": "black",
+   "verdict": "supported"
+  },
+  {
+   "claims": [
+    25
+   ],
+   "claim": [
+    "Black's pawns are isolated and must be defended by pieces."
+   ],
+   "orig_fen": "rr6/2p1k3/3bp3/p3p3/P1N4P/6P1/1P3P2/R2R2K1 w - - 4 35",
+   "y": 0.860287606716156,
+   "y decoded": 0.8129286170005798,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "Weakness(a5 c7 e5 e6)+defenders",
+     "expected": "<0",
+     "value": -0.0159,
+     "bits": [
+      [
+       "a5",
+       "weak.black",
+       -0.00918
+      ],
+      [
+       "e5",
+       "weak.black",
+       -0.00877
+      ],
+      [
+       "c7",
+       "weak.black",
+       -0.00705
+      ],
+      [
+       "e6",
+       "weak.black",
+       -0.00649
+      ],
+      [
+       "d6",
+       "role.defends.pawn.e5",
+       0.00466
+      ],
+      [
+       "a8",
+       "role.defends.pawn.a5",
+       0.00414
+      ],
+      [
+       "a5",
+       "stability.pawn_ever.b2",
+       -0.00258
+      ],
+      [
+       "e5",
+       "stability.pawn_direct.f2",
+       0.0019
+      ],
+      [
+       "e6",
+       "pawn.doubled_with.rank5",
+       0.00176
+      ],
+      [
+       "d6",
+       "role.defends.pawn.c7",
+       0.00174
+      ],
+      [
+       "c7",
+       "pawn.isolated.on",
+       0.00172
+      ],
+      [
+       "e7",
+       "role.defends.pawn.e6",
+       0.00158
+      ],
+      [
+       "c4",
+       "role.attacks.pawn.a5",
+       -0.00114
+      ],
+      [
+       "e6",
+       "stability.pawn_ever.f2",
+       0.00084
+      ],
+      [
+       "a5",
+       "stability.pawn_direct.b2",
+       0.00083
+      ],
+      [
+       "e5",
+       "pawn.doubled_with.rank6",
+       0.0008
+      ],
+      [
+       "e5",
+       "stability.pawn_ever.f2",
+       -0.00058
+      ],
+      [
+       "e5",
+       "pawn.isolated.on",
+       -0.00048
+      ],
+      [
+       "a5",
+       "pawn.isolated.on",
+       0.00028
+      ],
+      [
+       "e6",
+       "pawn.isolated.on",
+       -0.00028
+      ],
+      [
+       "c4",
+       "role.attacks.pawn.e5",
+       0.00023
+      ],
+      [
+       "c7",
+       "stability.pawn_ever.b2",
+       0.00019
+      ]
+     ],
+     "pass": true
+    }
+   ],
+   "quote": "He is two Pawns down for all practical purposes, and the Pawns he has are isolated and have to be defended by pieces.",
+   "source": "Capablanca, Chess Fundamentals (1921), Part II, Game 7, note to Black's 34th move; Capablanca \u2013 Burn, San Sebastian 1911, after 34...Ke7",
+   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt",
+   "topic": "weak pawns",
+   "favours": "white",
+   "side_to_move": "white",
+   "verdict": "supported"
+  },
+  {
+   "claims": [
+    26
+   ],
+   "claim": [
+    "Black's doubled c-pawn is a disadvantage he cannot undo."
+   ],
+   "orig_fen": "1k2r3/1ppr2pp/p1p2p2/5R2/4P3/1P1P3P/P1P3P1/5RK1 w - - 1 27",
+   "y": 0.2526622414588928,
+   "y decoded": 0.2420136034488678,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "Weakness(c6 c7)",
+     "expected": "<0",
+     "value": -0.0034,
+     "bits": [
+      [
+       "c7",
+       "weak.black",
+       -0.0069
+      ],
+      [
+       "c7",
+       "pawn.doubled_with.rank6",
+       0.00277
+      ],
+      [
+       "c6",
+       "pawn.doubled_with.rank7",
+       0.00054
+      ],
+      [
+       "c7",
+       "stability.pawn_ever.b3",
+       0.00053
+      ],
+      [
+       "c6",
+       "stability.pawn_ever.b3",
+       -0.00037
+      ],
+      [
+       "c7",
+       "stability.pawn_ever.d3",
+       0.00022
+      ],
+      [
+       "c6",
+       "stability.pawn_ever.d3",
+       -0.0002
+      ]
+     ],
+     "pass": true
+    }
+   ],
+   "quote": "Black's game has the disadvantage of his double [c-pawn], which, to make matters worse, he cannot advance, because as soon as Black plays [...b6], White replies [b4].",
+   "source": "Capablanca, Chess Fundamentals (1921), ch. V, \u00a729, Example 61 (introductory note to the diagram); Capablanca \u2013 Janowski, New York 1913, after 26...Re8",
+   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt",
+   "topic": "weak pawns",
+   "favours": "white",
+   "side_to_move": "white",
+   "verdict": "supported"
+  },
+  {
+   "claims": [
+    27
+   ],
+   "claim": [
+    "Black's extra pawn is doubled and of no account."
+   ],
+   "orig_fen": "8/6p1/2p1kp1p/8/p1p4P/P1P3P1/5PK1/8 w - - 1 51",
+   "y": -0.3711937367916107,
+   "y decoded": -0.38567936420440674,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "material.up(B) + Weakness(c4 c6)",
+     "expected": "~0",
+     "value": -0.0128,
+     "|x| pct": 34.5,
+     "bits": [
+      [
+       "c6",
+       "weak.black",
+       -0.00898
+      ],
+      [
+       "c6",
+       "pawn.doubled_with.rank4",
+       -0.00441
+      ],
+      [
+       "c4",
+       "weak.black",
+       -0.00437
+      ],
+      [
+       "a4",
+       "material.up.up1",
+       0.00136
+      ],
+      [
+       "h6",
+       "material.up.up1",
+       0.0012
+      ],
+      [
+       "c4",
+       "pawn.doubled_with.rank6",
+       0.00107
+      ],
+      [
+       "f6",
+       "material.up.up1",
+       0.00083
+      ],
+      [
+       "c4",
+       "material.up.up1",
+       -0.00076
+      ],
+      [
+       "g7",
+       "material.up.up1",
+       0.00072
+      ],
+      [
+       "c6",
+       "material.up.up1",
+       0.00061
+      ],
+      [
+       "c4",
+       "pawn.isolated.on",
+       -0.00031
+      ],
+      [
+       "c6",
+       "pawn.isolated.on",
+       0.00023
+      ]
+     ],
+     "pass": false
+    }
+   ],
+   "quote": "Black has an extra pawn on the Queen's side. But as it is doubled, the material superiority is of no account.",
+   "source": "Edward Lasker, Chess Strategy (1915), End-games from Master Play, I, Diag. 82; Teichmann \u2013 Blackburne, Berlin 1897, after 50...Ke6",
+   "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt",
+   "topic": "weak pawns",
+   "favours": "white",
+   "side_to_move": "white",
+   "verdict": "not supported"
+  },
+  {
+   "claims": [
+    28
+   ],
+   "claim": [
+    "Black's isolated d5 pawn is weak and subject to attack."
+   ],
+   "orig_fen": "2rq1rk1/1b2bppp/pp3n2/2np2B1/B7/2N1PN2/PP2QPPP/2R2RK1 w - - 0 14",
+   "y": 0.006945520639419556,
+   "y decoded": -0.02333398163318634,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "Weakness(d5)",
+     "expected": "<0",
+     "value": -0.0125,
+     "bits": [
+      [
+       "d5",
+       "weak.black",
+       -0.01223
+      ],
+      [
+       "d5",
+       "stability.pawn_ever.e3",
+       -0.00255
+      ],
+      [
+       "d5",
+       "pawn.isolated.on",
+       0.00126
+      ],
+      [
+       "c3",
+       "role.attacks.pawn.d5",
+       0.00062
+      ],
+      [
+       "d5",
+       "stability.pawn_direct.e3",
+       0.00036
+      ]
+     ],
+     "pass": true
+    }
+   ],
+   "quote": "The drawback to the text move is that it leaves Black's [d5 pawn] isolated, and consequently weak and subject to attack.",
+   "source": "Capablanca, Chess Fundamentals (1921), Part II, Game 9, note to Black's 13th move; Capablanca \u2013 Teichmann, Berlin 1913, after 13...Nxc5",
+   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt",
+   "topic": "weak pawns",
+   "favours": "white",
+   "side_to_move": "white",
+   "verdict": "supported"
+  },
+  {
+   "claims": [
+    29
+   ],
+   "claim": [
+    "Black's isolated h7 pawn is weak."
+   ],
+   "orig_fen": "2r3k1/1p3p1p/p3p3/4bp2/1P6/2P5/1P3PPP/3K1B1R w - - 0 21",
+   "y": 0.03322186321020126,
+   "y decoded": 0.037128038704395294,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "Weakness(h7)",
+     "expected": "<0",
+     "value": -0.0027,
+     "bits": [
+      [
+       "h7",
+       "weak.black",
+       -0.00646
+      ],
+      [
+       "h7",
+       "stability.pawn_ever.g2",
+       0.00206
+      ],
+      [
+       "h7",
+       "pawn.isolated.on",
+       0.00166
+      ]
+     ],
+     "pass": true
+    }
+   ],
+   "quote": "(4) Black's [h7 pawn] is isolated and therefore weak.",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 78, note to Black's 20th move; Alekhine \u2013 Tartakower, Vienna 1922, after 20...Rxc8",
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "weak pawns",
+   "favours": "white",
+   "side_to_move": "white",
+   "verdict": "supported"
+  },
+  {
+   "claims": [
+    31
+   ],
+   "claim": [
+    "White commands the seventh rank."
+   ],
+   "orig_fen": "5k2/R7/1p2r2p/4N2P/Pn6/4P3/4K1P1/8 w - - 1 36",
+   "y": 0.9626194834709167,
+   "y decoded": 0.9282281994819641,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "rook.seventh + Activity(Ra7)",
+     "expected": ">0",
+     "value": 0.2122,
+     "bits": [
+      [
+       "a7",
+       "rook.seventh.on",
+       0.08723
+      ],
+      [
+       "a7",
+       "control.reach.a5",
+       0.01304
+      ],
+      [
+       "a7",
+       "control.geometry.h7",
+       0.01211
+      ],
+      [
+       "a7",
+       "control.geometry.g7",
+       0.01168
+      ],
+      [
+       "a7",
+       "control.geometry.c7",
+       0.01153
+      ],
+      [
+       "a7",
+       "control.geometry.a6",
+       0.01088
+      ],
+      [
+       "a7",
+       "control.reach.a4",
+       0.01071
+      ],
+      [
+       "a7",
+       "control.geometry.e7",
+       0.00998
+      ],
+      [
+       "a7",
+       "role.restricts.king.f7",
+       0.00979
+      ],
+      [
+       "a7",
+       "control.geometry.b7",
+       0.00919
+      ],
+      [
+       "a7",
+       "control.geometry.a5",
+       0.00883
+      ],
+      [
+       "a7",
+       "control.geometry.a4",
+       0.0076
+      ],
+      [
+       "a7",
+       "control.geometry.a8",
+       0.00747
+      ],
+      [
+       "a7",
+       "mobility.abs.a6",
+       0.00626
+      ],
+      [
+       "a7",
+       "control.reach.f7",
+       -0.00579
+      ],
+      [
+       "a7",
+       "mobility.abs.h7",
+       0.00548
+      ],
+      [
+       "a7",
+       "role.defends.pawn.a4",
+       0.00479
+      ],
+      [
+       "a7",
+       "control.reach.h7",
+       -0.00467
+      ],
+      [
+       "a7",
+       "control.reach.g7",
+       -0.00426
+      ],
+      [
+       "a7",
+       "mobility.rel.d7",
+       0.00422
+      ],
+      [
+       "a7",
+       "control.reach.a6",
+       0.00404
+      ],
+      [
+       "a7",
+       "mobility.abs.a8",
+       -0.00399
+      ],
+      [
+       "a7",
+       "control.reach.a8",
+       0.00345
+      ],
+      [
+       "a7",
+       "control.reach.e7",
+       0.00303
+      ],
+      [
+       "a7",
+       "mobility.rel.h7",
+       -0.00295
+      ],
+      [
+       "a7",
+       "mobility.abs.d7",
+       -0.0028
+      ],
+      [
+       "a7",
+       "mobility.abs.g7",
+       -0.00266
+      ],
+      [
+       "a7",
+       "mobility.abs.b7",
+       -0.0026
+      ],
+      [
+       "a7",
+       "control.reach.b7",
+       -0.00241
+      ],
+      [
+       "a7",
+       "control.reach.d7",
+       -0.00239
+      ],
+      [
+       "a7",
+       "mobility.abs.a5",
+       0.00239
+      ],
+      [
+       "a7",
+       "mobility.rel.b7",
+       0.00209
+      ],
+      [
+       "a7",
+       "control.geometry.d7",
+       0.00187
+      ],
+      [
+       "a7",
+       "mobility.abs.c7",
+       -0.00186
+      ],
+      [
+       "a7",
+       "control.geometry.f7",
+       0.00176
+      ],
+      [
+       "a7",
+       "role.restricts.knight.a6",
+       -0.00089
+      ],
+      [
+       "a7",
+       "control.reach.c7",
+       -0.00086
+      ],
+      [
+       "a7",
+       "mobility.rel.c7",
+       0.00063
+      ],
+      [
+       "a7",
+       "mobility.abs.e7",
+       -0.00053
+      ],
+      [
+       "a7",
+       "mobility.abs.f7",
+       0.00036
+      ],
+      [
+       "a7",
+       "mobility.rel.a8",
+       0.00031
+      ],
+      [
+       "a7",
+       "role.restricts.king.g7",
+       0.00019
+      ]
+     ],
+     "pass": true
+    },
+    {
+     "kind": "descriptive",
+     "concept": "Weakness(e3 g2)",
+     "expected": "<0",
+     "value": -0.0049,
+     "bits": [
+      [
+       "e3",
+       "weak.white",
+       -0.00402
+      ],
+      [
+       "g2",
+       "weak.white",
+       -0.00205
+      ],
+      [
+       "e3",
+       "pawn.isolated.on",
+       0.00118
+      ]
+     ],
+     "pass": true
+    }
+   ],
+   "quote": "A glance at the position shows (1) that White commands the 7th Row; (2) that White's [e3 pawn] is isolated and his [g2 pawn] backward.",
+   "source": "Nimzowitsch, My System (1930), Illustrative Game 10, note after Black's 35th move; Nimzowitsch \u2013 Tarrasch, Breslau 1925, after 35...Re6",
+   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
+   "topic": "rook activity",
+   "favours": "white",
+   "side_to_move": "white",
+   "verdict": "supported"
+  },
+  {
+   "claims": [
+    33
+   ],
+   "claim": [
+    "Black's rook on a2 is quite out of play."
+   ],
+   "orig_fen": "4rb1k/3q2pp/2n1bp2/2p1pN2/1pP1P1P1/3PBQ2/rP1R1N1P/5RK1 w - - 3 25",
+   "y": -0.41558191180229187,
+   "y decoded": -0.41704854369163513,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "Activity(ra2)",
+     "expected": "~0",
+     "value": 0.1065,
+     "|x| pct": 59.0,
+     "bits": [
+      [
+       "a2",
+       "xray.pawn.rook.e.1_2",
+       0.01589
+      ],
+      [
+       "a2",
+       "control.reach.a4",
+       0.0129
+      ],
+      [
+       "a2",
+       "control.reach.a1",
+       -0.01277
+      ],
+      [
+       "a2",
+       "control.geometry.a1",
+       0.01007
+      ],
+      [
+       "a2",
+       "control.geometry.a8",
+       -0.00959
+      ],
+      [
+       "a2",
+       "control.geometry.a5",
+       0.00902
+      ],
+      [
+       "a2",
+       "role.attacks.pawn.b2",
+       0.0078
+      ],
+      [
+       "a2",
+       "mobility.abs.b2",
+       0.00741
+      ],
+      [
+       "a2",
+       "control.reach.a3",
+       0.00725
+      ],
+      [
+       "a2",
+       "control.geometry.a4",
+       0.00685
+      ],
+      [
+       "a2",
+       "control.reach.a5",
+       0.00641
+      ],
+      [
+       "a2",
+       "mobility.abs.a3",
+       0.0064
+      ],
+      [
+       "a2",
+       "mobility.rel.a5",
+       0.00599
+      ],
+      [
+       "a2",
+       "control.geometry.a6",
+       0.00594
+      ],
+      [
+       "a2",
+       "mobility.abs.a1",
+       0.00587
+      ],
+      [
+       "a2",
+       "mobility.abs.a8",
+       0.00512
+      ],
+      [
+       "a2",
+       "control.geometry.b2",
+       0.00484
+      ],
+      [
+       "a2",
+       "control.geometry.a7",
+       -0.00422
+      ],
+      [
+       "a2",
+       "control.geometry.a3",
+       0.0042
+      ],
+      [
+       "a2",
+       "mobility.rel.a4",
+       0.00396
+      ],
+      [
+       "a2",
+       "control.reach.a6",
+       0.00366
+      ],
+      [
+       "a2",
+       "control.reach.b2",
+       -0.00359
+      ],
+      [
+       "a2",
+       "control.reach.a8",
+       0.00249
+      ],
+      [
+       "a2",
+       "mobility.abs.a6",
+       0.00248
+      ],
+      [
+       "a2",
+       "role.restricts.rook.a1",
+       -0.00175
+      ],
+      [
+       "a2",
+       "mobility.abs.a5",
+       0.00168
+      ],
+      [
+       "a2",
+       "mobility.rel.a6",
+       0.00136
+      ],
+      [
+       "a2",
+       "mobility.abs.a4",
+       0.00096
+      ],
+      [
+       "a2",
+       "mobility.abs.a7",
+       -0.00075
+      ],
+      [
+       "a2",
+       "mobility.rel.a7",
+       0.00052
+      ],
+      [
+       "a2",
+       "control.reach.a7",
+       0.00013
+      ],
+      [
+       "a2",
+       "mobility.rel.a8",
+       -1e-05
+      ]
+     ],
+     "pass": false
+    }
+   ],
+   "quote": "Before trying to push home his advantage on the Queen\u2019s side, which is made possible by the weakness of White\u2019s [d3 pawn], Black should look after his King\u2019s side, where White has collected an alarming array of forces. After the text move the Rook is quite out of play.",
+   "source": "Edward Lasker, Chess Strategy (1915), Game No. 48, note to Black's 24th move (R-R7); Blackburne \u2013 Nimzowitsch, St Petersburg 1914, after 24...Ra2",
+   "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt",
+   "topic": "rook activity",
+   "favours": "white",
+   "side_to_move": "white",
+   "verdict": "not supported"
+  },
+  {
+   "claims": [
+    39
+   ],
+   "claim": [
+    "Black's apparent queenside space is not real: his advanced pawns are targets."
+   ],
+   "orig_fen": "r3k2r/5ppp/p3b3/2p3N1/Pp6/8/1PP2PPP/R3R1K1 b kq - 0 20",
+   "y": -0.3621983826160431,
+   "y decoded": -0.3372279703617096,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "Space(B, a-c) + Weakness(b4 c5 a6)",
+     "expected": "<=0",
+     "value": 0.0323,
+     "bits": [
+      [
+       "b4",
+       "control.reach.c3",
+       0.03521
+      ],
+      [
+       "b4",
+       "control.geometry.a3",
+       -0.02531
+      ],
+      [
+       "b4",
+       "control.geometry.c3",
+       0.01551
+      ],
+      [
+       "c5",
+       "control.geometry.b4",
+       0.01381
+      ],
+      [
+       "a6",
+       "weak.white",
+       -0.01117
+      ],
+      [
+       "b4",
+       "control.reach.a3",
+       -0.0049
+      ],
+      [
+       "e6",
+       "control.geometry.b3",
+       0.00428
+      ],
+      [
+       "e6",
+       "control.geometry.c4",
+       0.00421
+      ],
+      [
+       "c5",
+       "weak.white",
+       -0.00403
+      ],
+      [
+       "c5",
+       "control.reach.b4",
+       0.00387
+      ],
+      [
+       "b4",
+       "square.control.white1",
+       -0.00354
+      ],
+      [
+       "e6",
+       "control.reach.b3",
+       0.0022
+      ],
+      [
+       "b4",
+       "stability.pawn_ever.c2",
+       -0.00145
+      ],
+      [
+       "e6",
+       "control.reach.c4",
+       0.00142
+      ],
+      [
+       "e6",
+       "control.reach.a2",
+       0.0009
+      ],
+      [
+       "c4",
+       "square.control.white1",
+       0.00074
+      ],
+      [
+       "b4",
+       "stability.pawn_direct.c2",
+       0.0003
+      ],
+      [
+       "e6",
+       "control.geometry.a2",
+       0.00028
+      ]
+     ],
+     "pass": false
+    }
+   ],
+   "quote": "The number of moves and pieces is equal on both sides and we might look on Black as having an advantage in space on the Queen's wing. We know, however, that in reality the latter is not the case.",
+   "source": "Znosko-Borovsky, The Middle Game in Chess (1922), Inferior Positions, Inferiority in Time, Diagram LXVII; Mar\u00f3czy \u2013 Tarrasch, San Sebastian 1911, after 20.Nxg5",
+   "url": "https://archive.org/download/middlegameinches00znos/middlegameinches00znos_djvu.txt",
+   "topic": "space",
+   "favours": "white",
+   "side_to_move": "black",
+   "verdict": "not supported"
+  },
+  {
+   "claims": [
+    41
+   ],
+   "claim": [
+    "Keeping the two bishops is a mistake for Black: the b7 bishop is inactive."
+   ],
+   "orig_fen": "5rk1/1b2bppp/p4n2/1p1p2B1/2q5/2N1PN2/PP2QPPP/3R2K1 w - - 2 18",
+   "y": -0.008055761456489563,
+   "y decoded": -0.026172354817390442,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "Activity(bb7)",
+     "expected": "~0",
+     "value": 0.0907,
+     "|x| pct": 70.1,
+     "bits": [
+      [
+       "b7",
+       "role.defends.pawn.a6",
+       0.01413
+      ],
+      [
+       "b7",
+       "control.reach.c6",
+       0.01202
+      ],
+      [
+       "b7",
+       "control.geometry.d5",
+       0.01075
+      ],
+      [
+       "b7",
+       "role.defends.pawn.d5",
+       0.00996
+      ],
+      [
+       "b7",
+       "control.geometry.e4",
+       0.00871
+      ],
+      [
+       "b7",
+       "control.geometry.c6",
+       0.00849
+      ],
+      [
+       "b7",
+       "control.reach.a8",
+       0.00835
+      ],
+      [
+       "b7",
+       "control.reach.c8",
+       0.00594
+      ],
+      [
+       "b7",
+       "control.geometry.a8",
+       -0.00347
+      ],
+      [
+       "b7",
+       "mobility.abs.c8",
+       0.00293
+      ],
+      [
+       "b7",
+       "mobility.rel.c8",
+       0.0025
+      ],
+      [
+       "b7",
+       "mobility.abs.c6",
+       0.00238
+      ],
+      [
+       "b7",
+       "mobility.abs.a8",
+       0.00183
+      ],
+      [
+       "b7",
+       "control.geometry.a6",
+       0.00161
+      ],
+      [
+       "b7",
+       "control.geometry.c8",
+       0.0015
+      ],
+      [
+       "b7",
+       "mobility.rel.c6",
+       0.00122
+      ],
+      [
+       "b7",
+       "xray.pawn.knight.se.2_2",
+       0.00091
+      ],
+      [
+       "b7",
+       "control.reach.d5",
+       0.00065
+      ],
+      [
+       "b7",
+       "mobility.rel.a8",
+       0.00062
+      ],
+      [
+       "b7",
+       "role.restricts.rook.d5",
+       -0.00047
+      ],
+      [
+       "b7",
+       "control.reach.a6",
+       0.00017
+      ]
+     ],
+     "pass": false
+    },
+    {
+     "kind": "descriptive",
+     "concept": "Pair(B)",
+     "expected": "<=0",
+     "value": 0.0035,
+     "bits": [
+      [
+       "e7",
+       "bishop_pair.b7",
+       0.00263
+      ],
+      [
+       "b7",
+       "bishop_pair.e7",
+       0.0009
+      ]
+     ],
+     "pass": false
+    }
+   ],
+   "quote": "Black aims at the exchange of Queens in order to remain with two Bishops for the ending, but in this position such a course is a mistake, because the Bishop on [b7] is inactive and cannot come into the game by any means, unless Black gives up the isolated Queen's Pawn which the Bishop must defend.",
+   "source": "Capablanca, Chess Fundamentals (1921), Game 9, note to Black's 17th move; Capablanca \u2013 Teichmann, Berlin 1913, after 17...Qc4",
+   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt",
+   "topic": "bishop pair",
+   "favours": "white",
+   "side_to_move": "white",
+   "verdict": "not supported"
+  },
+  {
+   "claims": [
+    42
+   ],
+   "claim": [
+    "White's d5 knight cannot be maintained there."
+   ],
+   "orig_fen": "r1b2rk1/ppb2qpp/2n5/3Npp2/1PP5/P2B4/5PPP/R1BQR1K1 b - - 4 16",
+   "y": -0.3259704113006592,
+   "y decoded": -0.3143421411514282,
+   "tests": [
+    {
+     "kind": "descriptive",
+     "concept": "stability(d5), for White",
+     "expected": "<0",
+     "value": -0.0023,
+     "bits": [
+      [
+       "d5",
+       "stability.attacked_in.in1.bishop.c8",
+       -0.00155
+      ],
+      [
+       "d5",
+       "stability.attacked_in.in1.knight.c6",
+       -0.00075
+      ]
+     ],
+     "pass": true
+    }
+   ],
+   "quote": "This Knight, as will be seen in the sequel, cannot be maintained in this position and will soon be exchanged against a Black piece inactive until now.",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 60, note to White's 16th move; Yates \u2013 Alekhine, The Hague 1921, after 16.Nd5",
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "outpost",
+   "favours": "black",
+   "side_to_move": "black",
+   "verdict": "supported"
+  }
+ ]
+}

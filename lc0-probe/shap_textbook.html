@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Annotators vs Shapley</title>
+<title>Annotators vs attribution</title>
 <link rel="stylesheet" href="../docs/vendor/chessground/chessground.cburnett.css">
 <style>
 :root{
   --shadow-s: inset 0 1px 2px #ffffff30, 0 1px 2px #00000030, 0 2px 4px #00000015;
   --shadow-m: inset 0 1px 2px #ffffff50, 0 2px 4px #00000030, 0 4px 8px #00000015;
-  --pos:#2e8b57; --neg:#c0392b; --ink:#1a1a1a; --muted:#6b6b6b; --line:#e4e4e4;
+  --pos:#2e8b57; --neg:#c0392b; --ink:#1a1a1a; --muted:#6b6b6b; --line:#e4e4e4; --sel:#e9eef5;
 }
 *{box-sizing:border-box}
 body{
@@ -20,7 +20,7 @@ h1{font-size:1.5rem;font-weight:600;letter-spacing:-.01em;margin:0 0 .2rem}
 p.intro{color:var(--muted);margin:0 0 1.4rem}
 main{display:grid;grid-template-columns:250px 400px 1fr;gap:1.8rem;align-items:start}
 @media (max-width:1000px){main{grid-template-columns:1fr 1fr}#games{grid-column:1/-1;max-height:14rem}}
-@media (max-width:640px){main{grid-template-columns:1fr}}
+@media (max-width:640px){main{grid-template-columns:1fr}#games{order:3;max-height:none;position:static}#boardcol{position:static}}
 #games{max-height:calc(100vh - 7rem);overflow-y:auto;position:sticky;top:1rem}
 #games h3{font-size:.85rem;font-weight:600;color:var(--muted);margin:.8rem 0 .2rem}
 #games h3:first-child{margin-top:0}
@@ -29,121 +29,194 @@ main{display:grid;grid-template-columns:250px 400px 1fr;gap:1.8rem;align-items:s
   padding:.25rem .5rem;border:0;border-radius:6px;background:none;color:var(--ink);cursor:pointer;
 }
 #games button:hover{background:#f2f2f2}
-#games button.on{background:#e9eef5;font-weight:600}
+#games button.on{background:var(--sel);font-weight:600}
 #games .v{flex:none}
 .yes{color:var(--pos)}.no{color:var(--neg)}
+#boardcol{position:sticky;top:1rem}
 #board{
   display:grid;grid-template-columns:repeat(8,1fr);width:100%;aspect-ratio:1;
   border-radius:6px;overflow:hidden;box-shadow:var(--shadow-m);
 }
 .sq{position:relative}
 .sq.light{background:#f0d9b5}.sq.dark{background:#b58863}
+.sq .heat{position:absolute;inset:0}
 .sq piece{position:absolute;inset:0;background-size:cover}
+.sq .gone{position:absolute;inset:5px;border:2px dashed #333;border-radius:50%}
+.sq .co{position:absolute;font-size:11px;font-weight:600;line-height:1;pointer-events:none}
+.sq .co.f{right:3px;bottom:2px}.sq .co.r{left:3px;top:2px}
+.sq.light .co{color:#b58863}.sq.dark .co{color:#f0d9b5}
+.legend{color:var(--muted);font-size:.82rem;margin-top:.5rem}
+.tally{font-weight:600;margin:0 0 .6rem}
 .under{display:flex;justify-content:space-between;color:var(--muted);font-size:.88rem;margin-top:.5rem}
+.toggle{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.8rem;min-height:2.1rem}
+.toggle button{white-space:nowrap}
+@media (max-width:640px){.toggle button{font-size:.78rem;padding:.35rem .3rem}}
+.toggle button{
+  flex:1 1 0;font:inherit;font-size:.85rem;padding:.35rem .5rem;border:1px solid var(--line);border-radius:7px;
+  background:#fff;color:var(--ink);cursor:pointer;box-shadow:var(--shadow-s);
+}
+.toggle button:hover{background:#f6f6f6}
+.toggle button.on{background:var(--sel);font-weight:600}
 h2{font-size:1.15rem;font-weight:600;margin:0}
 .when{color:var(--muted);margin:0 0 .9rem}
 blockquote{margin:0 0 .3rem;padding-left:.9rem;border-left:3px solid var(--line);font-style:italic}
-.cite{color:var(--muted);font-size:.85rem;margin:0 0 1.4rem}
+.cite{color:var(--muted);font-size:.85rem;margin:0 0 1.2rem}
 .cite a{color:inherit}
-.verdict{padding:1rem 1.1rem;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-s)}
-.verdict b.big{font-size:1.05rem}
-.verdict p{margin:.3rem 0 0}
-.track{position:relative;height:8px;margin:1rem 0 .3rem;border-radius:4px;
-  background:linear-gradient(90deg,#eee 0 75%,#d7ecdf 75% 100%)}
-.track i{position:absolute;top:-4px;width:4px;height:16px;border-radius:2px;background:var(--ink);transform:translateX(-50%)}
-.scale{display:flex;justify-content:space-between;color:var(--muted);font-size:.78rem}
-details{margin-top:1.2rem;color:var(--muted);font-size:.88rem}
+.test{
+  display:block;width:100%;text-align:left;font:inherit;color:inherit;background:#fff;cursor:pointer;
+  padding:.85rem 1rem;margin:0 0 .7rem;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-s);
+}
+.test:hover{background:#fafafa}
+.test.on{border-color:#8fa6c4;background:#f5f8fc;box-shadow:var(--shadow-m)}
+.test .head{display:flex;justify-content:space-between;gap:.6rem;font-weight:600}
+.test .nums{margin-top:.3rem;font-variant-numeric:tabular-nums}
+.test .nums b{font-weight:600}
+.test .why{color:#555;font-size:.85rem;margin-top:.15rem}
+.sub{color:#555}
+.test .sub{color:#555;font-size:.85rem;margin-top:.15rem}
+#howto{margin:0 0 .8rem}
+details{margin-top:.6rem;color:var(--muted);font-size:.88rem}
 summary{cursor:pointer}
-.row{display:grid;grid-template-columns:8.5rem 1fr 3.6rem;gap:.5rem;align-items:center;padding:.08rem .2rem;font-size:.82rem;color:var(--ink)}
-.row.fam{background:#e9eef5;border-radius:4px;font-weight:600}
+.row{display:grid;grid-template-columns:1.8rem minmax(0,1fr) 3.5rem 3.6rem;gap:.5rem;align-items:center;padding:.06rem .2rem;font-size:.8rem;color:var(--ink)}
+.row code{font:12px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:break-word}
 .row .v{text-align:right;font-variant-numeric:tabular-nums}
 .bar{position:relative;height:8px;background:linear-gradient(var(--line),var(--line)) 50% 0/1px 100% no-repeat}
 .bar i{position:absolute;top:0;bottom:0;border-radius:2px}
+.cols{display:grid;gap:.4rem}
+.cols h4{font-size:.82rem;font-weight:600;color:var(--muted);margin:.4rem 0 .2rem}
 </style>
 </head>
 <body>
-<h1>Annotators vs Shapley</h1>
-<p class="intro">Moments from master games where a classic annotator names a positional advantage. Does Leela's Shapley value for that feature agree?</p>
+<h1>Annotators vs attribution</h1>
+<p class="intro">Does Leela's feature attribution agree with what a master says about a position?</p>
 <main>
   <nav id="games"></nav>
-  <section>
+  <section id="boardcol">
     <div id="board" class="cg-wrap"></div>
     <div class="under"><span id="move"></span><span id="leela"></span></div>
+    <div class="toggle" id="toggle"></div>
+    <p class="legend">Tint: the concept's attribution on that square, green for the named side, red against. Dashed circle: piece taken off.</p>
   </section>
   <section>
     <h2 id="game"></h2>
     <p class="when" id="when"></p>
     <blockquote id="quote"></blockquote>
     <p class="cite" id="cite"></p>
-    <div class="verdict">
-      <b class="big" id="vhead"></b>
-      <p id="vtext"></p>
-      <div class="track"><i id="mark"></i></div>
-      <div class="scale"><span>0</span><span>75</span><span>100</span></div>
-    </div>
-    <details><summary>All feature families</summary><div id="fams"></div></details>
+    <details id="howto"><summary>How it is scored</summary>
+      <p>Integrated gradients through the layer-0 decoder, 256 steps. A concept's attribution is the sum over its bits, signed for the side named.
+      With / without: the board with the credited piece taken off (or the move taken back); both the sum and its share of all |attribution| must move as expected.
+      Values are signed for the side the test names: positive helps it. Share = the sum over the board's total |attribution|.
+      Descriptive: the sign of the sum; “≈ 0” means at or below the 25th percentile of the same concept in 300 game positions.
+      A game agrees only if every test passes.</p>
+    </details>
+    <div id="tests"></div>
   </section>
 </main>
-<script src="square_shap_textbook.js"></script>
+<script src="claim_concepts.js"></script>
 <script>
-const S = window.SHAP, P = S.positions.filter(p => p.topic !== "king safety"),   // king safety dropped for now
-      $ = id => document.getElementById(id);
+const C = window.CONCEPTS, G = C.games, $ = id => document.getElementById(id);
 const ROLE = {p: "pawn", n: "knight", b: "bishop", r: "rook", q: "queen", k: "king"};
-const cap = s => s[0].toUpperCase() + s.slice(1);
-const fmt = v => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2);
-const FAMNAME = {square: "square control", strong: "strong squares", pawn_shield: "pawn shield", bishop_pair: "bishop pair"};
-let cur = 0;
+const cap = s => s ? s[0].toUpperCase() + s.slice(1) : "";
+const fmt = (v, d = 3) => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(d);
+const EXP = {">0": "> 0", "<0": "< 0", "<=0": "≤ 0", "~0": "≈ 0"};
+let cur = 0, ti = 0, without = false;
 
-function board(fen) {
-  let html = "";
+const parse = fen => {           // square name -> piece char
+  const m = {};
   fen.split(" ")[0].split("/").forEach((row, r) => {
     let f = 0;
-    for (const c of row) {
-      if (c >= "1" && c <= "8") { for (let i = 0; i < +c; i++, f++) html += `<div class="sq ${(f + r) % 2 ? "dark" : "light"}"></div>`; continue; }
-      html += `<div class="sq ${(f + r) % 2 ? "dark" : "light"}"><piece class="${c === c.toUpperCase() ? "white" : "black"} ${ROLE[c.toLowerCase()]}"></piece></div>`;
-      f++;
-    }
+    for (const c of row) { if (c >= "1" && c <= "8") f += +c; else m["abcdefgh"[f++] + (8 - r)] = c; }
   });
+  return m;
+};
+const pieceEl = (c, cls = "") => `<piece class="${c === c.toUpperCase() ? "white" : "black"} ${ROLE[c.toLowerCase()]} ${cls}"></piece>`;
+
+function board(fen, ghostFen, bits) {
+  const on = parse(fen), was = ghostFen ? parse(ghostFen) : {}, heat = {};
+  for (const [s, , v] of bits) heat[s] = (heat[s] || 0) + v;
+  const max = Math.max(...Object.values(heat).map(Math.abs), 1e-9);
+  let html = "";
+  for (let r = 8; r >= 1; r--) for (let f = 0; f < 8; f++) {
+    const s = "abcdefgh"[f] + r, h = heat[s] || 0, a = (0.3 + 0.5 * Math.abs(h) / max) * (h !== 0);
+    const tint = h ? `<div class="heat" style="background:${h > 0 ? "rgba(0,170,80," : "rgba(225,40,40,"}${a.toFixed(2)})"></div>` : "";
+    const pc = on[s] ? pieceEl(on[s]) : was[s] ? `<div class="gone"></div>` : "";
+    const co = (r === 1 ? `<span class="co f">${"abcdefgh"[f]}</span>` : "") + (f === 0 ? `<span class="co r">${r}</span>` : "");
+    html += `<div class="sq ${(f + r) % 2 ? "dark" : "light"}">${tint}${pc}${co}</div>`;
+  }
   $("board").innerHTML = html;
 }
 
-// "Book, chapter…; White – Black, Event Year, after 9...d5"
 const split = p => {
   const [book, game] = p.source.split(/;\s*(?=[^;]*$)/), m = game.match(/^(.*?),\s*(after .*)$/);
   return {book, game: m ? m[1] : game, after: m ? m[2] : ""};
 };
+const label = p => split(p).game.split(",")[0];
+const side = n => n.replace(/([a-z])([A-Z])/g, (_, a, b) => a + " " + b.toLowerCase()).replace(/\((W|B)(, ?([a-h-]+))?\)/g, (_, c, __, f) => ` for ${c === "W" ? "White" : "Black"}${f ? " on " + f : ""}`)
+                   .replace(/\(([a-h][1-8](?: [a-h][1-8])*)\)/g, " $1");
 
 function nav() {
-  const topics = [...new Set(P.map(p => p.topic))];
-  $("games").innerHTML = topics.map(t => `<h3>${cap(t)}</h3>` + P.map((p, i) => [p, i]).filter(([p]) => p.topic === t)
-    .map(([p, i]) => `<button data-i="${i}"><span>${split(p).game.split(",")[0]}</span><span class="v ${p.verdict === "supported" ? "yes" : "no"}">${p.verdict === "supported" ? "✓" : "✗"}</span></button>`).join("")).join("");
-  $("games").onclick = e => { const b = e.target.closest("button"); if (b) { cur = +b.dataset.i; draw(); } };
+  const topics = [...new Set(G.map(p => p.topic))];
+  const n = G.filter(p => p.verdict === "supported").length;
+  $("games").innerHTML = `<p class="tally">${n} of ${G.length} agree on every test</p>` + topics.map(t => `<h3>${cap(t)}</h3>` + G.map((p, i) => [p, i]).filter(([p]) => p.topic === t)
+    .map(([p, i]) => `<button data-i="${i}"><span>${label(p)}</span><span class="v ${p.verdict === "supported" ? "yes" : "no"}">${p.verdict === "supported" ? "✓" : "✗"}</span></button>`).join("")).join("");
+  $("games").onclick = e => { const b = e.target.closest("button"); if (b) { cur = +b.dataset.i; ti = 0; without = false; draw(); } };
+}
+
+function rows(bits) {
+  const max = Math.max(...bits.map(b => Math.abs(b[2])), 1e-9);
+  return bits.map(([s, l, v]) => `<div class="row"><span>${s}</span><code>${l}</code><span class="bar"><i style="background:var(--${v >= 0 ? "pos" : "neg"});width:${50 * Math.abs(v) / max}%;${v >= 0 ? "left:50%" : "right:50%"}"></i></span><span class="v">${fmt(v, 4)}</span></div>`).join("")
+    || `<div class="row"><span></span><code>no bits</code></div>`;
+}
+
+function card(t, i) {
+  const mark = `<span class="${t.pass ? "yes" : "no"}">${t.pass ? "✓" : "✗"}</span>`;
+  if (t.kind === "with/without") {
+    const up = t.expected !== "drop";
+    return `<div class="test${i === ti ? " on" : ""}" data-t="${i}">
+      <div class="head"><span>${side(t.concept)}, ${t.edit}</span>${mark}</div>
+      <div class="nums">sum <b>${fmt(t.with)}</b> → <b>${fmt(t.without)}</b></div>
+      <div class="nums">share <b>${fmt(100 * t.with / t["total with"], 2)}%</b> → <b>${fmt(100 * t.without / t["total without"], 2)}%</b></div>
+      <div class="sub">Both should ${up ? "rise" : "drop"}.</div>
+      <details><summary>Bits summed (${t["bits with"].length} / ${t["bits without"].length})</summary><div class="cols">
+        <div><h4>Real board (${t["bits with"].length})</h4>${rows(t["bits with"])}</div>
+        <div><h4>${cap(t.edit)} (${t["bits without"].length})</h4>${rows(t["bits without"])}</div></div></details></div>`;
+  }
+  const pct = "|x| pct" in t ? ` <span class="sub">(|x| at the ${Math.round(t["|x| pct"])}th percentile)</span>` : "";
+  return `<div class="test${i === ti ? " on" : ""}" data-t="${i}">
+    <div class="head"><span>${side(t.concept)}</span>${mark}</div>
+    <div class="nums"><b>${fmt(t.value)}</b> <span class="sub">(should be ${EXP[t.expected]})</span>${pct}</div>
+    <details><summary>Bits summed (${t.bits.length})</summary>${rows(t.bits)}</details></div>`;
 }
 
 function draw() {
-  const p = P[cur], s = split(p), k = p.side_to_move === "black" ? -1 : 1;   // un-mirror: values for White
+  const p = G[cur], s = split(p), t = p.tests[ti], ww = t.kind === "with/without";
   document.querySelectorAll("#games button").forEach(b => b.classList.toggle("on", +b.dataset.i === cur));
-  board(p.orig_fen);
-  $("move").textContent = `${cap(p.side_to_move)} to move`;
-  $("leela").textContent = `Leela: ${fmt(k * p.y)} for White`;
+  const fen = ww && without ? t["fen without"] : p.orig_fen;
+  board(fen, ww && without ? p.orig_fen : null, ww ? (without ? t["bits without"] : t["bits with"]) : t.bits);
+  const stm = fen.split(" ")[1] === "w" ? "White" : "Black";
+  $("move").textContent = `${stm} to move`;
+  const dec = ww && without ? t["y decoded without (stm)"] * (stm === "Black" ? -1 : 1) : p["y decoded"] * (p.side_to_move === "black" ? -1 : 1);
+  $("leela").textContent = `Decoder on this board: ${fmt(dec, 2)} for White`;
+  const eds = p.tests.map((x, i) => [x, i]).filter(([x]) => x.kind === "with/without");
+  $("toggle").innerHTML = eds.length ? `<button data-t="${eds[0][1]}" data-w="0" class="${without ? "" : "on"}">Real board</button>` +
+    eds.map(([x, i]) => `<button data-t="${i}" data-w="1" class="${without && i === ti ? "on" : ""}">${cap(x.edit)}</button>`).join("") : "";
   $("game").textContent = s.game;
   $("when").textContent = cap(s.after);
   $("quote").textContent = `“${p.quote}”`;
   $("cite").innerHTML = p.url ? `<a href="${p.url}">${s.book}</a>` : s.book;
-  const fp = p.favours === p.side_to_move ? p.percentile : 100 - p.percentile, ok = p.verdict === "supported";
-  const fam = FAMNAME[p.family] || p.family;
-  $("vhead").className = "big " + (ok ? "yes" : "no");
-  $("vhead").textContent = ok ? "Shapley agrees" : "Shapley disagrees";
-  $("vtext").textContent = `${cap(p.topic)}, favouring ${cap(p.favours)}. Leela's credit for ${fam} toward ${cap(p.favours)} is higher than in ${Math.round(fp)}% of 300 game positions; agreement needs 75%.`;
-  $("mark").style.left = fp + "%";
-  const phi = p["phi targets held"].map(v => k * v), max = Math.max(...phi.map(Math.abs), 1e-9);
-  $("fams").innerHTML = S.families.map((f, i) => [f, phi[i]]).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
-    .map(([f, v]) => `<div class="row${f === p.family ? " fam" : ""}"><span>${f}</span><span class="bar"><i style="background:var(--${v >= 0 ? "pos" : "neg"});width:${50 * Math.abs(v) / max}%;${v >= 0 ? "left:50%" : "right:50%"}"></i></span><span class="v">${fmt(v)}</span></div>`).join("");
+  $("tests").innerHTML = p.tests.map(card).join("");
+  if (ww && !without) document.querySelectorAll(".test.on").forEach(c => c.classList.remove("on"));
 }
 
+$("tests").onclick = e => {
+  if (e.target.closest("details")) return;
+  const c = e.target.closest(".test"); if (!c) return;
+  if (+c.dataset.t !== ti) { ti = +c.dataset.t; without = false; draw(); }
+};
+$("toggle").onclick = e => { const b = e.target.closest("button"); if (b) { without = b.dataset.w === "1"; if (without) ti = +b.dataset.t; draw(); } };
 document.onkeydown = e => {
-  if (e.key === "ArrowDown" || e.key === "ArrowRight") { cur = (cur + 1) % P.length; draw(); }
-  if (e.key === "ArrowUp" || e.key === "ArrowLeft") { cur = (cur - 1 + P.length) % P.length; draw(); }
+  if (e.key === "ArrowDown") { cur = (cur + 1) % G.length; ti = 0; without = false; draw(); }
+  if (e.key === "ArrowUp") { cur = (cur - 1 + G.length) % G.length; ti = 0; without = false; draw(); }
 };
 nav(); draw();
 </script>

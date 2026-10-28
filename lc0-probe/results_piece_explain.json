@@ -1,0 +1,2587 @@
+{
+ "tap": "/encoder0/ln2",
+ "groups": {
+  "occupant": [
+   "occupant"
+  ],
+  "secure": [
+   "pawn_cover",
+   "stability",
+   "strong",
+   "weak"
+  ],
+  "activity": [
+   "control",
+   "mobility"
+  ],
+  "relations": [
+   "role",
+   "bishop_pair",
+   "unlike_bishops"
+  ],
+  "line": [
+   "blocks",
+   "blocked_by",
+   "xray",
+   "rook"
+  ],
+  "route": [
+   "route"
+  ],
+  "square": [
+   "square",
+   "centralisation",
+   "open_file",
+   "half_open_file",
+   "long_diagonal"
+  ]
+ },
+ "fidelity corpus": {
+  "n": 2671,
+  "pearson": 0.9415098048423401,
+  "spearman": 0.930568025480091,
+  "sign agreement (|leela| >= min)": 0.9748283752860412,
+  "mean |decoder - leela|": 0.03995029294119959,
+  "slope": 0.9488614492505402
+ },
+ "fidelity claims": {
+  "n": 42,
+  "pearson": 0.9773301435985289,
+  "spearman": 0.9460335467142047,
+  "sign agreement (|leela| >= min)": 0.9666666666666667,
+  "mean |decoder - leela|": 0.03903039101333845,
+  "slope": 0.9245409503401127
+ },
+ "claims": [
+  {
+   "src": "T8",
+   "game": null,
+   "piece": "b",
+   "square": "c8",
+   "meaning": "general",
+   "sign": 1,
+   "verdict": false,
+   "median square": "b7",
+   "leela delta": -0.00817897915840149,
+   "decoder delta": -0.027816370129585266,
+   "phi": {
+    "occupant": -0.01256,
+    "secure": 0.01179,
+    "activity": 0.02246,
+    "relations": 0.00285,
+    "line": -0.01998,
+    "route": -0.01149,
+    "square": 0.03639,
+    "elsewhere": 0.06693,
+    "rest": -0.12419
+   },
+   "top": [
+    [
+     "elsewhere",
+     0.06693
+    ],
+    [
+     "square",
+     0.03639
+    ],
+    [
+     "activity",
+     0.02246
+    ]
+   ],
+   "named share": null,
+   "bits real": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 17,
+    "relations": 6,
+    "line": 3,
+    "route": 19,
+    "square": 2,
+    "elsewhere": 4,
+    "rest": 2359
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 6,
+    "activity": 11,
+    "relations": 4,
+    "line": 8,
+    "route": 19,
+    "square": 4,
+    "elsewhere": 3,
+    "rest": 2343
+   }
+  },
+  {
+   "src": "T8",
+   "game": null,
+   "piece": "b",
+   "square": "f8",
+   "meaning": "general",
+   "sign": 1,
+   "verdict": false,
+   "median square": "b4",
+   "leela delta": -0.13221819698810577,
+   "decoder delta": -0.11451448500156403,
+   "phi": {
+    "occupant": -0.09624,
+    "secure": -0.03511,
+    "activity": -0.01776,
+    "relations": 0.04401,
+    "line": 0.00612,
+    "route": -0.01515,
+    "square": 0.02225,
+    "elsewhere": 0.01344,
+    "rest": -0.03608
+   },
+   "top": [
+    [
+     "relations",
+     0.04401
+    ],
+    [
+     "secure",
+     -0.03511
+    ],
+    [
+     "square",
+     0.02225
+    ]
+   ],
+   "named share": -0.13462594715008305,
+   "bits real": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 21,
+    "relations": 5,
+    "line": 2,
+    "route": 45,
+    "square": 2,
+    "elsewhere": 3,
+    "rest": 2332
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 13,
+    "activity": 32,
+    "relations": 3,
+    "line": 5,
+    "route": 46,
+    "square": 3,
+    "elsewhere": 0,
+    "rest": 2366
+   }
+  },
+  {
+   "src": "T11",
+   "game": null,
+   "piece": "n",
+   "square": "e4",
+   "meaning": "placement",
+   "sign": 1,
+   "verdict": false,
+   "median square": "a5",
+   "leela delta": 0.6029719263315201,
+   "decoder delta": 0.5958333015441895,
+   "phi": {
+    "occupant": 0.39998,
+    "secure": -0.0283,
+    "activity": 0.03485,
+    "relations": 0.04268,
+    "line": 0.03804,
+    "route": 0.07253,
+    "square": -0.00313,
+    "elsewhere": 0.0029,
+    "rest": 0.03628
+   },
+   "top": [
+    [
+     "route",
+     0.07253
+    ],
+    [
+     "relations",
+     0.04268
+    ],
+    [
+     "line",
+     0.03804
+    ]
+   ],
+   "named share": 0.26463918638936235,
+   "bits real": {
+    "occupant": 1,
+    "secure": 7,
+    "activity": 26,
+    "relations": 4,
+    "line": 4,
+    "route": 159,
+    "square": 4,
+    "elsewhere": 5,
+    "rest": 2206
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 9,
+    "activity": 13,
+    "relations": 2,
+    "line": 3,
+    "route": 121,
+    "square": 2,
+    "elsewhere": 1,
+    "rest": 2256
+   }
+  },
+  {
+   "src": "T9",
+   "game": null,
+   "piece": "B",
+   "square": "b3",
+   "meaning": "general",
+   "sign": 1,
+   "verdict": false,
+   "median square": "d5",
+   "leela delta": -0.047579824924468994,
+   "decoder delta": -0.014023184776306152,
+   "phi": {
+    "occupant": 0.01052,
+    "secure": -0.02832,
+    "activity": 0.01999,
+    "relations": -0.01233,
+    "line": 0.01421,
+    "route": -0.03242,
+    "square": -0.0079,
+    "elsewhere": -0.00752,
+    "rest": 0.02973
+   },
+   "top": [
+    [
+     "route",
+     -0.03242
+    ],
+    [
+     "secure",
+     -0.02832
+    ],
+    [
+     "activity",
+     0.01999
+    ]
+   ],
+   "named share": null,
+   "bits real": {
+    "occupant": 1,
+    "secure": 9,
+    "activity": 26,
+    "relations": 8,
+    "line": 9,
+    "route": 36,
+    "square": 2,
+    "elsewhere": 3,
+    "rest": 1983
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 8,
+    "activity": 28,
+    "relations": 10,
+    "line": 9,
+    "route": 38,
+    "square": 3,
+    "elsewhere": 3,
+    "rest": 1950
+   }
+  },
+  {
+   "src": "T9",
+   "game": null,
+   "piece": "B",
+   "square": "e3",
+   "meaning": "general",
+   "sign": 1,
+   "verdict": false,
+   "median square": "f4",
+   "leela delta": -0.13487112522125244,
+   "decoder delta": -0.11456060409545898,
+   "phi": {
+    "occupant": -0.12149,
+    "secure": -0.0118,
+    "activity": 0.00952,
+    "relations": -0.00428,
+    "line": 0.03116,
+    "route": -0.01074,
+    "square": -0.01467,
+    "elsewhere": -0.00652,
+    "rest": 0.01425
+   },
+   "top": [
+    [
+     "line",
+     0.03116
+    ],
+    [
+     "square",
+     -0.01467
+    ],
+    [
+     "secure",
+     -0.0118
+    ]
+   ],
+   "named share": 0.054348178588821974,
+   "bits real": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 27,
+    "relations": 5,
+    "line": 8,
+    "route": 30,
+    "square": 2,
+    "elsewhere": 2,
+    "rest": 1997
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 9,
+    "activity": 29,
+    "relations": 4,
+    "line": 6,
+    "route": 28,
+    "square": 3,
+    "elsewhere": 1,
+    "rest": 2023
+   }
+  },
+  {
+   "src": "T9",
+   "game": null,
+   "piece": "n",
+   "square": "d7",
+   "meaning": "ambiguous",
+   "sign": -1,
+   "verdict": null,
+   "median square": "h5",
+   "leela delta": 0.11878401041030884,
+   "decoder delta": 0.07861703634262085,
+   "phi": {
+    "occupant": -0.01111,
+    "secure": -0.01917,
+    "activity": 0.05082,
+    "relations": 0.02782,
+    "line": 0.12194,
+    "route": -0.06487,
+    "square": 0.00405,
+    "elsewhere": 0.03752,
+    "rest": -0.06837
+   },
+   "top": [
+    [
+     "line",
+     0.12194
+    ],
+    [
+     "route",
+     -0.06487
+    ],
+    [
+     "activity",
+     0.05082
+    ]
+   ],
+   "named share": 1.3310714081284984,
+   "bits real": {
+    "occupant": 1,
+    "secure": 6,
+    "activity": 16,
+    "relations": 8,
+    "line": 8,
+    "route": 79,
+    "square": 3,
+    "elsewhere": 6,
+    "rest": 1950
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 7,
+    "activity": 12,
+    "relations": 4,
+    "line": 2,
+    "route": 100,
+    "square": 2,
+    "elsewhere": 1,
+    "rest": 2052
+   }
+  },
+  {
+   "src": "T9",
+   "game": null,
+   "piece": "n",
+   "square": "e5",
+   "meaning": "ambiguous",
+   "sign": -1,
+   "verdict": null,
+   "median square": "b5",
+   "leela delta": 0.19735604524612427,
+   "decoder delta": 0.16065829992294312,
+   "phi": {
+    "occupant": 0.06205,
+    "secure": -0.01568,
+    "activity": 0.05977,
+    "relations": 0.00077,
+    "line": -0.00934,
+    "route": 0.04288,
+    "square": 0.0118,
+    "elsewhere": 0.03225,
+    "rest": -0.02383
+   },
+   "top": [
+    [
+     "activity",
+     0.05977
+    ],
+    [
+     "route",
+     0.04288
+    ],
+    [
+     "elsewhere",
+     0.03225
+    ]
+   ],
+   "named share": 0.6204522382240263,
+   "bits real": {
+    "occupant": 1,
+    "secure": 7,
+    "activity": 24,
+    "relations": 8,
+    "line": 7,
+    "route": 126,
+    "square": 4,
+    "elsewhere": 4,
+    "rest": 1896
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 11,
+    "activity": 19,
+    "relations": 5,
+    "line": 6,
+    "route": 137,
+    "square": 2,
+    "elsewhere": 2,
+    "rest": 1974
+   }
+  },
+  {
+   "src": "T10",
+   "game": null,
+   "piece": "b",
+   "square": "a6",
+   "meaning": "general",
+   "sign": 1,
+   "verdict": false,
+   "median square": "g4",
+   "leela delta": -0.009874463081359863,
+   "decoder delta": 0.03820917010307312,
+   "phi": {
+    "occupant": 0.1721,
+    "secure": -0.12132,
+    "activity": 0.01193,
+    "relations": 0.01921,
+    "line": -0.02063,
+    "route": -0.05366,
+    "square": 0.06185,
+    "elsewhere": 0.0,
+    "rest": -0.03128
+   },
+   "top": [
+    [
+     "secure",
+     -0.12132
+    ],
+    [
+     "square",
+     0.06185
+    ],
+    [
+     "route",
+     -0.05366
+    ]
+   ],
+   "named share": null,
+   "bits real": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 27,
+    "relations": 3,
+    "line": 2,
+    "route": 55,
+    "square": 2,
+    "elsewhere": 0,
+    "rest": 1800
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 11,
+    "activity": 33,
+    "relations": 4,
+    "line": 4,
+    "route": 64,
+    "square": 2,
+    "elsewhere": 0,
+    "rest": 1807
+   }
+  },
+  {
+   "src": "T10",
+   "game": null,
+   "piece": "b",
+   "square": "b6",
+   "meaning": "general",
+   "sign": 1,
+   "verdict": null,
+   "median square": null
+  },
+  {
+   "src": "T12",
+   "game": null,
+   "piece": "n",
+   "square": "c3",
+   "meaning": "placement",
+   "sign": 1,
+   "verdict": true,
+   "median square": "g4",
+   "leela delta": 0.19427305459976196,
+   "decoder delta": 0.22349631786346436,
+   "phi": {
+    "occupant": 0.11607,
+    "secure": -0.05857,
+    "activity": -0.05413,
+    "relations": 0.02818,
+    "line": 0.0624,
+    "route": 0.09957,
+    "square": -0.01837,
+    "elsewhere": -0.01224,
+    "rest": 0.06058
+   },
+   "top": [
+    [
+     "route",
+     0.09957
+    ],
+    [
+     "line",
+     0.0624
+    ],
+    [
+     "secure",
+     -0.05857
+    ]
+   ],
+   "named share": 0.24110394566296894,
+   "bits real": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 27,
+    "relations": 8,
+    "line": 4,
+    "route": 182,
+    "square": 4,
+    "elsewhere": 4,
+    "rest": 1666
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 11,
+    "activity": 20,
+    "relations": 4,
+    "line": 4,
+    "route": 174,
+    "square": 2,
+    "elsewhere": 0,
+    "rest": 1680
+   }
+  },
+  {
+   "src": "T13",
+   "game": null,
+   "piece": "N",
+   "square": "f4",
+   "meaning": "both",
+   "sign": 1,
+   "verdict": true,
+   "median square": "f1",
+   "leela delta": 0.562722384929657,
+   "decoder delta": 0.5248814821243286,
+   "phi": {
+    "occupant": 0.36914,
+    "secure": -0.02055,
+    "activity": -0.02938,
+    "relations": -0.00224,
+    "line": 0.05014,
+    "route": 0.11772,
+    "square": -0.00469,
+    "elsewhere": 0.01826,
+    "rest": 0.02647
+   },
+   "top": [
+    [
+     "route",
+     0.11772
+    ],
+    [
+     "line",
+     0.05014
+    ],
+    [
+     "activity",
+     -0.02938
+    ]
+   ],
+   "named share": 0.2297047415594781,
+   "bits real": {
+    "occupant": 1,
+    "secure": 4,
+    "activity": 25,
+    "relations": 10,
+    "line": 7,
+    "route": 145,
+    "square": 2,
+    "elsewhere": 4,
+    "rest": 2201
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 12,
+    "relations": 5,
+    "line": 3,
+    "route": 112,
+    "square": 2,
+    "elsewhere": 4,
+    "rest": 2151
+   }
+  },
+  {
+   "src": "T13",
+   "game": null,
+   "piece": "b",
+   "square": "c8",
+   "meaning": "general",
+   "sign": -1,
+   "verdict": false,
+   "median square": "b5",
+   "leela delta": -0.0393943190574646,
+   "decoder delta": -0.09577547013759613,
+   "phi": {
+    "occupant": 0.03077,
+    "secure": -0.01736,
+    "activity": 0.02588,
+    "relations": 0.00148,
+    "line": 0.00126,
+    "route": -0.04163,
+    "square": 0.01393,
+    "elsewhere": 0.05704,
+    "rest": -0.16715
+   },
+   "top": [
+    [
+     "elsewhere",
+     0.05704
+    ],
+    [
+     "route",
+     -0.04163
+    ],
+    [
+     "activity",
+     0.02588
+    ]
+   ],
+   "named share": null,
+   "bits real": {
+    "occupant": 1,
+    "secure": 6,
+    "activity": 19,
+    "relations": 5,
+    "line": 3,
+    "route": 35,
+    "square": 2,
+    "elsewhere": 2,
+    "rest": 2326
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 10,
+    "activity": 33,
+    "relations": 6,
+    "line": 4,
+    "route": 35,
+    "square": 3,
+    "elsewhere": 0,
+    "rest": 2267
+   }
+  },
+  {
+   "src": "T13",
+   "game": null,
+   "piece": "b",
+   "square": "g7",
+   "meaning": "general",
+   "sign": -1,
+   "verdict": false,
+   "median square": "h8",
+   "leela delta": 0.3660426139831543,
+   "decoder delta": 0.31587904691696167,
+   "phi": {
+    "occupant": 0.15898,
+    "secure": -0.04588,
+    "activity": 0.0116,
+    "relations": 0.02476,
+    "line": 0.16216,
+    "route": -0.03052,
+    "square": -0.0059,
+    "elsewhere": -0.01989,
+    "rest": 0.06057
+   },
+   "top": [
+    [
+     "line",
+     0.16216
+    ],
+    [
+     "secure",
+     -0.04588
+    ],
+    [
+     "route",
+     -0.03052
+    ]
+   ],
+   "named share": 0.2631660804510406,
+   "bits real": {
+    "occupant": 1,
+    "secure": 4,
+    "activity": 15,
+    "relations": 4,
+    "line": 8,
+    "route": 34,
+    "square": 3,
+    "elsewhere": 3,
+    "rest": 2327
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 4,
+    "activity": 11,
+    "relations": 3,
+    "line": 2,
+    "route": 34,
+    "square": 3,
+    "elsewhere": 1,
+    "rest": 2388
+   }
+  },
+  {
+   "src": "T29",
+   "game": null,
+   "piece": "r",
+   "square": "d8",
+   "meaning": "placement",
+   "sign": 1,
+   "verdict": false,
+   "median square": "c8",
+   "leela delta": 0.11867157369852066,
+   "decoder delta": 0.10185776650905609,
+   "phi": {
+    "occupant": 0.07794,
+    "secure": 0.01432,
+    "activity": -0.03732,
+    "relations": 0.00354,
+    "line": -0.01772,
+    "route": 0.06641,
+    "square": -0.00911,
+    "elsewhere": -0.00654,
+    "rest": 0.01034
+   },
+   "top": [
+    [
+     "route",
+     0.06641
+    ],
+    [
+     "activity",
+     -0.03732
+    ],
+    [
+     "line",
+     -0.01772
+    ]
+   ],
+   "named share": 0.11443347026390098,
+   "bits real": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 47,
+    "relations": 2,
+    "line": 3,
+    "route": 98,
+    "square": 3,
+    "elsewhere": 1,
+    "rest": 1293
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 4,
+    "activity": 36,
+    "relations": 2,
+    "line": 4,
+    "route": 118,
+    "square": 3,
+    "elsewhere": 2,
+    "rest": 1299
+   }
+  },
+  {
+   "src": "T30",
+   "game": null,
+   "piece": "R",
+   "square": "a7",
+   "meaning": "placement",
+   "sign": 1,
+   "verdict": false,
+   "median square": "d1",
+   "leela delta": -0.01613980531692505,
+   "decoder delta": -0.04115724563598633,
+   "phi": {
+    "occupant": 0.20799,
+    "secure": 0.00139,
+    "activity": -0.44286,
+    "relations": 0.03893,
+    "line": 0.09824,
+    "route": 0.08314,
+    "square": -0.05478,
+    "elsewhere": -0.00199,
+    "rest": 0.0288
+   },
+   "top": [
+    [
+     "activity",
+     -0.44286
+    ],
+    [
+     "line",
+     0.09824
+    ],
+    [
+     "route",
+     0.08314
+    ]
+   ],
+   "named share": null,
+   "bits real": {
+    "occupant": 1,
+    "secure": 6,
+    "activity": 37,
+    "relations": 4,
+    "line": 3,
+    "route": 153,
+    "square": 2,
+    "elsewhere": 1,
+    "rest": 1751
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 6,
+    "activity": 53,
+    "relations": 4,
+    "line": 2,
+    "route": 132,
+    "square": 3,
+    "elsewhere": 1,
+    "rest": 1762
+   }
+  },
+  {
+   "src": "T31",
+   "game": null,
+   "piece": "R",
+   "square": "h7",
+   "meaning": "placement",
+   "sign": 1,
+   "verdict": false,
+   "median square": "a1",
+   "leela delta": 0.2517331689596176,
+   "decoder delta": 0.14663837850093842,
+   "phi": {
+    "occupant": 0.26972,
+    "secure": -0.02863,
+    "activity": -0.36141,
+    "relations": 0.05079,
+    "line": 0.2439,
+    "route": 0.0646,
+    "square": -0.0129,
+    "elsewhere": 0.00226,
+    "rest": -0.08168
+   },
+   "top": [
+    [
+     "activity",
+     -0.36141
+    ],
+    [
+     "line",
+     0.2439
+    ],
+    [
+     "route",
+     0.0646
+    ]
+   ],
+   "named share": -0.1644201285474608,
+   "bits real": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 44,
+    "relations": 5,
+    "line": 5,
+    "route": 130,
+    "square": 3,
+    "elsewhere": 0,
+    "rest": 1316
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 38,
+    "relations": 1,
+    "line": 2,
+    "route": 126,
+    "square": 3,
+    "elsewhere": 1,
+    "rest": 1342
+   }
+  },
+  {
+   "src": "T32",
+   "game": null,
+   "piece": "r",
+   "square": "a2",
+   "meaning": "placement",
+   "sign": -1,
+   "verdict": false,
+   "median square": "c7",
+   "leela delta": 0.08753326535224915,
+   "decoder delta": 0.1011275053024292,
+   "phi": {
+    "occupant": 0.0326,
+    "secure": -0.01197,
+    "activity": 0.04874,
+    "relations": 0.02851,
+    "line": -0.00434,
+    "route": 0.02601,
+    "square": -0.00199,
+    "elsewhere": -0.0105,
+    "rest": -0.00593
+   },
+   "top": [
+    [
+     "activity",
+     0.04874
+    ],
+    [
+     "relations",
+     0.02851
+    ],
+    [
+     "route",
+     0.02601
+    ]
+   ],
+   "named share": 0.8506480330690276,
+   "bits real": {
+    "occupant": 1,
+    "secure": 7,
+    "activity": 29,
+    "relations": 2,
+    "line": 5,
+    "route": 44,
+    "square": 3,
+    "elsewhere": 0,
+    "rest": 2215
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 19,
+    "relations": 3,
+    "line": 9,
+    "route": 44,
+    "square": 2,
+    "elsewhere": 3,
+    "rest": 2181
+   }
+  },
+  {
+   "src": "T40",
+   "game": null,
+   "piece": "b",
+   "square": "b7",
+   "meaning": "general",
+   "sign": -1,
+   "verdict": false,
+   "median square": "f5",
+   "leela delta": 0.18496394157409668,
+   "decoder delta": 0.1876242309808731,
+   "phi": {
+    "occupant": 0.19677,
+    "secure": -0.01239,
+    "activity": -0.01698,
+    "relations": 0.00977,
+    "line": 0.01145,
+    "route": -0.01125,
+    "square": 0.00661,
+    "elsewhere": -0.013,
+    "rest": 0.01663
+   },
+   "top": [
+    [
+     "activity",
+     -0.01698
+    ],
+    [
+     "elsewhere",
+     -0.013
+    ],
+    [
+     "secure",
+     -0.01239
+    ]
+   ],
+   "named share": -0.13943258226722263,
+   "bits real": {
+    "occupant": 1,
+    "secure": 6,
+    "activity": 17,
+    "relations": 4,
+    "line": 7,
+    "route": 37,
+    "square": 3,
+    "elsewhere": 2,
+    "rest": 2403
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 10,
+    "activity": 39,
+    "relations": 9,
+    "line": 5,
+    "route": 40,
+    "square": 2,
+    "elsewhere": 1,
+    "rest": 2360
+   }
+  },
+  {
+   "src": "T41",
+   "game": null,
+   "piece": "N",
+   "square": "d5",
+   "meaning": "ambiguous",
+   "sign": -1,
+   "verdict": null,
+   "median square": "d2",
+   "leela delta": 0.9424630403518677,
+   "decoder delta": 0.9521443843841553,
+   "phi": {
+    "occupant": 0.6935,
+    "secure": -0.02455,
+    "activity": 0.01407,
+    "relations": 0.04478,
+    "line": 0.03927,
+    "route": 0.14564,
+    "square": -0.03209,
+    "elsewhere": -0.04732,
+    "rest": 0.11885
+   },
+   "top": [
+    [
+     "route",
+     0.14564
+    ],
+    [
+     "elsewhere",
+     -0.04732
+    ],
+    [
+     "relations",
+     0.04478
+    ]
+   ],
+   "named share": 0.1483347293362356,
+   "bits real": {
+    "occupant": 1,
+    "secure": 7,
+    "activity": 25,
+    "relations": 7,
+    "line": 5,
+    "route": 161,
+    "square": 4,
+    "elsewhere": 5,
+    "rest": 2077
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 7,
+    "activity": 21,
+    "relations": 4,
+    "line": 5,
+    "route": 144,
+    "square": 3,
+    "elsewhere": 3,
+    "rest": 2031
+   }
+  },
+  {
+   "src": "E15",
+   "game": "Alekhine \u2013 Muffang, Paris 1923",
+   "piece": "B",
+   "square": "d4",
+   "meaning": "ambiguous",
+   "sign": -1,
+   "verdict": null,
+   "median square": "e1",
+   "leela delta": 0.2331710159778595,
+   "decoder delta": 0.21268334984779358,
+   "phi": {
+    "occupant": 0.03054,
+    "secure": -0.00831,
+    "activity": 0.06928,
+    "relations": 0.00865,
+    "line": 0.04514,
+    "route": 0.0249,
+    "square": -0.01512,
+    "elsewhere": -0.03484,
+    "rest": 0.09244
+   },
+   "top": [
+    [
+     "activity",
+     0.06928
+    ],
+    [
+     "line",
+     0.04514
+    ],
+    [
+     "elsewhere",
+     -0.03484
+    ]
+   ],
+   "named share": 0.3846961837165789,
+   "bits real": {
+    "occupant": 1,
+    "secure": 8,
+    "activity": 31,
+    "relations": 12,
+    "line": 11,
+    "route": 44,
+    "square": 4,
+    "elsewhere": 3,
+    "rest": 2108
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 6,
+    "activity": 17,
+    "relations": 10,
+    "line": 3,
+    "route": 37,
+    "square": 2,
+    "elsewhere": 3,
+    "rest": 2176
+   }
+  },
+  {
+   "src": "E15",
+   "game": "Alekhine \u2013 Muffang, Paris 1923",
+   "piece": "B",
+   "square": "g2",
+   "meaning": "ambiguous",
+   "sign": -1,
+   "verdict": null,
+   "median square": "h3",
+   "leela delta": 0.024720311164855957,
+   "decoder delta": -0.0024784207344055176,
+   "phi": {
+    "occupant": -0.04522,
+    "secure": -0.01873,
+    "activity": -0.00357,
+    "relations": -0.00521,
+    "line": 0.03712,
+    "route": 0.00744,
+    "square": 0.00053,
+    "elsewhere": 0.00319,
+    "rest": 0.02197
+   },
+   "top": [
+    [
+     "line",
+     0.03712
+    ],
+    [
+     "secure",
+     -0.01873
+    ],
+    [
+     "route",
+     0.00744
+    ]
+   ],
+   "named share": null,
+   "bits real": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 17,
+    "relations": 5,
+    "line": 7,
+    "route": 41,
+    "square": 3,
+    "elsewhere": 2,
+    "rest": 2141
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 6,
+    "activity": 17,
+    "relations": 4,
+    "line": 4,
+    "route": 37,
+    "square": 2,
+    "elsewhere": 1,
+    "rest": 2239
+   }
+  },
+  {
+   "src": "E32",
+   "game": "Capablanca \u2013 Bernstein, St Petersburg 1914",
+   "piece": "r",
+   "square": "h8",
+   "meaning": "ambiguous",
+   "sign": -1,
+   "verdict": null,
+   "median square": "g8",
+   "leela delta": 0.3085430860519409,
+   "decoder delta": 0.2468838095664978,
+   "phi": {
+    "occupant": 0.22686,
+    "secure": 0.00428,
+    "activity": 0.03802,
+    "relations": 0.00493,
+    "line": -0.10645,
+    "route": 0.02186,
+    "square": 0.0075,
+    "elsewhere": 0.01765,
+    "rest": 0.03223
+   },
+   "top": [
+    [
+     "line",
+     -0.10645
+    ],
+    [
+     "activity",
+     0.03802
+    ],
+    [
+     "route",
+     0.02186
+    ]
+   ],
+   "named share": -0.03957307926175518,
+   "bits real": {
+    "occupant": 1,
+    "secure": 4,
+    "activity": 8,
+    "relations": 1,
+    "line": 4,
+    "route": 2,
+    "square": 3,
+    "elsewhere": 2,
+    "rest": 2631
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 8,
+    "relations": 2,
+    "line": 5,
+    "route": 2,
+    "square": 2,
+    "elsewhere": 3,
+    "rest": 2617
+   }
+  },
+  {
+   "src": "E32",
+   "game": "Capablanca \u2013 Bernstein, St Petersburg 1914",
+   "piece": "r",
+   "square": "a8",
+   "meaning": "ambiguous",
+   "sign": -1,
+   "verdict": null,
+   "median square": "f7",
+   "leela delta": -0.0758001059293747,
+   "decoder delta": 0.10249868035316467,
+   "phi": {
+    "occupant": 0.19144,
+    "secure": -0.02995,
+    "activity": -0.04148,
+    "relations": -0.00364,
+    "line": -0.1547,
+    "route": 0.11266,
+    "square": 0.06219,
+    "elsewhere": 0.04049,
+    "rest": -0.07453
+   },
+   "top": [
+    [
+     "line",
+     -0.1547
+    ],
+    [
+     "route",
+     0.11266
+    ],
+    [
+     "square",
+     0.06219
+    ]
+   ],
+   "named share": 0.1903691271018129,
+   "bits real": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 10,
+    "relations": 6,
+    "line": 4,
+    "route": 73,
+    "square": 4,
+    "elsewhere": 4,
+    "rest": 2549
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 7,
+    "activity": 34,
+    "relations": 10,
+    "line": 10,
+    "route": 72,
+    "square": 3,
+    "elsewhere": 5,
+    "rest": 2489
+   }
+  },
+  {
+   "src": "E33",
+   "game": "Morrison \u2013 Capablanca, New York 1918",
+   "piece": "b",
+   "square": "g7",
+   "meaning": "ambiguous",
+   "sign": 1,
+   "verdict": null,
+   "median square": "h8",
+   "leela delta": 0.2967303544282913,
+   "decoder delta": 0.2935541272163391,
+   "phi": {
+    "occupant": 0.03415,
+    "secure": 0.00146,
+    "activity": -0.04157,
+    "relations": 0.03478,
+    "line": 0.29701,
+    "route": -0.01863,
+    "square": -0.00701,
+    "elsewhere": 0.00628,
+    "rest": -0.0129
+   },
+   "top": [
+    [
+     "line",
+     0.29701
+    ],
+    [
+     "activity",
+     -0.04157
+    ],
+    [
+     "relations",
+     0.03478
+    ]
+   ],
+   "named share": 0.9177355667729963,
+   "bits real": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 10,
+    "relations": 7,
+    "line": 8,
+    "route": 2,
+    "square": 3,
+    "elsewhere": 5,
+    "rest": 2383
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 4,
+    "activity": 6,
+    "relations": 3,
+    "line": 2,
+    "route": 2,
+    "square": 3,
+    "elsewhere": 2,
+    "rest": 2456
+   }
+  },
+  {
+   "src": "E34",
+   "game": "Spielmann \u2013 Tarrasch, San Sebastian 1912",
+   "piece": "B",
+   "square": "a2",
+   "meaning": "general",
+   "sign": -1,
+   "verdict": true,
+   "median square": "b1",
+   "leela delta": -0.25522126257419586,
+   "decoder delta": -0.2843327224254608,
+   "phi": {
+    "occupant": -0.27004,
+    "secure": 0.00196,
+    "activity": -0.01146,
+    "relations": 0.00335,
+    "line": -0.01954,
+    "route": -0.01012,
+    "square": 0.02197,
+    "elsewhere": 0.01404,
+    "rest": -0.01449
+   },
+   "top": [
+    [
+     "square",
+     0.02197
+    ],
+    [
+     "line",
+     -0.01954
+    ],
+    [
+     "elsewhere",
+     0.01404
+    ]
+   ],
+   "named share": -0.000783633769313634,
+   "bits real": {
+    "occupant": 1,
+    "secure": 4,
+    "activity": 10,
+    "relations": 3,
+    "line": 3,
+    "route": 18,
+    "square": 3,
+    "elsewhere": 2,
+    "rest": 1903
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 4,
+    "activity": 7,
+    "relations": 1,
+    "line": 3,
+    "route": 5,
+    "square": 2,
+    "elsewhere": 1,
+    "rest": 1880
+   }
+  },
+  {
+   "src": "E36",
+   "game": "Rabinovich \u2013 Nimzowitsch, Baden-Baden 1925",
+   "piece": "N",
+   "square": "d5",
+   "meaning": "placement",
+   "sign": 1,
+   "verdict": false,
+   "median square": "d3",
+   "leela delta": 0.06844104826450348,
+   "decoder delta": 0.11804606020450592,
+   "phi": {
+    "occupant": -0.0609,
+    "secure": 0.02437,
+    "activity": -0.0157,
+    "relations": 0.07031,
+    "line": -0.05951,
+    "route": 0.03806,
+    "square": 0.03025,
+    "elsewhere": -0.10825,
+    "rest": 0.19942
+   },
+   "top": [
+    [
+     "elsewhere",
+     -0.10825
+    ],
+    [
+     "relations",
+     0.07031
+    ],
+    [
+     "line",
+     -0.05951
+    ]
+   ],
+   "named share": -0.2990895160005409,
+   "bits real": {
+    "occupant": 1,
+    "secure": 8,
+    "activity": 25,
+    "relations": 8,
+    "line": 6,
+    "route": 155,
+    "square": 4,
+    "elsewhere": 3,
+    "rest": 2047
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 25,
+    "relations": 7,
+    "line": 6,
+    "route": 145,
+    "square": 3,
+    "elsewhere": 9,
+    "rest": 1983
+   }
+  },
+  {
+   "src": "E39",
+   "game": "Capablanca \u2013 R. T. Black, New York 1916",
+   "piece": "b",
+   "square": "a7",
+   "meaning": "ambiguous",
+   "sign": 1,
+   "verdict": null,
+   "median square": "a3",
+   "leela delta": -0.000377655029296875,
+   "decoder delta": 0.060437411069869995,
+   "phi": {
+    "occupant": -0.08369,
+    "secure": -0.02306,
+    "activity": 0.0458,
+    "relations": 0.01334,
+    "line": 0.09465,
+    "route": -0.02791,
+    "square": 0.01055,
+    "elsewhere": 0.00214,
+    "rest": 0.02862
+   },
+   "top": [
+    [
+     "line",
+     0.09465
+    ],
+    [
+     "activity",
+     0.0458
+    ],
+    [
+     "route",
+     -0.02791
+    ]
+   ],
+   "named share": null,
+   "bits real": {
+    "occupant": 1,
+    "secure": 6,
+    "activity": 20,
+    "relations": 3,
+    "line": 4,
+    "route": 32,
+    "square": 3,
+    "elsewhere": 1,
+    "rest": 2240
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 6,
+    "activity": 17,
+    "relations": 3,
+    "line": 3,
+    "route": 36,
+    "square": 3,
+    "elsewhere": 1,
+    "rest": 2219
+   }
+  },
+  {
+   "src": "E41",
+   "game": "Chajes \u2013 Capablanca, New York 1916",
+   "piece": "B",
+   "square": "e3",
+   "meaning": "placement",
+   "sign": -1,
+   "verdict": true,
+   "median square": "g3",
+   "leela delta": -0.1237332671880722,
+   "decoder delta": -0.1862330287694931,
+   "phi": {
+    "occupant": -0.14481,
+    "secure": 0.01744,
+    "activity": 0.01177,
+    "relations": -0.03325,
+    "line": -0.02261,
+    "route": -0.01611,
+    "square": 0.00232,
+    "elsewhere": 0.0395,
+    "rest": -0.04049
+   },
+   "top": [
+    [
+     "elsewhere",
+     0.0395
+    ],
+    [
+     "relations",
+     -0.03325
+    ],
+    [
+     "line",
+     -0.02261
+    ]
+   ],
+   "named share": 0.007596986819811526,
+   "bits real": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 29,
+    "relations": 7,
+    "line": 8,
+    "route": 42,
+    "square": 2,
+    "elsewhere": 3,
+    "rest": 2256
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 7,
+    "activity": 17,
+    "relations": 5,
+    "line": 8,
+    "route": 43,
+    "square": 2,
+    "elsewhere": 4,
+    "rest": 2254
+   }
+  },
+  {
+   "src": "E42",
+   "game": "Bernstein \u2013 Capablanca, Moscow 1914",
+   "piece": "b",
+   "square": "e7",
+   "meaning": "ambiguous",
+   "sign": 1,
+   "verdict": null,
+   "median square": "c7",
+   "leela delta": 0.03341767191886902,
+   "decoder delta": 0.04213748127222061,
+   "phi": {
+    "occupant": 0.02743,
+    "secure": -0.00178,
+    "activity": 0.00699,
+    "relations": 0.00624,
+    "line": 0.0059,
+    "route": -0.00783,
+    "square": -0.0055,
+    "elsewhere": 0.00057,
+    "rest": 0.01012
+   },
+   "top": [
+    [
+     "route",
+     -0.00783
+    ],
+    [
+     "activity",
+     0.00699
+    ],
+    [
+     "relations",
+     0.00624
+    ]
+   ],
+   "named share": null,
+   "bits real": {
+    "occupant": 1,
+    "secure": 7,
+    "activity": 23,
+    "relations": 3,
+    "line": 6,
+    "route": 29,
+    "square": 3,
+    "elsewhere": 2,
+    "rest": 2374
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 6,
+    "activity": 27,
+    "relations": 4,
+    "line": 6,
+    "route": 30,
+    "square": 2,
+    "elsewhere": 2,
+    "rest": 2352
+   }
+  },
+  {
+   "src": "E43",
+   "game": "Forgacs \u2013 Tartakower, St Petersburg 1909",
+   "piece": "b",
+   "square": "c8",
+   "meaning": "general",
+   "sign": -1,
+   "verdict": true,
+   "median square": "c6",
+   "leela delta": -0.10307574272155762,
+   "decoder delta": -0.15827861428260803,
+   "phi": {
+    "occupant": -0.12351,
+    "secure": -0.0069,
+    "activity": -0.0013,
+    "relations": -0.0082,
+    "line": -0.02583,
+    "route": 0.00184,
+    "square": 0.00369,
+    "elsewhere": 0.00812,
+    "rest": -0.00618
+   },
+   "top": [
+    [
+     "line",
+     -0.02583
+    ],
+    [
+     "relations",
+     -0.0082
+    ],
+    [
+     "elsewhere",
+     0.00812
+    ]
+   ],
+   "named share": 0.27727183181404985,
+   "bits real": {
+    "occupant": 1,
+    "secure": 4,
+    "activity": 10,
+    "relations": 3,
+    "line": 3,
+    "route": 22,
+    "square": 2,
+    "elsewhere": 3,
+    "rest": 2438
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 8,
+    "activity": 17,
+    "relations": 6,
+    "line": 10,
+    "route": 23,
+    "square": 3,
+    "elsewhere": 5,
+    "rest": 2312
+   }
+  },
+  {
+   "src": "E44",
+   "game": "Wolf \u2013 Alekhine, Carlsbad 1923",
+   "piece": "b",
+   "square": "a5",
+   "meaning": "placement",
+   "sign": 1,
+   "verdict": true,
+   "median square": "d8",
+   "leela delta": 0.2069578468799591,
+   "decoder delta": 0.1768895983695984,
+   "phi": {
+    "occupant": 0.12912,
+    "secure": -0.005,
+    "activity": 0.02205,
+    "relations": 0.00446,
+    "line": -0.00023,
+    "route": 0.00626,
+    "square": -0.00472,
+    "elsewhere": -0.06678,
+    "rest": 0.09173
+   },
+   "top": [
+    [
+     "elsewhere",
+     -0.06678
+    ],
+    [
+     "activity",
+     0.02205
+    ],
+    [
+     "route",
+     0.00626
+    ]
+   ],
+   "named share": -0.21241040464388838,
+   "bits real": {
+    "occupant": 1,
+    "secure": 6,
+    "activity": 23,
+    "relations": 4,
+    "line": 3,
+    "route": 28,
+    "square": 2,
+    "elsewhere": 0,
+    "rest": 2045
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 4,
+    "activity": 20,
+    "relations": 5,
+    "line": 2,
+    "route": 17,
+    "square": 2,
+    "elsewhere": 4,
+    "rest": 1968
+   }
+  },
+  {
+   "src": "E44",
+   "game": "Wolf \u2013 Alekhine, Carlsbad 1923",
+   "piece": "B",
+   "square": "d3",
+   "meaning": "placement",
+   "sign": -1,
+   "verdict": false,
+   "median square": "c4",
+   "leela delta": 0.0955420732498169,
+   "decoder delta": 0.10443150997161865,
+   "phi": {
+    "occupant": 0.0241,
+    "secure": -0.01954,
+    "activity": 0.06615,
+    "relations": -0.00024,
+    "line": 0.01803,
+    "route": -0.02289,
+    "square": -0.00566,
+    "elsewhere": 0.01475,
+    "rest": 0.02973
+   },
+   "top": [
+    [
+     "activity",
+     0.06615
+    ],
+    [
+     "route",
+     -0.02289
+    ],
+    [
+     "secure",
+     -0.01954
+    ]
+   ],
+   "named share": 0.529609608404609,
+   "bits real": {
+    "occupant": 1,
+    "secure": 7,
+    "activity": 26,
+    "relations": 9,
+    "line": 10,
+    "route": 29,
+    "square": 2,
+    "elsewhere": 8,
+    "rest": 2020
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 6,
+    "activity": 22,
+    "relations": 7,
+    "line": 10,
+    "route": 22,
+    "square": 2,
+    "elsewhere": 4,
+    "rest": 2026
+   }
+  },
+  {
+   "src": "E45",
+   "game": "Tarrasch \u2013 Spielmann, Mannheim 1914",
+   "piece": "B",
+   "square": "g2",
+   "meaning": "general",
+   "sign": -1,
+   "verdict": false,
+   "median square": "h1",
+   "leela delta": 0.2573583275079727,
+   "decoder delta": 0.16469478607177734,
+   "phi": {
+    "occupant": 0.10921,
+    "secure": -0.01621,
+    "activity": 0.02291,
+    "relations": 0.00757,
+    "line": 0.08378,
+    "route": -0.02026,
+    "square": -0.01694,
+    "elsewhere": -0.01182,
+    "rest": 0.00644
+   },
+   "top": [
+    [
+     "line",
+     0.08378
+    ],
+    [
+     "activity",
+     0.02291
+    ],
+    [
+     "route",
+     -0.02026
+    ]
+   ],
+   "named share": 0.1905125840487174,
+   "bits real": {
+    "occupant": 1,
+    "secure": 4,
+    "activity": 15,
+    "relations": 4,
+    "line": 8,
+    "route": 4,
+    "square": 3,
+    "elsewhere": 4,
+    "rest": 2487
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 4,
+    "activity": 11,
+    "relations": 2,
+    "line": 2,
+    "route": 4,
+    "square": 3,
+    "elsewhere": 2,
+    "rest": 2553
+   }
+  },
+  {
+   "src": "E47",
+   "game": "Capablanca \u2013 Kupchik, Havana 1913",
+   "piece": "r",
+   "square": "e7",
+   "meaning": "ambiguous",
+   "sign": 1,
+   "verdict": null,
+   "median square": "e1",
+   "leela delta": -0.1987704336643219,
+   "decoder delta": -0.12757608294487,
+   "phi": {
+    "occupant": -0.02805,
+    "secure": -0.0067,
+    "activity": 0.04848,
+    "relations": 0.00663,
+    "line": -0.06739,
+    "route": -0.0872,
+    "square": -0.01634,
+    "elsewhere": 0.003,
+    "rest": 0.02
+   },
+   "top": [
+    [
+     "route",
+     -0.0872
+    ],
+    [
+     "line",
+     -0.06739
+    ],
+    [
+     "activity",
+     0.04848
+    ]
+   ],
+   "named share": 0.6012966707203654,
+   "bits real": {
+    "occupant": 1,
+    "secure": 4,
+    "activity": 22,
+    "relations": 5,
+    "line": 8,
+    "route": 90,
+    "square": 2,
+    "elsewhere": 4,
+    "rest": 1314
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 42,
+    "relations": 3,
+    "line": 3,
+    "route": 90,
+    "square": 2,
+    "elsewhere": 1,
+    "rest": 1333
+   }
+  },
+  {
+   "src": "E50",
+   "game": "Steiner \u2013 Forgacz, Szekesfehervar 1907",
+   "piece": "R",
+   "square": "f4",
+   "meaning": "ambiguous",
+   "sign": 1,
+   "verdict": null,
+   "median square": "b3",
+   "leela delta": 0.14050017297267914,
+   "decoder delta": 0.08482492715120316,
+   "phi": {
+    "occupant": 0.15402,
+    "secure": 0.03209,
+    "activity": 0.12708,
+    "relations": -0.05014,
+    "line": -0.08817,
+    "route": -0.05211,
+    "square": -0.04432,
+    "elsewhere": -0.00381,
+    "rest": 0.01018
+   },
+   "top": [
+    [
+     "activity",
+     0.12708
+    ],
+    [
+     "line",
+     -0.08817
+    ],
+    [
+     "route",
+     -0.05211
+    ]
+   ],
+   "named share": -0.564981510844373,
+   "bits real": {
+    "occupant": 1,
+    "secure": 7,
+    "activity": 49,
+    "relations": 3,
+    "line": 6,
+    "route": 104,
+    "square": 3,
+    "elsewhere": 0,
+    "rest": 1353
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 7,
+    "activity": 29,
+    "relations": 5,
+    "line": 6,
+    "route": 107,
+    "square": 3,
+    "elsewhere": 3,
+    "rest": 1391
+   }
+  },
+  {
+   "src": "E56",
+   "game": "Blackburne \u2013 Nimzowitsch, St Petersburg 1914",
+   "piece": "r",
+   "square": "e8",
+   "meaning": "placement",
+   "sign": -1,
+   "verdict": false,
+   "median square": "c7",
+   "leela delta": 0.0005663931369781494,
+   "decoder delta": 0.02333483099937439,
+   "phi": {
+    "occupant": -0.0235,
+    "secure": -0.00345,
+    "activity": -0.00424,
+    "relations": -0.01686,
+    "line": 0.01835,
+    "route": 0.00775,
+    "square": 0.03109,
+    "elsewhere": -0.03649,
+    "rest": 0.0507
+   },
+   "top": [
+    [
+     "elsewhere",
+     -0.03649
+    ],
+    [
+     "square",
+     0.03109
+    ],
+    [
+     "line",
+     0.01835
+    ]
+   ],
+   "named share": null,
+   "bits real": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 17,
+    "relations": 3,
+    "line": 7,
+    "route": 16,
+    "square": 2,
+    "elsewhere": 4,
+    "rest": 2210
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 7,
+    "activity": 22,
+    "relations": 5,
+    "line": 10,
+    "route": 14,
+    "square": 2,
+    "elsewhere": 5,
+    "rest": 2079
+   }
+  },
+  {
+   "src": "E58",
+   "game": "Nimzowitsch \u2013 Spielmann, Stockholm 1920",
+   "piece": "R",
+   "square": "d1",
+   "meaning": "ambiguous",
+   "sign": 1,
+   "verdict": null,
+   "median square": "c1",
+   "leela delta": 0.7294089794158936,
+   "decoder delta": 0.6333246231079102,
+   "phi": {
+    "occupant": 0.60145,
+    "secure": -0.02317,
+    "activity": 0.0128,
+    "relations": -0.02528,
+    "line": 0.05047,
+    "route": 0.00406,
+    "square": 0.00263,
+    "elsewhere": -0.02509,
+    "rest": 0.03547
+   },
+   "top": [
+    [
+     "line",
+     0.05047
+    ],
+    [
+     "relations",
+     -0.02528
+    ],
+    [
+     "elsewhere",
+     -0.02509
+    ]
+   ],
+   "named share": -0.0049080832578546575,
+   "bits real": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 20,
+    "relations": 6,
+    "line": 7,
+    "route": 10,
+    "square": 2,
+    "elsewhere": 6,
+    "rest": 2277
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 22,
+    "relations": 5,
+    "line": 6,
+    "route": 10,
+    "square": 3,
+    "elsewhere": 4,
+    "rest": 2342
+   }
+  },
+  {
+   "src": "E58",
+   "game": "Nimzowitsch \u2013 Spielmann, Stockholm 1920",
+   "piece": "R",
+   "square": "e1",
+   "meaning": "ambiguous",
+   "sign": 1,
+   "verdict": null,
+   "median square": "f1",
+   "leela delta": 0.09893213212490082,
+   "decoder delta": 0.08197978138923645,
+   "phi": {
+    "occupant": 0.0953,
+    "secure": -0.0225,
+    "activity": -0.03437,
+    "relations": -0.01914,
+    "line": 0.03472,
+    "route": -0.00034,
+    "square": -0.00717,
+    "elsewhere": -0.00985,
+    "rest": 0.04534
+   },
+   "top": [
+    [
+     "line",
+     0.03472
+    ],
+    [
+     "activity",
+     -0.03437
+    ],
+    [
+     "secure",
+     -0.0225
+    ]
+   ],
+   "named share": -0.5928306480442063,
+   "bits real": {
+    "occupant": 1,
+    "secure": 4,
+    "activity": 13,
+    "relations": 5,
+    "line": 6,
+    "route": 2,
+    "square": 2,
+    "elsewhere": 6,
+    "rest": 2295
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 4,
+    "activity": 13,
+    "relations": 5,
+    "line": 6,
+    "route": 2,
+    "square": 2,
+    "elsewhere": 6,
+    "rest": 2304
+   }
+  },
+  {
+   "src": "E59",
+   "game": "Teichmann \u2013 Amateurs (consultation), Glasgow 1902",
+   "piece": "Q",
+   "square": "d4",
+   "meaning": "placement",
+   "sign": 1,
+   "verdict": false,
+   "median square": "e2",
+   "leela delta": 0.015021026134490967,
+   "decoder delta": 0.007727831602096558,
+   "phi": {
+    "occupant": -0.10928,
+    "secure": 0.01429,
+    "activity": 0.27706,
+    "relations": -0.00814,
+    "line": -0.11619,
+    "route": 0.00432,
+    "square": -0.01851,
+    "elsewhere": 0.00957,
+    "rest": -0.0454
+   },
+   "top": [
+    [
+     "activity",
+     0.27706
+    ],
+    [
+     "line",
+     -0.11619
+    ],
+    [
+     "square",
+     -0.01851
+    ]
+   ],
+   "named share": null,
+   "bits real": {
+    "occupant": 1,
+    "secure": 10,
+    "activity": 79,
+    "relations": 15,
+    "line": 10,
+    "route": 228,
+    "square": 4,
+    "elsewhere": 5,
+    "rest": 2370
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 7,
+    "activity": 47,
+    "relations": 12,
+    "line": 13,
+    "route": 185,
+    "square": 3,
+    "elsewhere": 7,
+    "rest": 2155
+   }
+  },
+  {
+   "src": "E61",
+   "game": "Alapin \u2013 Alekhine, Carlsbad 1911",
+   "piece": "q",
+   "square": "a2",
+   "meaning": "placement",
+   "sign": -1,
+   "verdict": false,
+   "median square": "e7",
+   "leela delta": -0.10577221214771271,
+   "decoder delta": -0.02478906512260437,
+   "phi": {
+    "occupant": 0.22525,
+    "secure": -0.05733,
+    "activity": -0.66909,
+    "relations": 0.02074,
+    "line": 0.01671,
+    "route": 0.36606,
+    "square": 0.00304,
+    "elsewhere": 0.00633,
+    "rest": 0.06351
+   },
+   "top": [
+    [
+     "activity",
+     -0.66909
+    ],
+    [
+     "route",
+     0.36606
+    ],
+    [
+     "secure",
+     -0.05733
+    ]
+   ],
+   "named share": 2.9642946255310987,
+   "bits real": {
+    "occupant": 1,
+    "secure": 6,
+    "activity": 33,
+    "relations": 3,
+    "line": 7,
+    "route": 151,
+    "square": 2,
+    "elsewhere": 2,
+    "rest": 2305
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 6,
+    "activity": 55,
+    "relations": 13,
+    "line": 10,
+    "route": 162,
+    "square": 3,
+    "elsewhere": 5,
+    "rest": 2225
+   }
+  },
+  {
+   "src": "E62",
+   "game": "Johner \u2013 Nimzowitsch, Dresden 1926",
+   "piece": "q",
+   "square": "h7",
+   "meaning": "placement",
+   "sign": 1,
+   "verdict": true,
+   "median square": "f5",
+   "leela delta": 0.1602758765220642,
+   "decoder delta": 0.1382848024368286,
+   "phi": {
+    "occupant": 0.27636,
+    "secure": -0.00288,
+    "activity": -0.11034,
+    "relations": -0.03745,
+    "line": -0.0346,
+    "route": 0.07856,
+    "square": 0.03761,
+    "elsewhere": -0.01249,
+    "rest": -0.0565
+   },
+   "top": [
+    [
+     "activity",
+     -0.11034
+    ],
+    [
+     "route",
+     0.07856
+    ],
+    [
+     "square",
+     0.03761
+    ]
+   ],
+   "named share": -0.5090597647660843,
+   "bits real": {
+    "occupant": 1,
+    "secure": 5,
+    "activity": 25,
+    "relations": 6,
+    "line": 7,
+    "route": 75,
+    "square": 2,
+    "elsewhere": 6,
+    "rest": 2007
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 7,
+    "activity": 45,
+    "relations": 14,
+    "line": 14,
+    "route": 94,
+    "square": 2,
+    "elsewhere": 7,
+    "rest": 1976
+   }
+  },
+  {
+   "src": "E68",
+   "game": "Em. Lasker \u2013 Capablanca, Havana 1921",
+   "piece": "R",
+   "square": "a1",
+   "meaning": "placement",
+   "sign": -1,
+   "verdict": false,
+   "median square": "b1",
+   "leela delta": 0.04300534725189209,
+   "decoder delta": 0.04017654061317444,
+   "phi": {
+    "occupant": 0.0622,
+    "secure": 0.00242,
+    "activity": 0.05879,
+    "relations": 0.01515,
+    "line": -0.0906,
+    "route": 0.00071,
+    "square": 0.00094,
+    "elsewhere": -0.00769,
+    "rest": -0.00175
+   },
+   "top": [
+    [
+     "line",
+     -0.0906
+    ],
+    [
+     "activity",
+     0.05879
+    ],
+    [
+     "relations",
+     0.01515
+    ]
+   ],
+   "named share": null,
+   "bits real": {
+    "occupant": 1,
+    "secure": 4,
+    "activity": 8,
+    "relations": 3,
+    "line": 4,
+    "route": 2,
+    "square": 3,
+    "elsewhere": 3,
+    "rest": 2423
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 4,
+    "activity": 8,
+    "relations": 3,
+    "line": 5,
+    "route": 2,
+    "square": 2,
+    "elsewhere": 3,
+    "rest": 2448
+   }
+  },
+  {
+   "src": "E68",
+   "game": "Em. Lasker \u2013 Capablanca, Havana 1921",
+   "piece": "R",
+   "square": "d3",
+   "meaning": "placement",
+   "sign": -1,
+   "verdict": false,
+   "median square": "f3",
+   "leela delta": 0.048970818519592285,
+   "decoder delta": 0.05431434512138367,
+   "phi": {
+    "occupant": 0.0882,
+    "secure": 0.00562,
+    "activity": -0.01231,
+    "relations": -0.01803,
+    "line": -0.0315,
+    "route": 0.03612,
+    "square": -0.00528,
+    "elsewhere": 0.01925,
+    "rest": -0.02776
+   },
+   "top": [
+    [
+     "route",
+     0.03612
+    ],
+    [
+     "line",
+     -0.0315
+    ],
+    [
+     "elsewhere",
+     0.01925
+    ]
+   ],
+   "named share": null,
+   "bits real": {
+    "occupant": 1,
+    "secure": 7,
+    "activity": 42,
+    "relations": 9,
+    "line": 7,
+    "route": 62,
+    "square": 3,
+    "elsewhere": 2,
+    "rest": 2318
+   },
+   "bits median": {
+    "occupant": 1,
+    "secure": 6,
+    "activity": 30,
+    "relations": 8,
+    "line": 10,
+    "route": 70,
+    "square": 3,
+    "elsewhere": 4,
+    "rest": 2398
+   }
+  }
+ ]
+}

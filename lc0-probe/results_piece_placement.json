@@ -1,0 +1,6707 @@
+{
+ "net": "t1-256x10",
+ "depth": 3,
+ "perms": 128,
+ "unsafe": 0.1,
+ "disagree": 0.1,
+ "criterion": "Fixed before the claim runs. Percentiles: mid-rank among the corpus pieces of the same type (both colours, v for the owner). Rank fraction f = (rank - 1) / reachable (0 = its square is the best, 1 = the worst); a piece with no safe alternative gets no placement verdict. placement+: gap pct >= 75 and f <= 0.25. placement-: gap pct <= 25 and f >= 0.5. general score: for a knight or bishop the mean of ceiling pct and (100 - swap pct) (a swap that loses value is a point for the piece; ceiling pct alone if the swap board is illegal), for a rook or queen ceiling pct. general+: score >= 75; general-: score <= 25. both: the placement and the general rule in the claim's direction. Bishop pairs: supported iff both bishops pass. Ambiguous: no verdict.",
+ "disagreement": "Placement Shapley disagrees with the single-piece marginal when |phi - single| > 0.1, or the signs differ with both |values| > 0.05.",
+ "norms": {
+  "N": {
+   "gap": {
+    "n": 613,
+    "q25": -0.7371960803866386,
+    "median": -0.2659964859485626,
+    "q75": -0.05406764894723892
+   },
+   "ceiling": {
+    "n": 593,
+    "q25": 0.19876313209533691,
+    "median": 0.4390143156051636,
+    "q75": 0.8682332783937454
+   },
+   "swap": {
+    "n": 604,
+    "q25": -0.033064670860767365,
+    "median": 0.09836003184318542,
+    "q75": 0.3031626008450985
+   }
+  },
+  "B": {
+   "gap": {
+    "n": 700,
+    "q25": -0.27551889419555664,
+    "median": -0.05647248029708862,
+    "q75": 0.0
+   },
+   "ceiling": {
+    "n": 669,
+    "q25": 0.0833791196346283,
+    "median": 0.1859462559223175,
+    "q75": 0.4076133668422699
+   },
+   "swap": {
+    "n": 684,
+    "q25": -0.35649197921156883,
+    "median": -0.17418113350868225,
+    "q75": -0.0028452426195144653
+   }
+  },
+  "R": {
+   "gap": {
+    "n": 1018,
+    "q25": -0.23417875915765762,
+    "median": -0.06350208818912506,
+    "q75": -0.0013545751571655273
+   },
+   "ceiling": {
+    "n": 983,
+    "q25": 0.06259661912918091,
+    "median": 0.14443165063858032,
+    "q75": 0.3170938640832901
+   }
+  },
+  "Q": {
+   "gap": {
+    "n": 433,
+    "q25": -0.3922136425971985,
+    "median": -0.12436726689338684,
+    "q75": -0.027095124125480652
+   },
+   "ceiling": {
+    "n": 426,
+    "q25": 0.12344549968838692,
+    "median": 0.24532409012317657,
+    "q75": 0.5269222483038902
+   }
+  }
+ },
+ "claims": [
+  {
+   "square": "c8",
+   "piece": "b",
+   "type": "B",
+   "colour": "black",
+   "v": -0.021211668848991394,
+   "gap": -0.361456498503685,
+   "ceiling": 0.3532775193452835,
+   "best": "h5",
+   "best moves": 3,
+   "reachable": 7,
+   "median square": "b7",
+   "v median": -0.013032689690589905,
+   "rank": 5,
+   "marginal": -0.042538378919873915,
+   "swap": -0.3237203508615494,
+   "squares": {
+    "c8": [
+     0,
+     -0.0212
+    ],
+    "e6": [
+     1,
+     -0.0861
+    ],
+    "b7": [
+     1,
+     -0.013
+    ],
+    "d7": [
+     1,
+     -0.066
+    ],
+    "f7": [
+     2,
+     0.0255
+    ],
+    "g8": [
+     2,
+     -0.1353
+    ],
+    "h5": [
+     3,
+     0.3402
+    ],
+    "g6": [
+     3,
+     0.084
+    ]
+   },
+   "pct gap": 21.3,
+   "pct ceiling": 70.6,
+   "pct swap": 29.8,
+   "rank fraction": 0.5714285714285714,
+   "general score": 70.39999999999999,
+   "fen": "r1bqkb1r/2p3pp/p1p5/3pPp2/4n3/5N2/PPP2PPP/RNBQR1K1 w kq - 0 10",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 96, note to Black's 9th move; Torres \u2013 Alekhine, Seville 1922, after 9...d5",
+   "quote": "Now Black has undoubtedly the better game, with his two Bishops and his strongly-posted Knight in the centre.",
+   "claim": "Black has the better game with his two bishops.",
+   "game": null,
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "bishop pair",
+   "src": "T8",
+   "meaning": "general",
+   "sign": 1,
+   "verdict": false,
+   "shapley": {
+    "b1": {
+     "phi": -0.2800775159848854,
+     "se": 0.03256857165639165,
+     "single": -0.3391784143944581,
+     "piece": "N",
+     "disagree": false
+    },
+    "c1": {
+     "phi": -0.12449284677859396,
+     "se": 0.02444566199184031,
+     "single": -0.22605060040950775,
+     "piece": "B",
+     "disagree": true
+    },
+    "d1": {
+     "phi": -0.017831624834798276,
+     "se": 0.017862339650436834,
+     "single": -0.039916725622283086,
+     "piece": "Q",
+     "disagree": false
+    },
+    "e1": {
+     "phi": 0.06872977630700916,
+     "se": 0.018851266739958142,
+     "single": 0.08800630023082097,
+     "piece": "R",
+     "disagree": false
+    },
+    "f3": {
+     "phi": 0.07495657459367067,
+     "se": 0.035393352444511514,
+     "single": -0.12696328138311705,
+     "piece": "N",
+     "disagree": true
+    },
+    "e4": {
+     "phi": 0.2705242020310834,
+     "se": 0.038754944673482256,
+     "single": 0.5827351063489914,
+     "piece": "n",
+     "disagree": true
+    },
+    "a8": {
+     "phi": -0.03246794070582837,
+     "se": 0.022680454091602797,
+     "single": 0.059861224889755246,
+     "piece": "r",
+     "disagree": false
+    },
+    "c8": {
+     "phi": 0.10099287098273635,
+     "se": 0.022995969433421058,
+     "single": -0.042538378919873915,
+     "piece": "b",
+     "disagree": true
+    },
+    "d8": {
+     "phi": -0.06549381965305656,
+     "se": 0.02604777597718385,
+     "single": -0.002142882522414711,
+     "piece": "q",
+     "disagree": false
+    },
+    "f8": {
+     "phi": 0.017035895376466215,
+     "se": 0.03789075334712047,
+     "single": 0.053129774602976715,
+     "piece": "b",
+     "disagree": false
+    },
+    "h8": {
+     "phi": 0.1659917071228847,
+     "se": 0.020835498463753023,
+     "single": 0.17712806165218353,
+     "piece": "r",
+     "disagree": false
+    },
+    "a1": {
+     "phi": 0.0,
+     "se": 0.0,
+     "fixed": true,
+     "single": 0.0,
+     "piece": "R",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.015743371212121212,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   },
+   "pair verdict": false
+  },
+  {
+   "square": "f8",
+   "piece": "b",
+   "type": "B",
+   "colour": "black",
+   "v": -0.021211668848991394,
+   "gap": -0.35997749865055084,
+   "ceiling": 0.22775930166244507,
+   "best": "b6",
+   "best moves": 2,
+   "reachable": 11,
+   "median square": "b4",
+   "v median": 0.11100652813911438,
+   "rank": 8,
+   "marginal": 0.053129774602976715,
+   "swap": -0.0640123188495636,
+   "squares": {
+    "f8": [
+     0,
+     -0.0212
+    ],
+    "b4": [
+     1,
+     0.111
+    ],
+    "c5": [
+     1,
+     0.2377
+    ],
+    "e7": [
+     1,
+     0.1355
+    ],
+    "d2": [
+     2,
+     -0.9915
+    ],
+    "a5": [
+     2,
+     0.2346
+    ],
+    "b6": [
+     2,
+     0.3388
+    ],
+    "a7": [
+     2,
+     0.3002
+    ],
+    "h4": [
+     2,
+     0.05
+    ],
+    "g5": [
+     2,
+     -0.5157
+    ],
+    "h6": [
+     3,
+     -0.6248
+    ],
+    "b8": [
+     3,
+     -0.0936
+    ]
+   },
+   "pct gap": 21.3,
+   "pct ceiling": 56.7,
+   "pct swap": 67.3,
+   "rank fraction": 0.6363636363636364,
+   "general score": 44.699999999999996,
+   "fen": "r1bqkb1r/2p3pp/p1p5/3pPp2/4n3/5N2/PPP2PPP/RNBQR1K1 w kq - 0 10",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 96, note to Black's 9th move; Torres \u2013 Alekhine, Seville 1922, after 9...d5",
+   "quote": "Now Black has undoubtedly the better game, with his two Bishops and his strongly-posted Knight in the centre.",
+   "claim": "Black has the better game with his two bishops.",
+   "game": null,
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "bishop pair",
+   "src": "T8",
+   "meaning": "general",
+   "sign": 1,
+   "verdict": false,
+   "shapley": {
+    "b1": {
+     "phi": -0.2800775159848854,
+     "se": 0.03256857165639165,
+     "single": -0.3391784143944581,
+     "piece": "N",
+     "disagree": false
+    },
+    "c1": {
+     "phi": -0.12449284677859396,
+     "se": 0.02444566199184031,
+     "single": -0.22605060040950775,
+     "piece": "B",
+     "disagree": true
+    },
+    "d1": {
+     "phi": -0.017831624834798276,
+     "se": 0.017862339650436834,
+     "single": -0.039916725622283086,
+     "piece": "Q",
+     "disagree": false
+    },
+    "e1": {
+     "phi": 0.06872977630700916,
+     "se": 0.018851266739958142,
+     "single": 0.08800630023082097,
+     "piece": "R",
+     "disagree": false
+    },
+    "f3": {
+     "phi": 0.07495657459367067,
+     "se": 0.035393352444511514,
+     "single": -0.12696328138311705,
+     "piece": "N",
+     "disagree": true
+    },
+    "e4": {
+     "phi": 0.2705242020310834,
+     "se": 0.038754944673482256,
+     "single": 0.5827351063489914,
+     "piece": "n",
+     "disagree": true
+    },
+    "a8": {
+     "phi": -0.03246794070582837,
+     "se": 0.022680454091602797,
+     "single": 0.059861224889755246,
+     "piece": "r",
+     "disagree": false
+    },
+    "c8": {
+     "phi": 0.10099287098273635,
+     "se": 0.022995969433421058,
+     "single": -0.042538378919873915,
+     "piece": "b",
+     "disagree": true
+    },
+    "d8": {
+     "phi": -0.06549381965305656,
+     "se": 0.02604777597718385,
+     "single": -0.002142882522414711,
+     "piece": "q",
+     "disagree": false
+    },
+    "f8": {
+     "phi": 0.017035895376466215,
+     "se": 0.03789075334712047,
+     "single": 0.053129774602976715,
+     "piece": "b",
+     "disagree": false
+    },
+    "h8": {
+     "phi": 0.1659917071228847,
+     "se": 0.020835498463753023,
+     "single": 0.17712806165218353,
+     "piece": "r",
+     "disagree": false
+    },
+    "a1": {
+     "phi": 0.0,
+     "se": 0.0,
+     "fixed": true,
+     "single": 0.0,
+     "piece": "R",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.015743371212121212,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   },
+   "pair verdict": false
+  },
+  {
+   "square": "e4",
+   "piece": "n",
+   "type": "N",
+   "colour": "black",
+   "v": -0.021211668848991394,
+   "gap": -0.09112913906574249,
+   "ceiling": 0.6941010653972626,
+   "best": "e6",
+   "best moves": 2,
+   "reachable": 11,
+   "median square": "a5",
+   "v median": -0.6241835951805115,
+   "rank": 2,
+   "marginal": 0.5827351063489914,
+   "swap": -0.22292228043079376,
+   "squares": {
+    "e4": [
+     0,
+     -0.0212
+    ],
+    "c5": [
+     1,
+     -0.3051
+    ],
+    "g5": [
+     1,
+     -0.9906
+    ],
+    "a4": [
+     2,
+     -0.6217
+    ],
+    "e6": [
+     2,
+     0.0699
+    ],
+    "b7": [
+     2,
+     -0.6142
+    ],
+    "d7": [
+     2,
+     -0.7249
+    ],
+    "f7": [
+     2,
+     -0.8564
+    ],
+    "b6": [
+     3,
+     -0.4878
+    ],
+    "a5": [
+     3,
+     -0.6242
+    ],
+    "b8": [
+     3,
+     -0.6754
+    ],
+    "h6": [
+     3,
+     -0.8129
+    ]
+   },
+   "pct gap": 68.0,
+   "pct ceiling": 66.4,
+   "pct swap": 9.8,
+   "rank fraction": 0.09090909090909091,
+   "general score": 78.3,
+   "fen": "r1bqkb1r/2p3pp/p1p5/3pPp2/4n3/5N2/PPP2PPP/RNBQR1K1 w kq - 0 10",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 96, note to Black's 9th move; Torres \u2013 Alekhine, Seville 1922, after 9...d5",
+   "quote": "Now Black has undoubtedly the better game, with his two Bishops and his strongly-posted Knight in the centre.",
+   "claim": "Black's knight on e4 is strongly posted in the centre.",
+   "game": null,
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "outpost",
+   "src": "T11",
+   "meaning": "placement",
+   "sign": 1,
+   "verdict": false,
+   "shapley": {
+    "b1": {
+     "phi": -0.2800775159848854,
+     "se": 0.03256857165639165,
+     "single": -0.3391784143944581,
+     "piece": "N",
+     "disagree": false
+    },
+    "c1": {
+     "phi": -0.12449284677859396,
+     "se": 0.02444566199184031,
+     "single": -0.22605060040950775,
+     "piece": "B",
+     "disagree": true
+    },
+    "d1": {
+     "phi": -0.017831624834798276,
+     "se": 0.017862339650436834,
+     "single": -0.039916725622283086,
+     "piece": "Q",
+     "disagree": false
+    },
+    "e1": {
+     "phi": 0.06872977630700916,
+     "se": 0.018851266739958142,
+     "single": 0.08800630023082097,
+     "piece": "R",
+     "disagree": false
+    },
+    "f3": {
+     "phi": 0.07495657459367067,
+     "se": 0.035393352444511514,
+     "single": -0.12696328138311705,
+     "piece": "N",
+     "disagree": true
+    },
+    "e4": {
+     "phi": 0.2705242020310834,
+     "se": 0.038754944673482256,
+     "single": 0.5827351063489914,
+     "piece": "n",
+     "disagree": true
+    },
+    "a8": {
+     "phi": -0.03246794070582837,
+     "se": 0.022680454091602797,
+     "single": 0.059861224889755246,
+     "piece": "r",
+     "disagree": false
+    },
+    "c8": {
+     "phi": 0.10099287098273635,
+     "se": 0.022995969433421058,
+     "single": -0.042538378919873915,
+     "piece": "b",
+     "disagree": true
+    },
+    "d8": {
+     "phi": -0.06549381965305656,
+     "se": 0.02604777597718385,
+     "single": -0.002142882522414711,
+     "piece": "q",
+     "disagree": false
+    },
+    "f8": {
+     "phi": 0.017035895376466215,
+     "se": 0.03789075334712047,
+     "single": 0.053129774602976715,
+     "piece": "b",
+     "disagree": false
+    },
+    "h8": {
+     "phi": 0.1659917071228847,
+     "se": 0.020835498463753023,
+     "single": 0.17712806165218353,
+     "piece": "r",
+     "disagree": false
+    },
+    "a1": {
+     "phi": 0.0,
+     "se": 0.0,
+     "fixed": true,
+     "single": 0.0,
+     "piece": "R",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.015743371212121212,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "b3",
+   "piece": "B",
+   "type": "B",
+   "colour": "white",
+   "v": 0.5677692294120789,
+   "gap": -0.10953021049499512,
+   "ceiling": 0.06195038557052612,
+   "best": "c2",
+   "best moves": 1,
+   "reachable": 6,
+   "median square": "d5",
+   "v median": 0.6153490543365479,
+   "rank": 5,
+   "marginal": 0.122105672955513,
+   "swap": -0.5928642302751541,
+   "squares": {
+    "b3": [
+     0,
+     0.5678
+    ],
+    "c2": [
+     1,
+     0.6773
+    ],
+    "a4": [
+     1,
+     0.6224
+    ],
+    "c4": [
+     1,
+     -0.3832
+    ],
+    "d5": [
+     1,
+     0.6153
+    ],
+    "b1": [
+     2,
+     0.6307
+    ],
+    "b7": [
+     2,
+     0.5114
+    ]
+   },
+   "pct gap": 41.6,
+   "pct ceiling": 19.0,
+   "pct swap": 8.8,
+   "rank fraction": 0.6666666666666666,
+   "general score": 55.1,
+   "fen": "4rrk1/2pnqppp/pp6/2p1n3/4P3/1BPPB2P/PP3QP1/3R1RK1 b - - 0 17",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 90 (match, Berlin 1921), note to White's 17th move; Alekhine \u2013 Teichmann, Berlin 1921, after 17.c3",
+   "quote": "The loss of the present game by Black can be attributed to the fact that his Knights lack bases in the centre, and that in positions of this character the possession of the two Bishops constitutes a decisive advantage for the opponent.",
+   "claim": "The two bishops are a decisive advantage for White.",
+   "game": null,
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "bishop pair",
+   "src": "T9",
+   "meaning": "general",
+   "sign": 1,
+   "verdict": false,
+   "shapley": {
+    "d1": {
+     "phi": 0.341826286399737,
+     "se": 0.037054687854630605,
+     "single": 0.8214343445641654,
+     "piece": "R",
+     "disagree": true
+    },
+    "f1": {
+     "phi": 0.13202808378264308,
+     "se": 0.027209774202248866,
+     "single": 0.0616372749209404,
+     "piece": "R",
+     "disagree": false
+    },
+    "f2": {
+     "phi": 0.02310516219586134,
+     "se": 0.03160375900675749,
+     "single": 0.05289183344159809,
+     "piece": "Q",
+     "disagree": false
+    },
+    "b3": {
+     "phi": 0.06784214975778013,
+     "se": 0.03018864218754767,
+     "single": 0.122105672955513,
+     "piece": "B",
+     "disagree": false
+    },
+    "e3": {
+     "phi": -0.022524204337969422,
+     "se": 0.02824327417521777,
+     "single": -0.021452550377164536,
+     "piece": "B",
+     "disagree": false
+    },
+    "e5": {
+     "phi": 0.3587414569919929,
+     "se": 0.04477516679775915,
+     "single": 0.13597448294361436,
+     "piece": "n",
+     "disagree": true
+    },
+    "d7": {
+     "phi": -0.012781191035173833,
+     "se": 0.023680691210368685,
+     "single": -0.028116202780178567,
+     "piece": "n",
+     "disagree": false
+    },
+    "e7": {
+     "phi": 0.05102042609360069,
+     "se": 0.02628852364878959,
+     "single": 0.08409584065278375,
+     "piece": "q",
+     "disagree": false
+    },
+    "e8": {
+     "phi": 0.14964038296602666,
+     "se": 0.017013652965469923,
+     "single": 0.1068611045678457,
+     "piece": "r",
+     "disagree": false
+    },
+    "f8": {
+     "phi": 0.0,
+     "se": 0.0,
+     "fixed": true,
+     "single": 0.0,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   },
+   "pair verdict": false
+  },
+  {
+   "square": "e3",
+   "piece": "B",
+   "type": "B",
+   "colour": "white",
+   "v": 0.5677692294120789,
+   "gap": -0.3307865858078003,
+   "ceiling": 0.19591546058654785,
+   "best": "h4",
+   "best moves": 3,
+   "reachable": 7,
+   "median square": "f4",
+   "v median": 0.7026403546333313,
+   "rank": 5,
+   "marginal": -0.021452550377164536,
+   "swap": 0.23840934038162231,
+   "squares": {
+    "e3": [
+     0,
+     0.5678
+    ],
+    "c1": [
+     1,
+     0.5608
+    ],
+    "d2": [
+     1,
+     -0.003
+    ],
+    "f4": [
+     1,
+     0.7026
+    ],
+    "e1": [
+     2,
+     0.4728
+    ],
+    "h2": [
+     2,
+     0.7385
+    ],
+    "g3": [
+     2,
+     0.7542
+    ],
+    "h4": [
+     3,
+     0.8986
+    ]
+   },
+   "pct gap": 22.6,
+   "pct ceiling": 52.2,
+   "pct swap": 90.9,
+   "rank fraction": 0.5714285714285714,
+   "general score": 30.64999999999999,
+   "fen": "4rrk1/2pnqppp/pp6/2p1n3/4P3/1BPPB2P/PP3QP1/3R1RK1 b - - 0 17",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 90 (match, Berlin 1921), note to White's 17th move; Alekhine \u2013 Teichmann, Berlin 1921, after 17.c3",
+   "quote": "The loss of the present game by Black can be attributed to the fact that his Knights lack bases in the centre, and that in positions of this character the possession of the two Bishops constitutes a decisive advantage for the opponent.",
+   "claim": "The two bishops are a decisive advantage for White.",
+   "game": null,
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "bishop pair",
+   "src": "T9",
+   "meaning": "general",
+   "sign": 1,
+   "verdict": false,
+   "shapley": {
+    "d1": {
+     "phi": 0.341826286399737,
+     "se": 0.037054687854630605,
+     "single": 0.8214343445641654,
+     "piece": "R",
+     "disagree": true
+    },
+    "f1": {
+     "phi": 0.13202808378264308,
+     "se": 0.027209774202248866,
+     "single": 0.0616372749209404,
+     "piece": "R",
+     "disagree": false
+    },
+    "f2": {
+     "phi": 0.02310516219586134,
+     "se": 0.03160375900675749,
+     "single": 0.05289183344159809,
+     "piece": "Q",
+     "disagree": false
+    },
+    "b3": {
+     "phi": 0.06784214975778013,
+     "se": 0.03018864218754767,
+     "single": 0.122105672955513,
+     "piece": "B",
+     "disagree": false
+    },
+    "e3": {
+     "phi": -0.022524204337969422,
+     "se": 0.02824327417521777,
+     "single": -0.021452550377164536,
+     "piece": "B",
+     "disagree": false
+    },
+    "e5": {
+     "phi": 0.3587414569919929,
+     "se": 0.04477516679775915,
+     "single": 0.13597448294361436,
+     "piece": "n",
+     "disagree": true
+    },
+    "d7": {
+     "phi": -0.012781191035173833,
+     "se": 0.023680691210368685,
+     "single": -0.028116202780178567,
+     "piece": "n",
+     "disagree": false
+    },
+    "e7": {
+     "phi": 0.05102042609360069,
+     "se": 0.02628852364878959,
+     "single": 0.08409584065278375,
+     "piece": "q",
+     "disagree": false
+    },
+    "e8": {
+     "phi": 0.14964038296602666,
+     "se": 0.017013652965469923,
+     "single": 0.1068611045678457,
+     "piece": "r",
+     "disagree": false
+    },
+    "f8": {
+     "phi": 0.0,
+     "se": 0.0,
+     "fixed": true,
+     "single": 0.0,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   },
+   "pair verdict": false
+  },
+  {
+   "square": "d7",
+   "piece": "n",
+   "type": "N",
+   "colour": "black",
+   "v": -0.5677692294120789,
+   "gap": -0.730329617857933,
+   "ceiling": 0.8491136282682419,
+   "best": "a5",
+   "best moves": 3,
+   "reachable": 7,
+   "median square": "h5",
+   "v median": -0.6865532398223877,
+   "rank": 3,
+   "marginal": -0.028116202780178567,
+   "swap": 0.25629958510398865,
+   "squares": {
+    "d7": [
+     0,
+     -0.5678
+    ],
+    "f6": [
+     1,
+     -0.4311
+    ],
+    "b8": [
+     1,
+     -0.7103
+    ],
+    "h5": [
+     2,
+     -0.6866
+    ],
+    "c6": [
+     2,
+     -0.6976
+    ],
+    "a5": [
+     3,
+     0.1626
+    ],
+    "a7": [
+     3,
+     -0.7535
+    ],
+    "d8": [
+     3,
+     -0.6609
+    ]
+   },
+   "pct gap": 25.1,
+   "pct ceiling": 73.9,
+   "pct swap": 70.7,
+   "rank fraction": 0.2857142857142857,
+   "general score": 51.6,
+   "fen": "4rrk1/2pnqppp/pp6/2p1n3/4P3/1BPPB2P/PP3QP1/3R1RK1 b - - 0 17",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 90 (match, Berlin 1921), note to White's 17th move; Alekhine \u2013 Teichmann, Berlin 1921, after 17.c3",
+   "quote": "The loss of the present game by Black can be attributed to the fact that his Knights lack bases in the centre, and that in positions of this character the possession of the two Bishops constitutes a decisive advantage for the opponent.",
+   "claim": "The two bishops are a decisive advantage for White.",
+   "game": null,
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "bishop pair",
+   "src": "T9",
+   "meaning": "ambiguous",
+   "sign": -1,
+   "verdict": null,
+   "shapley": {
+    "d1": {
+     "phi": 0.341826286399737,
+     "se": 0.037054687854630605,
+     "single": 0.8214343445641654,
+     "piece": "R",
+     "disagree": true
+    },
+    "f1": {
+     "phi": 0.13202808378264308,
+     "se": 0.027209774202248866,
+     "single": 0.0616372749209404,
+     "piece": "R",
+     "disagree": false
+    },
+    "f2": {
+     "phi": 0.02310516219586134,
+     "se": 0.03160375900675749,
+     "single": 0.05289183344159809,
+     "piece": "Q",
+     "disagree": false
+    },
+    "b3": {
+     "phi": 0.06784214975778013,
+     "se": 0.03018864218754767,
+     "single": 0.122105672955513,
+     "piece": "B",
+     "disagree": false
+    },
+    "e3": {
+     "phi": -0.022524204337969422,
+     "se": 0.02824327417521777,
+     "single": -0.021452550377164536,
+     "piece": "B",
+     "disagree": false
+    },
+    "e5": {
+     "phi": 0.3587414569919929,
+     "se": 0.04477516679775915,
+     "single": 0.13597448294361436,
+     "piece": "n",
+     "disagree": true
+    },
+    "d7": {
+     "phi": -0.012781191035173833,
+     "se": 0.023680691210368685,
+     "single": -0.028116202780178567,
+     "piece": "n",
+     "disagree": false
+    },
+    "e7": {
+     "phi": 0.05102042609360069,
+     "se": 0.02628852364878959,
+     "single": 0.08409584065278375,
+     "piece": "q",
+     "disagree": false
+    },
+    "e8": {
+     "phi": 0.14964038296602666,
+     "se": 0.017013652965469923,
+     "single": 0.1068611045678457,
+     "piece": "r",
+     "disagree": false
+    },
+    "f8": {
+     "phi": 0.0,
+     "se": 0.0,
+     "fixed": true,
+     "single": 0.0,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "e5",
+   "piece": "n",
+   "type": "N",
+   "colour": "black",
+   "v": -0.5677692294120789,
+   "gap": -0.5565238445997238,
+   "ceiling": 0.7538798898458481,
+   "best": "a5",
+   "best moves": 2,
+   "reachable": 12,
+   "median square": "b5",
+   "v median": -0.7651252746582031,
+   "rank": 2,
+   "marginal": 0.13597448294361436,
+   "swap": 0.003763258457183838,
+   "squares": {
+    "e5": [
+     0,
+     -0.5678
+    ],
+    "c6": [
+     1,
+     -0.7917
+    ],
+    "g6": [
+     1,
+     -0.6421
+    ],
+    "a5": [
+     2,
+     -0.0112
+    ],
+    "a7": [
+     2,
+     -0.8502
+    ],
+    "b8": [
+     2,
+     -0.8393
+    ],
+    "d8": [
+     2,
+     -0.762
+    ],
+    "h4": [
+     2,
+     -0.8156
+    ],
+    "h8": [
+     2,
+     -0.7653
+    ],
+    "b7": [
+     3,
+     -0.725
+    ],
+    "b5": [
+     3,
+     -0.7651
+    ],
+    "c8": [
+     3,
+     -0.7324
+    ],
+    "e6": [
+     3,
+     -0.745
+    ]
+   },
+   "pct gap": 32.5,
+   "pct ceiling": 69.3,
+   "pct swap": 33.1,
+   "rank fraction": 0.08333333333333333,
+   "general score": 68.10000000000001,
+   "fen": "4rrk1/2pnqppp/pp6/2p1n3/4P3/1BPPB2P/PP3QP1/3R1RK1 b - - 0 17",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 90 (match, Berlin 1921), note to White's 17th move; Alekhine \u2013 Teichmann, Berlin 1921, after 17.c3",
+   "quote": "The loss of the present game by Black can be attributed to the fact that his Knights lack bases in the centre, and that in positions of this character the possession of the two Bishops constitutes a decisive advantage for the opponent.",
+   "claim": "The two bishops are a decisive advantage for White.",
+   "game": null,
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "bishop pair",
+   "src": "T9",
+   "meaning": "ambiguous",
+   "sign": -1,
+   "verdict": null,
+   "shapley": {
+    "d1": {
+     "phi": 0.341826286399737,
+     "se": 0.037054687854630605,
+     "single": 0.8214343445641654,
+     "piece": "R",
+     "disagree": true
+    },
+    "f1": {
+     "phi": 0.13202808378264308,
+     "se": 0.027209774202248866,
+     "single": 0.0616372749209404,
+     "piece": "R",
+     "disagree": false
+    },
+    "f2": {
+     "phi": 0.02310516219586134,
+     "se": 0.03160375900675749,
+     "single": 0.05289183344159809,
+     "piece": "Q",
+     "disagree": false
+    },
+    "b3": {
+     "phi": 0.06784214975778013,
+     "se": 0.03018864218754767,
+     "single": 0.122105672955513,
+     "piece": "B",
+     "disagree": false
+    },
+    "e3": {
+     "phi": -0.022524204337969422,
+     "se": 0.02824327417521777,
+     "single": -0.021452550377164536,
+     "piece": "B",
+     "disagree": false
+    },
+    "e5": {
+     "phi": 0.3587414569919929,
+     "se": 0.04477516679775915,
+     "single": 0.13597448294361436,
+     "piece": "n",
+     "disagree": true
+    },
+    "d7": {
+     "phi": -0.012781191035173833,
+     "se": 0.023680691210368685,
+     "single": -0.028116202780178567,
+     "piece": "n",
+     "disagree": false
+    },
+    "e7": {
+     "phi": 0.05102042609360069,
+     "se": 0.02628852364878959,
+     "single": 0.08409584065278375,
+     "piece": "q",
+     "disagree": false
+    },
+    "e8": {
+     "phi": 0.14964038296602666,
+     "se": 0.017013652965469923,
+     "single": 0.1068611045678457,
+     "piece": "r",
+     "disagree": false
+    },
+    "f8": {
+     "phi": 0.0,
+     "se": 0.0,
+     "fixed": true,
+     "single": 0.0,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "a6",
+   "piece": "b",
+   "type": "B",
+   "colour": "black",
+   "v": 0.9258890748023987,
+   "gap": -0.07018810510635376,
+   "ceiling": 0.060313642024993896,
+   "best": "d5",
+   "best moves": 2,
+   "reachable": 18,
+   "median square": "g4",
+   "v median": 0.9357635378837585,
+   "rank": 13,
+   "marginal": 0.005287302864922405,
+   "swap": -0.25169575214385986,
+   "squares": {
+    "a6": [
+     0,
+     0.9259
+    ],
+    "e2": [
+     1,
+     0.6939
+    ],
+    "d3": [
+     1,
+     0.9335
+    ],
+    "c4": [
+     1,
+     0.9603
+    ],
+    "b5": [
+     1,
+     0.9954
+    ],
+    "b7": [
+     1,
+     0.9939
+    ],
+    "c8": [
+     1,
+     0.9448
+    ],
+    "g4": [
+     2,
+     0.9358
+    ],
+    "h5": [
+     2,
+     0.851
+    ],
+    "c2": [
+     2,
+     0.9281
+    ],
+    "e4": [
+     2,
+     0.9006
+    ],
+    "f5": [
+     2,
+     0.9492
+    ],
+    "g6": [
+     2,
+     0.9101
+    ],
+    "d5": [
+     2,
+     0.9961
+    ],
+    "e6": [
+     2,
+     0.6716
+    ],
+    "f7": [
+     2,
+     0.923
+    ],
+    "a4": [
+     2,
+     0.9951
+    ],
+    "a8": [
+     2,
+     0.9942
+    ],
+    "d7": [
+     2,
+     0.9943
+    ]
+   },
+   "pct gap": 47.7,
+   "pct ceiling": 18.5,
+   "pct swap": 38.9,
+   "rank fraction": 0.6666666666666666,
+   "general score": 39.8,
+   "fen": "4r1k1/p1p3pp/bbN2p2/8/1B6/8/P4PPP/4R1K1 b - - 1 23",
+   "source": "Mason, The Principles of Chess (1894), Master Play, Evans Gambit, Martinez v. Zukertort, note to White's 23rd move; Martinez \u2013 Zukertort, Philadelphia 1884, after 23.Re1",
+   "quote": "In an open position such as this, two Bishops are more powerful than a Bishop and Knight.",
+   "claim": "In this open position two bishops beat bishop and knight.",
+   "game": null,
+   "url": "https://archive.org/download/principlesofches00masoiala/principlesofches00masoiala_djvu.txt",
+   "topic": "bishop pair",
+   "src": "T10",
+   "meaning": "general",
+   "sign": 1,
+   "verdict": false,
+   "shapley": {
+    "e1": {
+     "phi": 0.0096520691877231,
+     "se": 0.010535495395207446,
+     "single": -0.039151412248611406,
+     "piece": "R",
+     "disagree": false
+    },
+    "b4": {
+     "phi": 0.0209821272874251,
+     "se": 0.008885164683386567,
+     "single": 0.045787219817821745,
+     "piece": "B",
+     "disagree": false
+    },
+    "a6": {
+     "phi": -0.009644765523262322,
+     "se": 0.010875146505047183,
+     "single": 0.005287302864922405,
+     "piece": "b",
+     "disagree": false
+    },
+    "c6": {
+     "phi": 0.04693473636871204,
+     "se": 0.013784316227179048,
+     "single": 0.0021091699600219727,
+     "piece": "N",
+     "disagree": false
+    },
+    "e8": {
+     "phi": 0.07106688857311383,
+     "se": 0.021589244862671234,
+     "single": 0.15210589890678727,
+     "piece": "r",
+     "disagree": false
+    },
+    "b6": {
+     "phi": 0.0,
+     "se": 0.0,
+     "fixed": true,
+     "single": 0.0,
+     "piece": "b",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   },
+   "pair verdict": null
+  },
+  {
+   "square": "b6",
+   "piece": "b",
+   "type": "B",
+   "colour": "black",
+   "v": 0.9258890748023987,
+   "gap": 0.0,
+   "ceiling": null,
+   "best": "b6",
+   "best moves": 0,
+   "reachable": 0,
+   "median square": null,
+   "v median": null,
+   "rank": 1,
+   "marginal": 0.0,
+   "swap": -0.7859469503164291,
+   "squares": {
+    "b6": [
+     0,
+     0.9259
+    ]
+   },
+   "pct gap": 83.9,
+   "pct ceiling": null,
+   "pct swap": 3.4,
+   "rank fraction": null,
+   "general score": null,
+   "fen": "4r1k1/p1p3pp/bbN2p2/8/1B6/8/P4PPP/4R1K1 b - - 1 23",
+   "source": "Mason, The Principles of Chess (1894), Master Play, Evans Gambit, Martinez v. Zukertort, note to White's 23rd move; Martinez \u2013 Zukertort, Philadelphia 1884, after 23.Re1",
+   "quote": "In an open position such as this, two Bishops are more powerful than a Bishop and Knight.",
+   "claim": "In this open position two bishops beat bishop and knight.",
+   "game": null,
+   "url": "https://archive.org/download/principlesofches00masoiala/principlesofches00masoiala_djvu.txt",
+   "topic": "bishop pair",
+   "src": "T10",
+   "meaning": "general",
+   "sign": 1,
+   "verdict": null,
+   "shapley": {
+    "e1": {
+     "phi": 0.0096520691877231,
+     "se": 0.010535495395207446,
+     "single": -0.039151412248611406,
+     "piece": "R",
+     "disagree": false
+    },
+    "b4": {
+     "phi": 0.0209821272874251,
+     "se": 0.008885164683386567,
+     "single": 0.045787219817821745,
+     "piece": "B",
+     "disagree": false
+    },
+    "a6": {
+     "phi": -0.009644765523262322,
+     "se": 0.010875146505047183,
+     "single": 0.005287302864922405,
+     "piece": "b",
+     "disagree": false
+    },
+    "c6": {
+     "phi": 0.04693473636871204,
+     "se": 0.013784316227179048,
+     "single": 0.0021091699600219727,
+     "piece": "N",
+     "disagree": false
+    },
+    "e8": {
+     "phi": 0.07106688857311383,
+     "se": 0.021589244862671234,
+     "single": 0.15210589890678727,
+     "piece": "r",
+     "disagree": false
+    },
+    "b6": {
+     "phi": 0.0,
+     "se": 0.0,
+     "fixed": true,
+     "single": 0.0,
+     "piece": "b",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   },
+   "pair verdict": null
+  },
+  {
+   "square": "c3",
+   "piece": "n",
+   "type": "N",
+   "colour": "black",
+   "v": 0.1942463219165802,
+   "gap": 0.0,
+   "ceiling": 0.19427305459976196,
+   "best": "c3",
+   "best moves": 0,
+   "reachable": 13,
+   "median square": "g4",
+   "v median": -2.6732683181762695e-05,
+   "rank": 1,
+   "marginal": 0.19171713206630486,
+   "swap": -0.09615737944841385,
+   "squares": {
+    "c3": [
+     0,
+     0.1942
+    ],
+    "d1": [
+     1,
+     0.0389
+    ],
+    "a2": [
+     1,
+     0.0168
+    ],
+    "d5": [
+     1,
+     0.0336
+    ],
+    "b6": [
+     2,
+     -0.0045
+    ],
+    "f6": [
+     2,
+     -0.0042
+    ],
+    "e7": [
+     2,
+     0.0047
+    ],
+    "d7": [
+     3,
+     -0.024
+    ],
+    "c8": [
+     3,
+     -0.0445
+    ],
+    "g4": [
+     3,
+     -0.0
+    ],
+    "h5": [
+     3,
+     -0.024
+    ],
+    "h7": [
+     3,
+     -0.0147
+    ],
+    "e8": [
+     3,
+     0.0013
+    ],
+    "f5": [
+     3,
+     0.0535
+    ]
+   },
+   "pct gap": 92.2,
+   "pct ceiling": 23.9,
+   "pct swap": 17.7,
+   "rank fraction": 0.0,
+   "general score": 53.1,
+   "fen": "r2r2k1/5pp1/4p1p1/8/1p3P2/1Pn5/2R2PPP/4RBK1 w - - 0 30",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 70, note to White's 20th move; Rubinstein \u2013 Alekhine, London 1922, after 29...b4",
+   "quote": "The continuation of the game shows that the text-move offers Black a chance of victory, by allowing him to support his [knight on c3] by [...b4] on his 29th move.",
+   "claim": "...b4 supports Black's knight on c3 and gives Black winning chances.",
+   "game": null,
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "outpost",
+   "src": "T12",
+   "meaning": "placement",
+   "sign": 1,
+   "verdict": true,
+   "shapley": {
+    "e1": {
+     "phi": 0.08474010185454972,
+     "se": 0.03990651235705563,
+     "single": 0.10697209487358728,
+     "piece": "R",
+     "disagree": false
+    },
+    "f1": {
+     "phi": -0.033722508553182706,
+     "se": 0.03896625590916591,
+     "single": -0.3955913202630149,
+     "piece": "B",
+     "disagree": true
+    },
+    "c2": {
+     "phi": -0.06088321763672866,
+     "se": 0.03034509035072974,
+     "single": -0.03544299118220806,
+     "piece": "R",
+     "disagree": false
+    },
+    "c3": {
+     "phi": 0.2063927838462405,
+     "se": 0.025497759600677284,
+     "single": 0.19171713206630486,
+     "piece": "n",
+     "disagree": false
+    },
+    "a8": {
+     "phi": -0.04241361512686126,
+     "se": 0.036855816961678854,
+     "single": 0.06201348425104067,
+     "piece": "r",
+     "disagree": true
+    },
+    "d8": {
+     "phi": 0.18946343573043123,
+     "se": 0.03829138465818838,
+     "single": 0.07000048432884545,
+     "piece": "r",
+     "disagree": true
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "f4",
+   "piece": "N",
+   "type": "N",
+   "colour": "white",
+   "v": 0.3026207685470581,
+   "gap": 0.0,
+   "ceiling": 0.562722384929657,
+   "best": "f4",
+   "best moves": 0,
+   "reachable": 12,
+   "median square": "f1",
+   "v median": -0.2601016163825989,
+   "rank": 1,
+   "marginal": 0.6141054928302765,
+   "swap": -0.42334815859794617,
+   "squares": {
+    "f4": [
+     0,
+     0.3026
+    ],
+    "e2": [
+     1,
+     0.0673
+    ],
+    "d3": [
+     1,
+     0.1895
+    ],
+    "c1": [
+     2,
+     -0.234
+    ],
+    "c3": [
+     2,
+     -0.7867
+    ],
+    "g3": [
+     2,
+     -0.1669
+    ],
+    "b3": [
+     3,
+     -0.1648
+    ],
+    "b1": [
+     3,
+     -0.652
+    ],
+    "d1": [
+     3,
+     -0.6723
+    ],
+    "a4": [
+     3,
+     -0.4431
+    ],
+    "b5": [
+     3,
+     -0.1076
+    ],
+    "f1": [
+     3,
+     -0.2601
+    ],
+    "h1": [
+     3,
+     -0.5071
+    ]
+   },
+   "pct gap": 92.2,
+   "pct ceiling": 60.0,
+   "pct swap": 4.8,
+   "rank fraction": 0.0,
+   "general score": 77.6,
+   "fen": "r1b2k2/p3qpb1/7r/2ppPp1p/5Np1/4Q2P/PPP2PPB/R3R1K1 b - - 1 19",
+   "source": "Nimzowitsch, My System (1930), Part II ch. 5 (Over-protection), position after Diagram CLXVI (Game No. 15), text after 19. Kt-B4; Nimzowitsch \u2013 von Freymann, Wilna 1912, after 19.Nf4",
+   "quote": "White has the better game, for the two [bishops] have little to say in view of the strength of the unassailable [knight]",
+   "claim": "White's unassailable knight on f4 outweighs the two bishops.",
+   "game": null,
+   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
+   "topic": "outpost",
+   "src": "T13",
+   "meaning": "both",
+   "sign": 1,
+   "verdict": true,
+   "shapley": {
+    "a1": {
+     "phi": -0.1366312907775864,
+     "se": 0.03409530335668842,
+     "single": -0.0498117340935601,
+     "piece": "R",
+     "disagree": false
+    },
+    "e1": {
+     "phi": 0.2146473921602592,
+     "se": 0.02816840693169276,
+     "single": 0.24848067462444307,
+     "piece": "R",
+     "disagree": false
+    },
+    "h2": {
+     "phi": -0.07349867874290794,
+     "se": 0.01744677363655664,
+     "single": -0.00019475817680358887,
+     "piece": "B",
+     "disagree": false
+    },
+    "e3": {
+     "phi": -0.030838474165648222,
+     "se": 0.03456383902644166,
+     "single": -0.11164515146187376,
+     "piece": "Q",
+     "disagree": false
+    },
+    "f4": {
+     "phi": 0.44216789945494384,
+     "se": 0.03766451474770664,
+     "single": 0.6141054928302765,
+     "piece": "N",
+     "disagree": true
+    },
+    "h6": {
+     "phi": 0.0377618873026222,
+     "se": 0.031508950076512936,
+     "single": 0.1567307167193469,
+     "piece": "r",
+     "disagree": true
+    },
+    "e7": {
+     "phi": 0.07985324272885919,
+     "se": 0.026317022127306813,
+     "single": 0.04122093402677113,
+     "piece": "q",
+     "disagree": false
+    },
+    "g7": {
+     "phi": 0.3239898008760065,
+     "se": 0.025394588534123207,
+     "single": 0.3660426139831543,
+     "piece": "b",
+     "disagree": false
+    },
+    "a8": {
+     "phi": -0.16279664041940123,
+     "se": 0.03468140512893416,
+     "single": -0.11665541678667068,
+     "piece": "r",
+     "disagree": false
+    },
+    "c8": {
+     "phi": -0.03551445237826556,
+     "se": 0.022790221318704333,
+     "single": -0.05363468660248649,
+     "piece": "b",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0014204545454545455,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "c8",
+   "piece": "b",
+   "type": "B",
+   "colour": "black",
+   "v": -0.3026207685470581,
+   "gap": -0.21021847426891327,
+   "ceiling": 0.17082415521144867,
+   "best": "c6",
+   "best moves": 2,
+   "reachable": 9,
+   "median square": "b5",
+   "v median": -0.2632264494895935,
+   "rank": 8,
+   "marginal": -0.05363468660248649,
+   "swap": -0.5599218606948853,
+   "squares": {
+    "c8": [
+     0,
+     -0.3026
+    ],
+    "a6": [
+     1,
+     -0.2624
+    ],
+    "e6": [
+     1,
+     -0.2875
+    ],
+    "b7": [
+     1,
+     -0.1288
+    ],
+    "d7": [
+     1,
+     -0.2509
+    ],
+    "c4": [
+     2,
+     -0.3052
+    ],
+    "b5": [
+     2,
+     -0.2632
+    ],
+    "c6": [
+     2,
+     -0.0924
+    ],
+    "a4": [
+     2,
+     -0.2934
+    ],
+    "e8": [
+     2,
+     -0.357
+    ]
+   },
+   "pct gap": 30.0,
+   "pct ceiling": 46.9,
+   "pct swap": 9.9,
+   "rank fraction": 0.7777777777777778,
+   "general score": 68.5,
+   "fen": "r1b2k2/p3qpb1/7r/2ppPp1p/5Np1/4Q2P/PPP2PPB/R3R1K1 b - - 1 19",
+   "source": "Nimzowitsch, My System (1930), Part II ch. 5 (Over-protection), position after Diagram CLXVI (Game No. 15), text after 19. Kt-B4; Nimzowitsch \u2013 von Freymann, Wilna 1912, after 19.Nf4",
+   "quote": "White has the better game, for the two [bishops] have little to say in view of the strength of the unassailable [knight]",
+   "claim": "White's unassailable knight on f4 outweighs the two bishops.",
+   "game": null,
+   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
+   "topic": "outpost",
+   "src": "T13",
+   "meaning": "general",
+   "sign": -1,
+   "verdict": false,
+   "shapley": {
+    "a1": {
+     "phi": -0.1366312907775864,
+     "se": 0.03409530335668842,
+     "single": -0.0498117340935601,
+     "piece": "R",
+     "disagree": false
+    },
+    "e1": {
+     "phi": 0.2146473921602592,
+     "se": 0.02816840693169276,
+     "single": 0.24848067462444307,
+     "piece": "R",
+     "disagree": false
+    },
+    "h2": {
+     "phi": -0.07349867874290794,
+     "se": 0.01744677363655664,
+     "single": -0.00019475817680358887,
+     "piece": "B",
+     "disagree": false
+    },
+    "e3": {
+     "phi": -0.030838474165648222,
+     "se": 0.03456383902644166,
+     "single": -0.11164515146187376,
+     "piece": "Q",
+     "disagree": false
+    },
+    "f4": {
+     "phi": 0.44216789945494384,
+     "se": 0.03766451474770664,
+     "single": 0.6141054928302765,
+     "piece": "N",
+     "disagree": true
+    },
+    "h6": {
+     "phi": 0.0377618873026222,
+     "se": 0.031508950076512936,
+     "single": 0.1567307167193469,
+     "piece": "r",
+     "disagree": true
+    },
+    "e7": {
+     "phi": 0.07985324272885919,
+     "se": 0.026317022127306813,
+     "single": 0.04122093402677113,
+     "piece": "q",
+     "disagree": false
+    },
+    "g7": {
+     "phi": 0.3239898008760065,
+     "se": 0.025394588534123207,
+     "single": 0.3660426139831543,
+     "piece": "b",
+     "disagree": false
+    },
+    "a8": {
+     "phi": -0.16279664041940123,
+     "se": 0.03468140512893416,
+     "single": -0.11665541678667068,
+     "piece": "r",
+     "disagree": false
+    },
+    "c8": {
+     "phi": -0.03551445237826556,
+     "se": 0.022790221318704333,
+     "single": -0.05363468660248649,
+     "piece": "b",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0014204545454545455,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   },
+   "pair verdict": false
+  },
+  {
+   "square": "g7",
+   "piece": "b",
+   "type": "B",
+   "colour": "black",
+   "v": -0.3026207685470581,
+   "gap": 0.0,
+   "ceiling": 0.3660426139831543,
+   "best": "g7",
+   "best moves": 0,
+   "reachable": 1,
+   "median square": "h8",
+   "v median": -0.6686633825302124,
+   "rank": 1,
+   "marginal": 0.3660426139831543,
+   "swap": -0.1715233325958252,
+   "squares": {
+    "g7": [
+     0,
+     -0.3026
+    ],
+    "h8": [
+     1,
+     -0.6687
+    ]
+   },
+   "pct gap": 83.9,
+   "pct ceiling": 71.9,
+   "pct swap": 50.4,
+   "rank fraction": 0.0,
+   "general score": 60.75,
+   "fen": "r1b2k2/p3qpb1/7r/2ppPp1p/5Np1/4Q2P/PPP2PPB/R3R1K1 b - - 1 19",
+   "source": "Nimzowitsch, My System (1930), Part II ch. 5 (Over-protection), position after Diagram CLXVI (Game No. 15), text after 19. Kt-B4; Nimzowitsch \u2013 von Freymann, Wilna 1912, after 19.Nf4",
+   "quote": "White has the better game, for the two [bishops] have little to say in view of the strength of the unassailable [knight]",
+   "claim": "White's unassailable knight on f4 outweighs the two bishops.",
+   "game": null,
+   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
+   "topic": "outpost",
+   "src": "T13",
+   "meaning": "general",
+   "sign": -1,
+   "verdict": false,
+   "shapley": {
+    "a1": {
+     "phi": -0.1366312907775864,
+     "se": 0.03409530335668842,
+     "single": -0.0498117340935601,
+     "piece": "R",
+     "disagree": false
+    },
+    "e1": {
+     "phi": 0.2146473921602592,
+     "se": 0.02816840693169276,
+     "single": 0.24848067462444307,
+     "piece": "R",
+     "disagree": false
+    },
+    "h2": {
+     "phi": -0.07349867874290794,
+     "se": 0.01744677363655664,
+     "single": -0.00019475817680358887,
+     "piece": "B",
+     "disagree": false
+    },
+    "e3": {
+     "phi": -0.030838474165648222,
+     "se": 0.03456383902644166,
+     "single": -0.11164515146187376,
+     "piece": "Q",
+     "disagree": false
+    },
+    "f4": {
+     "phi": 0.44216789945494384,
+     "se": 0.03766451474770664,
+     "single": 0.6141054928302765,
+     "piece": "N",
+     "disagree": true
+    },
+    "h6": {
+     "phi": 0.0377618873026222,
+     "se": 0.031508950076512936,
+     "single": 0.1567307167193469,
+     "piece": "r",
+     "disagree": true
+    },
+    "e7": {
+     "phi": 0.07985324272885919,
+     "se": 0.026317022127306813,
+     "single": 0.04122093402677113,
+     "piece": "q",
+     "disagree": false
+    },
+    "g7": {
+     "phi": 0.3239898008760065,
+     "se": 0.025394588534123207,
+     "single": 0.3660426139831543,
+     "piece": "b",
+     "disagree": false
+    },
+    "a8": {
+     "phi": -0.16279664041940123,
+     "se": 0.03468140512893416,
+     "single": -0.11665541678667068,
+     "piece": "r",
+     "disagree": false
+    },
+    "c8": {
+     "phi": -0.03551445237826556,
+     "se": 0.022790221318704333,
+     "single": -0.05363468660248649,
+     "piece": "b",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0014204545454545455,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   },
+   "pair verdict": false
+  },
+  {
+   "square": "d8",
+   "piece": "r",
+   "type": "R",
+   "colour": "black",
+   "v": 0.18226690590381622,
+   "gap": -0.38828544318675995,
+   "ceiling": 0.5069570168852806,
+   "best": "b3",
+   "best moves": 3,
+   "reachable": 22,
+   "median square": "c8",
+   "v median": 0.06359533220529556,
+   "rank": 6,
+   "marginal": 0.061057974669066345,
+   "swap": null,
+   "squares": {
+    "d8": [
+     0,
+     0.1823
+    ],
+    "d2": [
+     1,
+     0.3549
+    ],
+    "d4": [
+     1,
+     0.2713
+    ],
+    "d6": [
+     1,
+     0.137
+    ],
+    "d7": [
+     1,
+     0.1682
+    ],
+    "a8": [
+     1,
+     0.02
+    ],
+    "b8": [
+     1,
+     0.0188
+    ],
+    "c8": [
+     1,
+     0.0636
+    ],
+    "e8": [
+     1,
+     0.0554
+    ],
+    "f8": [
+     1,
+     0.0241
+    ],
+    "a2": [
+     2,
+     0.5383
+    ],
+    "b2": [
+     2,
+     0.3629
+    ],
+    "a6": [
+     2,
+     0.1514
+    ],
+    "b6": [
+     2,
+     -0.2706
+    ],
+    "c6": [
+     2,
+     0.0184
+    ],
+    "c7": [
+     2,
+     0.0785
+    ],
+    "e7": [
+     2,
+     0.0647
+    ],
+    "f7": [
+     2,
+     0.0052
+    ],
+    "f6": [
+     2,
+     -0.0064
+    ],
+    "b3": [
+     3,
+     0.5706
+    ],
+    "a4": [
+     3,
+     0.0885
+    ],
+    "g6": [
+     3,
+     -0.0153
+    ],
+    "h6": [
+     3,
+     -0.0329
+    ]
+   },
+   "pct gap": 16.9,
+   "pct ceiling": 84.1,
+   "pct swap": null,
+   "rank fraction": 0.22727272727272727,
+   "general score": 84.1,
+   "fen": "3r2k1/pp4pp/4b3/5p2/1PP1p3/P7/5PPP/2R2BK1 w - - 1 26",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 60, note to Black's 23rd move (23...Q-B6!), describing the ending reached after 24.Q-B1 QxQ 25.RxQ R-Q1; Yates \u2013 Alekhine, The Hague 1921, after 25...Rd8",
+   "quote": "In the present game Black has very evident compensations: (1) the greater mobility of the Black King, the adverse King being hampered by his own Pawns. (2) the dominating position of the Black Rook on the only open file.",
+   "claim": "Black's rook dominates the only open file.",
+   "game": null,
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "rook activity",
+   "src": "T29",
+   "meaning": "placement",
+   "sign": 1,
+   "verdict": false,
+   "shapley": {
+    "c1": {
+     "phi": 0.17488884285558015,
+     "se": 0.02505941221712081,
+     "single": 0.27188697159290315,
+     "piece": "R",
+     "disagree": false
+    },
+    "f1": {
+     "phi": 0.02409210440237075,
+     "se": 0.01791793952721926,
+     "single": 0.14430855711301166,
+     "piece": "B",
+     "disagree": true
+    },
+    "e6": {
+     "phi": 0.22475987754296511,
+     "se": 0.02178003767320264,
+     "single": 0.08221212774515152,
+     "piece": "b",
+     "disagree": true
+    },
+    "d8": {
+     "phi": 0.04886287439148873,
+     "se": 0.028706537992148555,
+     "single": 0.061057974669066345,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "a7",
+   "piece": "R",
+   "type": "R",
+   "colour": "white",
+   "v": 0.9626194834709167,
+   "gap": -0.030523359775543213,
+   "ceiling": 0.014383554458618164,
+   "best": "e4",
+   "best moves": 3,
+   "reachable": 21,
+   "median square": "d1",
+   "v median": 0.9787592887878418,
+   "rank": 16,
+   "marginal": -0.0110150689170474,
+   "swap": null,
+   "squares": {
+    "a7": [
+     0,
+     0.9626
+    ],
+    "b7": [
+     1,
+     0.9919
+    ],
+    "c7": [
+     1,
+     0.9755
+    ],
+    "d7": [
+     1,
+     0.9791
+    ],
+    "h7": [
+     1,
+     0.9608
+    ],
+    "c1": [
+     2,
+     0.9722
+    ],
+    "c3": [
+     2,
+     0.9695
+    ],
+    "c4": [
+     2,
+     0.9891
+    ],
+    "d1": [
+     2,
+     0.9788
+    ],
+    "d2": [
+     2,
+     0.9784
+    ],
+    "d4": [
+     2,
+     0.9873
+    ],
+    "a1": [
+     3,
+     0.9469
+    ],
+    "b1": [
+     3,
+     0.9914
+    ],
+    "e1": [
+     3,
+     0.9475
+    ],
+    "g1": [
+     3,
+     0.9421
+    ],
+    "h1": [
+     3,
+     0.9419
+    ],
+    "a3": [
+     3,
+     0.9454
+    ],
+    "b3": [
+     3,
+     0.9906
+    ],
+    "e4": [
+     3,
+     0.9931
+    ],
+    "g4": [
+     3,
+     0.9869
+    ],
+    "h4": [
+     3,
+     0.9867
+    ],
+    "b2": [
+     3,
+     0.991
+    ]
+   },
+   "pct gap": 61.4,
+   "pct ceiling": 6.8,
+   "pct swap": null,
+   "rank fraction": 0.7142857142857143,
+   "general score": 6.8,
+   "fen": "5k2/R7/1p2r2p/4N2P/Pn6/4P3/4K1P1/8 w - - 1 36",
+   "source": "Nimzowitsch, My System (1930), Illustrative Game 10, note after Black's 35th move; Nimzowitsch \u2013 Tarrasch, Breslau 1925, after 35...Re6",
+   "quote": "A glance at the position shows (1) that White commands the 7th Row; (2) that White's [e3 pawn] is isolated and his [g2 pawn] backward.",
+   "claim": "White commands the seventh rank.",
+   "game": null,
+   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
+   "topic": "rook activity",
+   "src": "T30",
+   "meaning": "placement",
+   "sign": 1,
+   "verdict": false,
+   "shapley": {
+    "b4": {
+     "phi": -0.043036258895881474,
+     "se": 0.014967543355946645,
+     "single": -0.03347823808067718,
+     "piece": "n",
+     "disagree": false
+    },
+    "e5": {
+     "phi": 0.08667601319029927,
+     "se": 0.015436420878475165,
+     "single": 0.09463206816602632,
+     "piece": "N",
+     "disagree": false
+    },
+    "e6": {
+     "phi": 0.011038273456506431,
+     "se": 0.012683412775253457,
+     "single": 0.016961087198818392,
+     "piece": "r",
+     "disagree": false
+    },
+    "a7": {
+     "phi": -0.01755701331421733,
+     "se": 0.010715783074922186,
+     "single": -0.0110150689170474,
+     "piece": "R",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "h7",
+   "piece": "R",
+   "type": "R",
+   "colour": "white",
+   "v": 0.2656550705432892,
+   "gap": -0.7192839086055756,
+   "ceiling": 0.9710170775651932,
+   "best": "h6",
+   "best moves": 1,
+   "reachable": 29,
+   "median square": "a1",
+   "v median": 0.01392190158367157,
+   "rank": 8,
+   "marginal": 0.11307554447959209,
+   "swap": null,
+   "squares": {
+    "h7": [
+     0,
+     0.2657
+    ],
+    "h1": [
+     1,
+     0.0379
+    ],
+    "h2": [
+     1,
+     0.0018
+    ],
+    "h3": [
+     1,
+     0.1434
+    ],
+    "h4": [
+     1,
+     0.0386
+    ],
+    "h5": [
+     1,
+     0.0473
+    ],
+    "h6": [
+     1,
+     0.9849
+    ],
+    "d7": [
+     1,
+     0.6799
+    ],
+    "a1": [
+     2,
+     0.0139
+    ],
+    "b1": [
+     2,
+     0.0071
+    ],
+    "c1": [
+     2,
+     0.0164
+    ],
+    "d1": [
+     2,
+     0.0079
+    ],
+    "e1": [
+     2,
+     0.3386
+    ],
+    "f1": [
+     2,
+     -0.0039
+    ],
+    "g1": [
+     2,
+     -0.0123
+    ],
+    "a2": [
+     2,
+     -0.0101
+    ],
+    "b2": [
+     2,
+     -0.0129
+    ],
+    "c2": [
+     2,
+     0.0047
+    ],
+    "d2": [
+     2,
+     -0.0088
+    ],
+    "e2": [
+     2,
+     0.3103
+    ],
+    "f2": [
+     2,
+     -0.0437
+    ],
+    "g2": [
+     2,
+     -0.0676
+    ],
+    "g3": [
+     2,
+     0.0362
+    ],
+    "a3": [
+     3,
+     -0.0173
+    ],
+    "b3": [
+     3,
+     0.0014
+    ],
+    "b4": [
+     3,
+     -0.0638
+    ],
+    "b5": [
+     3,
+     0.6159
+    ],
+    "d3": [
+     3,
+     0.0847
+    ],
+    "e3": [
+     3,
+     0.3312
+    ],
+    "e5": [
+     3,
+     0.9631
+    ]
+   },
+   "pct gap": 10.0,
+   "pct ceiling": 92.6,
+   "pct swap": null,
+   "rank fraction": 0.2413793103448276,
+   "general score": 92.6,
+   "fen": "5k2/p1p4R/1pr5/3p1pP1/P2P1P2/2P2K2/8/8 w - - 0 35",
+   "source": "Emanuel Lasker, Lasker's Manual of Chess (1927), rook-ending diagram 'White, Capablanca to play'; Capablanca \u2013 Tartakower, New York 1924, after 34...gxf5",
+   "quote": "White has a protected Passed Pawn and his Rook cuts the Black King off; hence, White is bound to attack.",
+   "claim": "White's rook on the seventh cuts the Black king off.",
+   "game": null,
+   "url": "https://archive.org/download/bwb_S0-CIH-670/bwb_S0-CIH-670_djvu.txt",
+   "topic": "rook activity",
+   "src": "T31",
+   "meaning": "placement",
+   "sign": 1,
+   "verdict": false,
+   "shapley": {
+    "c6": {
+     "phi": 0.43197178572881967,
+     "se": 0.02423016510792149,
+     "single": 0.5540972232818604,
+     "piece": "r",
+     "disagree": true
+    },
+    "h7": {
+     "phi": 0.2886457673739642,
+     "se": 0.029557447749802252,
+     "single": 0.11307554447959209,
+     "piece": "R",
+     "disagree": true
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "a2",
+   "piece": "r",
+   "type": "R",
+   "colour": "black",
+   "v": 0.41558191180229187,
+   "gap": 0.0,
+   "ceiling": 0.08753326535224915,
+   "best": "a2",
+   "best moves": 0,
+   "reachable": 11,
+   "median square": "c7",
+   "v median": 0.3280486464500427,
+   "rank": 1,
+   "marginal": 0.07583326914093713,
+   "swap": null,
+   "squares": {
+    "a2": [
+     0,
+     0.4156
+    ],
+    "a4": [
+     1,
+     0.3536
+    ],
+    "a5": [
+     1,
+     0.3779
+    ],
+    "a6": [
+     1,
+     0.4034
+    ],
+    "a7": [
+     1,
+     0.3943
+    ],
+    "a8": [
+     1,
+     0.3839
+    ],
+    "b6": [
+     2,
+     0.2705
+    ],
+    "b7": [
+     2,
+     0.3111
+    ],
+    "c7": [
+     2,
+     0.328
+    ],
+    "b8": [
+     2,
+     0.2825
+    ],
+    "c8": [
+     2,
+     0.3048
+    ],
+    "d8": [
+     2,
+     0.3271
+    ]
+   },
+   "pct gap": 88.0,
+   "pct ceiling": 35.3,
+   "pct swap": null,
+   "rank fraction": 0.0,
+   "general score": 35.3,
+   "fen": "4rb1k/3q2pp/2n1bp2/2p1pN2/1pP1P1P1/3PBQ2/rP1R1N1P/5RK1 w - - 3 25",
+   "source": "Edward Lasker, Chess Strategy (1915), Game No. 48, note to Black's 24th move (R-R7); Blackburne \u2013 Nimzowitsch, St Petersburg 1914, after 24...Ra2",
+   "quote": "Before trying to push home his advantage on the Queen\u2019s side, which is made possible by the weakness of White\u2019s [d3 pawn], Black should look after his King\u2019s side, where White has collected an alarming array of forces. After the text move the Rook is quite out of play.",
+   "claim": "Black's rook on a2 is quite out of play.",
+   "game": null,
+   "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt",
+   "topic": "rook activity",
+   "src": "T32",
+   "meaning": "placement",
+   "sign": -1,
+   "verdict": false,
+   "shapley": {
+    "f1": {
+     "phi": 0.09153271198738366,
+     "se": 0.01629265768292128,
+     "single": 0.061665947238604246,
+     "piece": "R",
+     "disagree": false
+    },
+    "a2": {
+     "phi": -0.08913493459112942,
+     "se": 0.03960865933789115,
+     "single": 0.07583326914093713,
+     "piece": "r",
+     "disagree": true
+    },
+    "d2": {
+     "phi": -0.0039654013235121965,
+     "se": 0.0304846797982654,
+     "single": -0.09472666893686565,
+     "piece": "R",
+     "disagree": false
+    },
+    "f2": {
+     "phi": -0.021488413214683533,
+     "se": 0.02620858795259112,
+     "single": -0.055315956473350525,
+     "piece": "N",
+     "disagree": false
+    },
+    "f3": {
+     "phi": 0.011834902805276215,
+     "se": 0.03513505750855378,
+     "single": -0.13274850982886094,
+     "piece": "Q",
+     "disagree": true
+    },
+    "f5": {
+     "phi": 0.16447992296889424,
+     "se": 0.030839385234239722,
+     "single": 0.008648619055747986,
+     "piece": "N",
+     "disagree": true
+    },
+    "c6": {
+     "phi": 0.08275827474426478,
+     "se": 0.016683278197808248,
+     "single": 0.1308574452996254,
+     "piece": "n",
+     "disagree": false
+    },
+    "e6": {
+     "phi": 0.12513237004168332,
+     "se": 0.015697196663151853,
+     "single": 0.14879769086837769,
+     "piece": "b",
+     "disagree": false
+    },
+    "d7": {
+     "phi": 0.14382016193121672,
+     "se": 0.026569534710703106,
+     "single": 0.12990924715995789,
+     "piece": "q",
+     "disagree": false
+    },
+    "e8": {
+     "phi": -0.03592321556061506,
+     "se": 0.02048748127156215,
+     "single": -0.00037326595999975787,
+     "piece": "r",
+     "disagree": false
+    },
+    "f8": {
+     "phi": 0.16083448298741132,
+     "se": 0.014371367956484702,
+     "single": 0.1367780901491642,
+     "piece": "b",
+     "disagree": false
+    },
+    "e3": {
+     "phi": 0.0,
+     "se": 0.0,
+     "fixed": true,
+     "single": 0.0,
+     "piece": "B",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "b7",
+   "piece": "b",
+   "type": "B",
+   "colour": "black",
+   "v": 0.008055761456489563,
+   "gap": -0.02239970862865448,
+   "ceiling": 0.20736365020275116,
+   "best": "e6",
+   "best moves": 2,
+   "reachable": 12,
+   "median square": "f5",
+   "v median": -0.17690818011760712,
+   "rank": 2,
+   "marginal": 0.23462140932679176,
+   "swap": -0.422880157828331,
+   "squares": {
+    "b7": [
+     0,
+     0.0081
+    ],
+    "c6": [
+     1,
+     -0.1779
+    ],
+    "a8": [
+     1,
+     -0.0389
+    ],
+    "c8": [
+     1,
+     -0.1248
+    ],
+    "d7": [
+     2,
+     -0.4008
+    ],
+    "e8": [
+     2,
+     -0.3948
+    ],
+    "g4": [
+     2,
+     -0.1027
+    ],
+    "f5": [
+     2,
+     -0.1769
+    ],
+    "e6": [
+     2,
+     0.0305
+    ],
+    "h5": [
+     3,
+     -0.0574
+    ],
+    "d3": [
+     3,
+     -0.9149
+    ],
+    "e4": [
+     3,
+     -0.1761
+    ],
+    "g6": [
+     3,
+     -0.184
+    ]
+   },
+   "pct gap": 59.4,
+   "pct ceiling": 53.4,
+   "pct swap": 18.4,
+   "rank fraction": 0.08333333333333333,
+   "general score": 67.5,
+   "fen": "5rk1/1b2bppp/p4n2/1p1p2B1/2q5/2N1PN2/PP2QPPP/3R2K1 w - - 2 18",
+   "source": "Capablanca, Chess Fundamentals (1921), Game 9, note to Black's 17th move; Capablanca \u2013 Teichmann, Berlin 1913, after 17...Qc4",
+   "quote": "Black aims at the exchange of Queens in order to remain with two Bishops for the ending, but in this position such a course is a mistake, because the Bishop on [b7] is inactive and cannot come into the game by any means, unless Black gives up the isolated Queen's Pawn which the Bishop must defend.",
+   "claim": "Keeping the two bishops is a mistake for Black: the b7 bishop is inactive.",
+   "game": null,
+   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt",
+   "topic": "bishop pair",
+   "src": "T40",
+   "meaning": "general",
+   "sign": -1,
+   "verdict": false,
+   "shapley": {
+    "d1": {
+     "phi": 0.03439890738809481,
+     "se": 0.02829828523628395,
+     "single": -0.16178740159823343,
+     "piece": "R",
+     "disagree": true
+    },
+    "e2": {
+     "phi": -0.10780987521866336,
+     "se": 0.03738244896049646,
+     "single": -0.23644711121040232,
+     "piece": "Q",
+     "disagree": true
+    },
+    "c3": {
+     "phi": -0.023590035794768482,
+     "se": 0.03256309370380157,
+     "single": -0.27603909621636075,
+     "piece": "N",
+     "disagree": true
+    },
+    "f3": {
+     "phi": -0.04287788877263665,
+     "se": 0.03372819427398191,
+     "single": -0.35634873393509126,
+     "piece": "N",
+     "disagree": true
+    },
+    "c4": {
+     "phi": -0.23741959687322378,
+     "se": 0.04685882994868753,
+     "single": 0.0855815116512148,
+     "piece": "q",
+     "disagree": true
+    },
+    "g5": {
+     "phi": 0.040263816132210195,
+     "se": 0.042742412251909966,
+     "single": -0.0379306897521019,
+     "piece": "B",
+     "disagree": false
+    },
+    "f6": {
+     "phi": 0.22248854587087408,
+     "se": 0.04300762131403876,
+     "single": 0.8530727277199427,
+     "piece": "n",
+     "disagree": true
+    },
+    "b7": {
+     "phi": 0.029729910718742758,
+     "se": 0.03324474227962737,
+     "single": 0.23462140932679176,
+     "piece": "b",
+     "disagree": true
+    },
+    "e7": {
+     "phi": 0.02759902086108923,
+     "se": 0.039325250852046745,
+     "single": 0.4942796180645625,
+     "piece": "b",
+     "disagree": true
+    },
+    "f8": {
+     "phi": -0.05690690368646756,
+     "se": 0.020404795584647757,
+     "single": 0.021470828698231623,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "d5",
+   "piece": "N",
+   "type": "N",
+   "colour": "white",
+   "v": 0.32974952459335327,
+   "gap": 0.0,
+   "ceiling": 0.9424630403518677,
+   "best": "d5",
+   "best moves": 0,
+   "reachable": 13,
+   "median square": "d2",
+   "v median": -0.6127135157585144,
+   "rank": 1,
+   "marginal": 0.867423646725141,
+   "swap": 0.04130500555038452,
+   "squares": {
+    "d5": [
+     0,
+     0.3297
+    ],
+    "c3": [
+     1,
+     -0.3757
+    ],
+    "e3": [
+     1,
+     -0.3409
+    ],
+    "b1": [
+     2,
+     -0.8037
+    ],
+    "a2": [
+     2,
+     -0.8345
+    ],
+    "e2": [
+     2,
+     -0.638
+    ],
+    "a4": [
+     2,
+     -0.6298
+    ],
+    "b5": [
+     2,
+     0.1467
+    ],
+    "f1": [
+     2,
+     -0.5831
+    ],
+    "c2": [
+     2,
+     -0.6494
+    ],
+    "d2": [
+     3,
+     -0.6127
+    ],
+    "g3": [
+     3,
+     -0.4851
+    ],
+    "b2": [
+     3,
+     -0.7678
+    ],
+    "c5": [
+     3,
+     -0.4158
+    ]
+   },
+   "pct gap": 92.2,
+   "pct ceiling": 79.1,
+   "pct swap": 39.2,
+   "rank fraction": 0.0,
+   "general score": 69.94999999999999,
+   "fen": "r1b2rk1/ppb2qpp/2n5/3Npp2/1PP5/P2B4/5PPP/R1BQR1K1 b - - 4 16",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 60, note to White's 16th move; Yates \u2013 Alekhine, The Hague 1921, after 16.Nd5",
+   "quote": "This Knight, as will be seen in the sequel, cannot be maintained in this position and will soon be exchanged against a Black piece inactive until now.",
+   "claim": "White's d5 knight cannot be maintained there.",
+   "game": null,
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "outpost",
+   "src": "T41",
+   "meaning": "ambiguous",
+   "sign": -1,
+   "verdict": null,
+   "shapley": {
+    "a1": {
+     "phi": -0.18404498498421162,
+     "se": 0.029211764788339752,
+     "single": -0.19877705309126115,
+     "piece": "R",
+     "disagree": false
+    },
+    "c1": {
+     "phi": -0.12199083692394197,
+     "se": 0.031091559724545907,
+     "single": -0.18914395239618087,
+     "piece": "B",
+     "disagree": false
+    },
+    "d1": {
+     "phi": -0.022142344969324768,
+     "se": 0.03395498341713741,
+     "single": 0.050785552296373604,
+     "piece": "Q",
+     "disagree": false
+    },
+    "e1": {
+     "phi": 0.20802453672513366,
+     "se": 0.023618318032979545,
+     "single": 0.21234779339283705,
+     "piece": "R",
+     "disagree": false
+    },
+    "d3": {
+     "phi": -0.042328492854721844,
+     "se": 0.03139849906225014,
+     "single": -0.16363821327686312,
+     "piece": "B",
+     "disagree": true
+    },
+    "d5": {
+     "phi": 0.5723401030991226,
+     "se": 0.03986648142108963,
+     "single": 0.867423646725141,
+     "piece": "N",
+     "disagree": true
+    },
+    "c6": {
+     "phi": 0.0850494964979589,
+     "se": 0.046539387348980756,
+     "single": 0.027632442804483293,
+     "piece": "n",
+     "disagree": false
+    },
+    "c7": {
+     "phi": -0.1405136832036078,
+     "se": 0.047008222984941145,
+     "single": -0.3295236099511385,
+     "piece": "b",
+     "disagree": true
+    },
+    "f7": {
+     "phi": 0.169699169928208,
+     "se": 0.03644872446564413,
+     "single": 0.2911969025929769,
+     "piece": "q",
+     "disagree": true
+    },
+    "a8": {
+     "phi": 0.08864476426970214,
+     "se": 0.028704922485042493,
+     "single": 0.08508628606796265,
+     "piece": "r",
+     "disagree": false
+    },
+    "c8": {
+     "phi": -0.14870444464031607,
+     "se": 0.032906534346383465,
+     "single": -0.1297926406065623,
+     "piece": "b",
+     "disagree": false
+    },
+    "f8": {
+     "phi": -0.09471425286028534,
+     "se": 0.02968468723325866,
+     "single": -0.03762520601352054,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.013822115384615384,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "d4",
+   "piece": "B",
+   "type": "B",
+   "colour": "white",
+   "v": 0.44274622201919556,
+   "gap": -0.05013537406921387,
+   "ceiling": 0.28330639004707336,
+   "best": "e3",
+   "best moves": 1,
+   "reachable": 7,
+   "median square": "e1",
+   "v median": 0.20957520604133606,
+   "rank": 2,
+   "marginal": 0.18271232183490482,
+   "swap": -0.19704869389533997,
+   "squares": {
+    "d4": [
+     0,
+     0.4427
+    ],
+    "c3": [
+     1,
+     0.0771
+    ],
+    "e3": [
+     1,
+     0.4929
+    ],
+    "e5": [
+     1,
+     0.3039
+    ],
+    "e1": [
+     2,
+     0.2096
+    ],
+    "d2": [
+     2,
+     0.1719
+    ],
+    "c1": [
+     2,
+     0.1568
+    ],
+    "f4": [
+     2,
+     0.4081
+    ]
+   },
+   "pct gap": 51.4,
+   "pct ceiling": 64.1,
+   "pct swap": 45.5,
+   "rank fraction": 0.14285714285714285,
+   "general score": 59.3,
+   "fen": "r2q1rk1/pp2b1pp/4p3/3p4/3Bn3/6P1/PP2PPBP/R2Q1RK1 b - - 0 15",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 99 (first match game, Paris 1923), note to White's 15th move",
+   "quote": "On the other hand, the advantage of the two Bishops is illusory, for it is clear that after [...Bf6] White cannot avoid the exchange of his [d4 bishop].",
+   "claim": null,
+   "game": "Alekhine \u2013 Muffang, Paris 1923",
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "material.bishop_pair",
+   "src": "E15",
+   "meaning": "ambiguous",
+   "sign": -1,
+   "verdict": null,
+   "shapley": {
+    "a1": {
+     "phi": -0.07493204023921862,
+     "se": 0.02609356969523892,
+     "single": -0.14162288109461463,
+     "piece": "R",
+     "disagree": false
+    },
+    "d1": {
+     "phi": 0.13161651702830568,
+     "se": 0.044044716176628425,
+     "single": 0.0487738913959927,
+     "piece": "Q",
+     "disagree": false
+    },
+    "f1": {
+     "phi": 0.2750230909441598,
+     "se": 0.04766594565706231,
+     "single": 0.04099792242050171,
+     "piece": "R",
+     "disagree": true
+    },
+    "g2": {
+     "phi": 0.07005574135109782,
+     "se": 0.027810589606109725,
+     "single": 0.060115528106689464,
+     "piece": "B",
+     "disagree": false
+    },
+    "d4": {
+     "phi": 0.03913567203562707,
+     "se": 0.04669123728396991,
+     "single": 0.18271232183490482,
+     "piece": "B",
+     "disagree": true
+    },
+    "e4": {
+     "phi": 0.1191027038730681,
+     "se": 0.042981827438488295,
+     "single": -0.007632527322996241,
+     "piece": "n",
+     "disagree": true
+    },
+    "e7": {
+     "phi": -0.20828850765246898,
+     "se": 0.04375801557196582,
+     "single": -0.003798232837156801,
+     "piece": "b",
+     "disagree": true
+    },
+    "a8": {
+     "phi": -0.14599333581281826,
+     "se": 0.030193090564798318,
+     "single": -0.13713840312427944,
+     "piece": "r",
+     "disagree": false
+    },
+    "d8": {
+     "phi": -0.1326956349075772,
+     "se": 0.03486499464505402,
+     "single": -0.07860722318291663,
+     "piece": "q",
+     "disagree": false
+    },
+    "f8": {
+     "phi": 0.16973676247289404,
+     "se": 0.028173827614742044,
+     "single": 0.19583911821246147,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.023863636363636365,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "g2",
+   "piece": "B",
+   "type": "B",
+   "colour": "white",
+   "v": 0.44274622201919556,
+   "gap": -0.002231210470199585,
+   "ceiling": 0.026951521635055542,
+   "best": "f3",
+   "best moves": 1,
+   "reachable": 5,
+   "median square": "h3",
+   "v median": 0.4180259108543396,
+   "rank": 2,
+   "marginal": 0.060115528106689464,
+   "swap": -0.3383754789829254,
+   "squares": {
+    "g2": [
+     0,
+     0.4427
+    ],
+    "h1": [
+     1,
+     0.3686
+    ],
+    "f3": [
+     1,
+     0.445
+    ],
+    "h3": [
+     1,
+     0.418
+    ],
+    "g4": [
+     2,
+     0.4258
+    ],
+    "h5": [
+     2,
+     0.2557
+    ]
+   },
+   "pct gap": 66.7,
+   "pct ceiling": 9.4,
+   "pct swap": 27.9,
+   "rank fraction": 0.2,
+   "general score": 40.75,
+   "fen": "r2q1rk1/pp2b1pp/4p3/3p4/3Bn3/6P1/PP2PPBP/R2Q1RK1 b - - 0 15",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 99 (first match game, Paris 1923), note to White's 15th move",
+   "quote": "On the other hand, the advantage of the two Bishops is illusory, for it is clear that after [...Bf6] White cannot avoid the exchange of his [d4 bishop].",
+   "claim": null,
+   "game": "Alekhine \u2013 Muffang, Paris 1923",
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "material.bishop_pair",
+   "src": "E15",
+   "meaning": "ambiguous",
+   "sign": -1,
+   "verdict": null,
+   "shapley": {
+    "a1": {
+     "phi": -0.07493204023921862,
+     "se": 0.02609356969523892,
+     "single": -0.14162288109461463,
+     "piece": "R",
+     "disagree": false
+    },
+    "d1": {
+     "phi": 0.13161651702830568,
+     "se": 0.044044716176628425,
+     "single": 0.0487738913959927,
+     "piece": "Q",
+     "disagree": false
+    },
+    "f1": {
+     "phi": 0.2750230909441598,
+     "se": 0.04766594565706231,
+     "single": 0.04099792242050171,
+     "piece": "R",
+     "disagree": true
+    },
+    "g2": {
+     "phi": 0.07005574135109782,
+     "se": 0.027810589606109725,
+     "single": 0.060115528106689464,
+     "piece": "B",
+     "disagree": false
+    },
+    "d4": {
+     "phi": 0.03913567203562707,
+     "se": 0.04669123728396991,
+     "single": 0.18271232183490482,
+     "piece": "B",
+     "disagree": true
+    },
+    "e4": {
+     "phi": 0.1191027038730681,
+     "se": 0.042981827438488295,
+     "single": -0.007632527322996241,
+     "piece": "n",
+     "disagree": true
+    },
+    "e7": {
+     "phi": -0.20828850765246898,
+     "se": 0.04375801557196582,
+     "single": -0.003798232837156801,
+     "piece": "b",
+     "disagree": true
+    },
+    "a8": {
+     "phi": -0.14599333581281826,
+     "se": 0.030193090564798318,
+     "single": -0.13713840312427944,
+     "piece": "r",
+     "disagree": false
+    },
+    "d8": {
+     "phi": -0.1326956349075772,
+     "se": 0.03486499464505402,
+     "single": -0.07860722318291663,
+     "piece": "q",
+     "disagree": false
+    },
+    "f8": {
+     "phi": 0.16973676247289404,
+     "se": 0.028173827614742044,
+     "single": 0.19583911821246147,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.023863636363636365,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "h8",
+   "piece": "r",
+   "type": "R",
+   "colour": "black",
+   "v": 0.1629493534564972,
+   "gap": 0.0,
+   "ceiling": 0.3085430860519409,
+   "best": "h8",
+   "best moves": 0,
+   "reachable": 1,
+   "median square": "g8",
+   "v median": -0.14559373259544373,
+   "rank": 1,
+   "marginal": 0.3085430860519409,
+   "swap": null,
+   "squares": {
+    "h8": [
+     0,
+     0.1629
+    ],
+    "g8": [
+     1,
+     -0.1456
+    ]
+   },
+   "pct gap": 88.0,
+   "pct ceiling": 74.0,
+   "pct swap": null,
+   "rank fraction": 0.0,
+   "general score": 74.0,
+   "fen": "r1N2k1r/b5pp/1nq5/4p3/1P2P1nB/5N2/P4PPP/3Q1RK1 w - - 0 23",
+   "source": "Edward Lasker, Chess Strategy (1915), Game No. 43, note to Black's 22nd move",
+   "quote": "Now Black is a whole Rook ahead. But it is as much out of play as his Queen\u2019s side pieces.",
+   "claim": null,
+   "game": "Capablanca \u2013 Bernstein, St Petersburg 1914",
+   "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt",
+   "topic": "pieces.out_of_play",
+   "src": "E32",
+   "meaning": "ambiguous",
+   "sign": -1,
+   "verdict": null,
+   "shapley": {
+    "d1": {
+     "phi": 0.11889830650761724,
+     "se": 0.05792281257453686,
+     "single": -0.061250410974025726,
+     "piece": "Q",
+     "disagree": true
+    },
+    "f1": {
+     "phi": -0.1318265818990767,
+     "se": 0.04577224953127738,
+     "single": -0.4662891626358032,
+     "piece": "R",
+     "disagree": true
+    },
+    "f3": {
+     "phi": 0.009405275923199952,
+     "se": 0.05229074379878774,
+     "single": -0.19427573978900908,
+     "piece": "N",
+     "disagree": true
+    },
+    "g4": {
+     "phi": -0.04586694634053856,
+     "se": 0.05548049612576982,
+     "single": 0.17680845906337103,
+     "piece": "n",
+     "disagree": true
+    },
+    "h4": {
+     "phi": 0.039280122495256364,
+     "se": 0.04507249228908228,
+     "single": -0.04158292379644182,
+     "piece": "B",
+     "disagree": false
+    },
+    "b6": {
+     "phi": -0.05813423974905163,
+     "se": 0.056005844560262544,
+     "single": 0.059031568029347586,
+     "piece": "n",
+     "disagree": true
+    },
+    "c6": {
+     "phi": 0.050390934804454446,
+     "se": 0.07042085863975722,
+     "single": 0.6028310883986323,
+     "piece": "q",
+     "disagree": true
+    },
+    "a7": {
+     "phi": 0.058012859779410064,
+     "se": 0.039527215743427865,
+     "single": 0.4575553610920906,
+     "piece": "b",
+     "disagree": true
+    },
+    "a8": {
+     "phi": -0.1158240867080167,
+     "se": 0.038559851095595905,
+     "single": -0.031201121211051952,
+     "piece": "r",
+     "disagree": false
+    },
+    "c8": {
+     "phi": -0.07435830868780613,
+     "se": 0.04175530604299323,
+     "single": -0.47585486620664597,
+     "piece": "N",
+     "disagree": true
+    },
+    "h8": {
+     "phi": 0.24211513833142817,
+     "se": 0.035392604833206366,
+     "single": 0.3085430860519409,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.02166193181818182,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "a8",
+   "piece": "r",
+   "type": "R",
+   "colour": "black",
+   "v": 0.1629493534564972,
+   "gap": -0.7090181410312653,
+   "ceiling": 0.6332180351018906,
+   "best": "d7",
+   "best moves": 3,
+   "reachable": 5,
+   "median square": "f7",
+   "v median": 0.2387494593858719,
+   "rank": 4,
+   "marginal": -0.031201121211051952,
+   "swap": null,
+   "squares": {
+    "a8": [
+     0,
+     0.1629
+    ],
+    "b8": [
+     1,
+     -0.5545
+    ],
+    "b7": [
+     2,
+     0.4123
+    ],
+    "c7": [
+     3,
+     0.0023
+    ],
+    "d7": [
+     3,
+     0.872
+    ],
+    "f7": [
+     3,
+     0.2387
+    ]
+   },
+   "pct gap": 10.3,
+   "pct ceiling": 87.0,
+   "pct swap": null,
+   "rank fraction": 0.6,
+   "general score": 87.0,
+   "fen": "r1N2k1r/b5pp/1nq5/4p3/1P2P1nB/5N2/P4PPP/3Q1RK1 w - - 0 23",
+   "source": "Edward Lasker, Chess Strategy (1915), Game No. 43, note to Black's 22nd move",
+   "quote": "Now Black is a whole Rook ahead. But it is as much out of play as his Queen\u2019s side pieces.",
+   "claim": null,
+   "game": "Capablanca \u2013 Bernstein, St Petersburg 1914",
+   "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt",
+   "topic": "pieces.out_of_play",
+   "src": "E32",
+   "meaning": "ambiguous",
+   "sign": -1,
+   "verdict": null,
+   "shapley": {
+    "d1": {
+     "phi": 0.11889830650761724,
+     "se": 0.05792281257453686,
+     "single": -0.061250410974025726,
+     "piece": "Q",
+     "disagree": true
+    },
+    "f1": {
+     "phi": -0.1318265818990767,
+     "se": 0.04577224953127738,
+     "single": -0.4662891626358032,
+     "piece": "R",
+     "disagree": true
+    },
+    "f3": {
+     "phi": 0.009405275923199952,
+     "se": 0.05229074379878774,
+     "single": -0.19427573978900908,
+     "piece": "N",
+     "disagree": true
+    },
+    "g4": {
+     "phi": -0.04586694634053856,
+     "se": 0.05548049612576982,
+     "single": 0.17680845906337103,
+     "piece": "n",
+     "disagree": true
+    },
+    "h4": {
+     "phi": 0.039280122495256364,
+     "se": 0.04507249228908228,
+     "single": -0.04158292379644182,
+     "piece": "B",
+     "disagree": false
+    },
+    "b6": {
+     "phi": -0.05813423974905163,
+     "se": 0.056005844560262544,
+     "single": 0.059031568029347586,
+     "piece": "n",
+     "disagree": true
+    },
+    "c6": {
+     "phi": 0.050390934804454446,
+     "se": 0.07042085863975722,
+     "single": 0.6028310883986323,
+     "piece": "q",
+     "disagree": true
+    },
+    "a7": {
+     "phi": 0.058012859779410064,
+     "se": 0.039527215743427865,
+     "single": 0.4575553610920906,
+     "piece": "b",
+     "disagree": true
+    },
+    "a8": {
+     "phi": -0.1158240867080167,
+     "se": 0.038559851095595905,
+     "single": -0.031201121211051952,
+     "piece": "r",
+     "disagree": false
+    },
+    "c8": {
+     "phi": -0.07435830868780613,
+     "se": 0.04175530604299323,
+     "single": -0.47585486620664597,
+     "piece": "N",
+     "disagree": true
+    },
+    "h8": {
+     "phi": 0.24211513833142817,
+     "se": 0.035392604833206366,
+     "single": 0.3085430860519409,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.02166193181818182,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "g7",
+   "piece": "b",
+   "type": "B",
+   "colour": "black",
+   "v": -0.025003358721733093,
+   "gap": 0.0,
+   "ceiling": 0.2967303544282913,
+   "best": "g7",
+   "best moves": 0,
+   "reachable": 1,
+   "median square": "h8",
+   "v median": -0.3217337131500244,
+   "rank": 1,
+   "marginal": 0.2967303544282913,
+   "swap": -0.8756041079759598,
+   "squares": {
+    "g7": [
+     0,
+     -0.025
+    ],
+    "h8": [
+     1,
+     -0.3217
+    ]
+   },
+   "pct gap": 83.9,
+   "pct ceiling": 65.5,
+   "pct swap": 2.3,
+   "rank fraction": 0.0,
+   "general score": 81.6,
+   "fen": "r2q1rk1/pppb1pb1/2np1npp/1B6/4P2B/2N2N2/PPPQ1PPP/2KR3R b - - 3 11",
+   "source": "Capablanca, Chess Fundamentals (1921), Game 13, note to White's 11th move",
+   "quote": "The Black Bishop on [g7] becomes a very powerful attacking piece.",
+   "claim": null,
+   "game": "Morrison \u2013 Capablanca, New York 1918",
+   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt",
+   "topic": "pieces.out_of_play",
+   "src": "E33",
+   "meaning": "ambiguous",
+   "sign": 1,
+   "verdict": null,
+   "shapley": {
+    "d1": {
+     "phi": -0.02219632698688656,
+     "se": 0.019643280691300394,
+     "single": 0.0074375346302986145,
+     "piece": "R",
+     "disagree": false
+    },
+    "h1": {
+     "phi": -0.10065727727487683,
+     "se": 0.02387143547960102,
+     "single": -0.12482638657093048,
+     "piece": "R",
+     "disagree": false
+    },
+    "d2": {
+     "phi": 0.08425611350685358,
+     "se": 0.03091625176908573,
+     "single": 0.13615078004923734,
+     "piece": "Q",
+     "disagree": false
+    },
+    "c3": {
+     "phi": 0.40516175772063434,
+     "se": 0.02812927954443224,
+     "single": 0.626268656924367,
+     "piece": "N",
+     "disagree": true
+    },
+    "f3": {
+     "phi": 0.16271898488048464,
+     "se": 0.030646104112626218,
+     "single": 0.32299956381320954,
+     "piece": "N",
+     "disagree": true
+    },
+    "h4": {
+     "phi": -0.06624188472051173,
+     "se": 0.03319055205518045,
+     "single": -0.09964195390542348,
+     "piece": "B",
+     "disagree": false
+    },
+    "b5": {
+     "phi": -0.11109176010359079,
+     "se": 0.03371219655744778,
+     "single": -0.03158484612192426,
+     "piece": "B",
+     "disagree": false
+    },
+    "c6": {
+     "phi": -0.07453910622280091,
+     "se": 0.04384568112961045,
+     "single": -0.3111887648701668,
+     "piece": "n",
+     "disagree": true
+    },
+    "f6": {
+     "phi": 0.024898430099710822,
+     "se": 0.033058268592688296,
+     "single": -0.08105024908270154,
+     "piece": "n",
+     "disagree": true
+    },
+    "d7": {
+     "phi": 0.14446191338356584,
+     "se": 0.02861842979994754,
+     "single": -0.012599056959152222,
+     "piece": "b",
+     "disagree": true
+    },
+    "g7": {
+     "phi": 0.16028702293988317,
+     "se": 0.01171128271348269,
+     "single": 0.2967303544282913,
+     "piece": "b",
+     "disagree": true
+    },
+    "a8": {
+     "phi": -0.053809847799129784,
+     "se": 0.01823231595387808,
+     "single": -0.05572262406349182,
+     "piece": "r",
+     "disagree": false
+    },
+    "d8": {
+     "phi": 0.0106443747645244,
+     "se": 0.03521361471959874,
+     "single": -0.3512277776996295,
+     "piece": "q",
+     "disagree": true
+    },
+    "f8": {
+     "phi": -0.128912374493666,
+     "se": 0.028411330204358178,
+     "single": -0.3467322339614232,
+     "piece": "r",
+     "disagree": true
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.01212797619047619,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "a2",
+   "piece": "B",
+   "type": "B",
+   "colour": "white",
+   "v": -0.3652443587779999,
+   "gap": -0.25522126257419586,
+   "ceiling": 0.0,
+   "best": "b1",
+   "best moves": 1,
+   "reachable": 1,
+   "median square": "b1",
+   "v median": -0.11002309620380402,
+   "rank": 2,
+   "marginal": -0.25522126257419586,
+   "swap": 0.359428271651268,
+   "squares": {
+    "a2": [
+     0,
+     -0.3652
+    ],
+    "b1": [
+     1,
+     -0.11
+    ]
+   },
+   "pct gap": 26.0,
+   "pct ceiling": 0.9,
+   "pct swap": 93.0,
+   "rank fraction": 1.0,
+   "general score": 3.950000000000003,
+   "fen": "r2q1rk1/4bppp/R3b3/1P1p4/2pP4/5Q2/B1P2PPP/2B2RK1 b - - 1 16",
+   "source": "Edward Lasker, Chess Strategy (1915), Game No. 14, note to White's 16th move",
+   "quote": "Now the Bishop is hemmed in permanently; in other words, Black is a piece up and must win easily.",
+   "claim": null,
+   "game": "Spielmann \u2013 Tarrasch, San Sebastian 1912",
+   "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt",
+   "topic": "pieces.out_of_play",
+   "src": "E34",
+   "meaning": "general",
+   "sign": -1,
+   "verdict": true,
+   "shapley": {
+    "c1": {
+     "phi": -0.057799675269052386,
+     "se": 0.026157805699648356,
+     "single": -0.11875564157962798,
+     "piece": "B",
+     "disagree": false
+    },
+    "f1": {
+     "phi": 0.28710342530393973,
+     "se": 0.04485789672715563,
+     "single": 0.28625161945819855,
+     "piece": "R",
+     "disagree": false
+    },
+    "a2": {
+     "phi": -0.15286648465553299,
+     "se": 0.01829331030799215,
+     "single": -0.25522126257419586,
+     "piece": "B",
+     "disagree": true
+    },
+    "f3": {
+     "phi": 0.03337158419890329,
+     "se": 0.02996096465068499,
+     "single": 0.07721421308815479,
+     "piece": "Q",
+     "disagree": false
+    },
+    "a6": {
+     "phi": 0.1494860938983038,
+     "se": 0.042841869029989044,
+     "single": 0.6132020056247711,
+     "piece": "R",
+     "disagree": true
+    },
+    "e6": {
+     "phi": -0.06042234704364091,
+     "se": 0.07054740541671925,
+     "single": -0.16668405756354332,
+     "piece": "b",
+     "disagree": true
+    },
+    "e7": {
+     "phi": -0.16838180972263217,
+     "se": 0.05305827416216746,
+     "single": 0.07380292361432855,
+     "piece": "b",
+     "disagree": true
+    },
+    "a8": {
+     "phi": 0.1570309007074684,
+     "se": 0.04220191329954199,
+     "single": 0.17601002965654647,
+     "piece": "r",
+     "disagree": false
+    },
+    "d8": {
+     "phi": 0.05533163499785587,
+     "se": 0.05929349696870745,
+     "single": -0.09595727423826855,
+     "piece": "q",
+     "disagree": true
+    },
+    "f8": {
+     "phi": 0.16324413241818547,
+     "se": 0.05746559516567628,
+     "single": -0.0980185866355896,
+     "piece": "r",
+     "disagree": true
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.08423295454545454,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "d5",
+   "piece": "N",
+   "type": "N",
+   "colour": "white",
+   "v": 0.04210232198238373,
+   "gap": -0.5851064473390579,
+   "ceiling": 0.6535474956035614,
+   "best": "d4",
+   "best moves": 3,
+   "reachable": 15,
+   "median square": "d3",
+   "v median": -0.02633872628211975,
+   "rank": 7,
+   "marginal": -0.023424282670021057,
+   "swap": 0.19947397708892822,
+   "squares": {
+    "d5": [
+     0,
+     0.0421
+    ],
+    "c3": [
+     1,
+     -0.0429
+    ],
+    "f4": [
+     1,
+     0.0493
+    ],
+    "e4": [
+     2,
+     0.0029
+    ],
+    "b5": [
+     2,
+     0.0821
+    ],
+    "g2": [
+     2,
+     -0.0682
+    ],
+    "d3": [
+     2,
+     -0.0263
+    ],
+    "h3": [
+     2,
+     -0.1076
+    ],
+    "h5": [
+     2,
+     0.1015
+    ],
+    "d2": [
+     3,
+     -0.0532
+    ],
+    "g3": [
+     3,
+     0.0582
+    ],
+    "a3": [
+     3,
+     -0.0517
+    ],
+    "d4": [
+     3,
+     0.6272
+    ],
+    "a7": [
+     3,
+     0.6078
+    ],
+    "e1": [
+     3,
+     -0.1108
+    ],
+    "c1": [
+     3,
+     -0.0855
+    ]
+   },
+   "pct gap": 31.5,
+   "pct ceiling": 64.2,
+   "pct swap": 64.4,
+   "rank fraction": 0.4,
+   "general score": 49.89999999999999,
+   "fen": "1r1q1rk1/2p2pp1/1p1p1b1p/p1nN4/2P5/4PP2/PP2QP1P/1B1R1RK1 w - - 0 18",
+   "source": "Nimzowitsch, My System (1930), Game 7, note to Black's 17th move",
+   "quote": "No outpost, yet strong. The student should learn by careful practice how to establish Knights so that they cannot be driven away.",
+   "claim": null,
+   "game": "Rabinovich \u2013 Nimzowitsch, Baden-Baden 1925",
+   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
+   "topic": "pieces.knight_outpost",
+   "src": "E36",
+   "meaning": "placement",
+   "sign": 1,
+   "verdict": false,
+   "shapley": {
+    "b1": {
+     "phi": 0.03632301982725039,
+     "se": 0.03075047381839073,
+     "single": 0.11172323094473945,
+     "piece": "B",
+     "disagree": false
+    },
+    "d1": {
+     "phi": 0.14040309406118467,
+     "se": 0.0315131694715012,
+     "single": 0.07300258800387383,
+     "piece": "R",
+     "disagree": false
+    },
+    "f1": {
+     "phi": 0.09545703430194408,
+     "se": 0.030252491957960353,
+     "single": -0.007244005799293518,
+     "piece": "R",
+     "disagree": true
+    },
+    "e2": {
+     "phi": -0.07870875636581331,
+     "se": 0.03283008588727697,
+     "single": -0.2292432089646657,
+     "piece": "Q",
+     "disagree": true
+    },
+    "c5": {
+     "phi": 0.1337968639563769,
+     "se": 0.02019281772597842,
+     "single": 0.17556347359310498,
+     "piece": "n",
+     "disagree": false
+    },
+    "d5": {
+     "phi": 0.15977409796323627,
+     "se": 0.0333690241777591,
+     "single": -0.023424282670021057,
+     "piece": "N",
+     "disagree": true
+    },
+    "f6": {
+     "phi": 0.13436467375140637,
+     "se": 0.025843303405898875,
+     "single": 0.10641312226653099,
+     "piece": "b",
+     "disagree": false
+    },
+    "b8": {
+     "phi": 0.07992792164441198,
+     "se": 0.01761715288868416,
+     "single": 0.06083245873451233,
+     "piece": "r",
+     "disagree": false
+    },
+    "d8": {
+     "phi": 0.18713891436345875,
+     "se": 0.03478257731774677,
+     "single": 0.5460572753633771,
+     "piece": "q",
+     "disagree": true
+    },
+    "f8": {
+     "phi": -0.09725884697400033,
+     "se": 0.026918696225179617,
+     "single": -0.09528664126992226,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.013494318181818182,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "a7",
+   "piece": "b",
+   "type": "B",
+   "colour": "black",
+   "v": -0.280709445476532,
+   "gap": -0.1483638435602188,
+   "ceiling": 0.14798618853092194,
+   "best": "c5",
+   "best moves": 1,
+   "reachable": 9,
+   "median square": "a3",
+   "v median": -0.2803317904472351,
+   "rank": 6,
+   "marginal": -0.006791945960786583,
+   "swap": -0.3372679352760315,
+   "squares": {
+    "a7": [
+     0,
+     -0.2807
+    ],
+    "d4": [
+     1,
+     -0.2005
+    ],
+    "c5": [
+     1,
+     -0.1323
+    ],
+    "b6": [
+     1,
+     -0.2482
+    ],
+    "b2": [
+     2,
+     -0.4058
+    ],
+    "c3": [
+     2,
+     -0.2903
+    ],
+    "a3": [
+     2,
+     -0.2803
+    ],
+    "b4": [
+     2,
+     -0.2075
+    ],
+    "a5": [
+     2,
+     -0.3232
+    ],
+    "c7": [
+     2,
+     -0.3771
+    ]
+   },
+   "pct gap": 35.9,
+   "pct ceiling": 42.3,
+   "pct swap": 28.2,
+   "rank fraction": 0.5555555555555556,
+   "general score": 57.050000000000004,
+   "fen": "1n1r1nk1/b4pp1/2Bp2bp/4p3/4P1P1/6NP/3N1P2/3Q2K1 w - - 0 34",
+   "source": "Capablanca, My Chess Career (1920), Game No. 28, note to Black's 33rd move",
+   "quote": "Again best. \u2026 the Black [bishop on a7] would no longer command the long diagonal.",
+   "claim": null,
+   "game": "Capablanca \u2013 R. T. Black, New York 1916",
+   "url": "https://archive.org/download/15748865AJoseRaulMyChessCareer_201906/15748865-a-Jose-Raul-My-Chess-Career_djvu.txt",
+   "topic": "pieces.bishop_diagonal",
+   "src": "E39",
+   "meaning": "ambiguous",
+   "sign": 1,
+   "verdict": null,
+   "shapley": {
+    "d1": {
+     "phi": -0.04555353126488626,
+     "se": 0.03580108847655299,
+     "single": -0.16556864038661673,
+     "piece": "Q",
+     "disagree": true
+    },
+    "d2": {
+     "phi": -0.06024672760395333,
+     "se": 0.025560536068576053,
+     "single": -0.14409862220287323,
+     "piece": "N",
+     "disagree": false
+    },
+    "g3": {
+     "phi": 0.02182739379350096,
+     "se": 0.031789309064756174,
+     "single": 0.05062608704680488,
+     "piece": "N",
+     "disagree": false
+    },
+    "c6": {
+     "phi": -0.06812321225879714,
+     "se": 0.021134424884839038,
+     "single": -0.06683979034423826,
+     "piece": "B",
+     "disagree": false
+    },
+    "g6": {
+     "phi": 0.1131239808164537,
+     "se": 0.01168385198980316,
+     "single": 0.12070238590240479,
+     "piece": "b",
+     "disagree": false
+    },
+    "a7": {
+     "phi": -0.09107115265214816,
+     "se": 0.032221552001720395,
+     "single": -0.006791945960786583,
+     "piece": "b",
+     "disagree": false
+    },
+    "b8": {
+     "phi": -0.1381479378324002,
+     "se": 0.027233661395618013,
+     "single": 0.01115051763398306,
+     "piece": "n",
+     "disagree": true
+    },
+    "d8": {
+     "phi": -0.08286849828436971,
+     "se": 0.03408749890917603,
+     "single": -0.04771557201941809,
+     "piece": "r",
+     "disagree": false
+    },
+    "f8": {
+     "phi": 0.03896255051949993,
+     "se": 0.028601328661565114,
+     "single": 0.001385509967803955,
+     "piece": "n",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0010416666666666667,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "e3",
+   "piece": "B",
+   "type": "B",
+   "colour": "white",
+   "v": 0.10873907804489136,
+   "gap": -0.6528552174568176,
+   "ceiling": 0.5291219502687454,
+   "best": "h4",
+   "best moves": 2,
+   "reachable": 7,
+   "median square": "g3",
+   "v median": 0.23247234523296356,
+   "rank": 5,
+   "marginal": 0.013449311256408691,
+   "swap": -0.05924537777900696,
+   "squares": {
+    "e3": [
+     0,
+     0.1087
+    ],
+    "c1": [
+     1,
+     -0.088
+    ],
+    "f2": [
+     1,
+     0.3933
+    ],
+    "d4": [
+     1,
+     -0.0523
+    ],
+    "e1": [
+     2,
+     0.3974
+    ],
+    "g3": [
+     2,
+     0.2325
+    ],
+    "h4": [
+     2,
+     0.7616
+    ],
+    "d8": [
+     3,
+     -0.9774
+    ]
+   },
+   "pct gap": 12.9,
+   "pct ceiling": 80.4,
+   "pct swap": 68.0,
+   "rank fraction": 0.5714285714285714,
+   "general score": 56.2,
+   "fen": "r1b4r/pp3pk1/2n1p1pp/q3P3/4QP2/2p1B3/P1P1N1PP/R2R2K1 b - - 2 17",
+   "source": "Capablanca, Chess Fundamentals (1921), Game 6, note to White's 17th move",
+   "quote": "Better would have been [a4], in order to play [Ba3]. The White [bishop] would be much better posted on the open diagonal than here, where it acts purely on the defensive.",
+   "claim": null,
+   "game": "Chajes \u2013 Capablanca, New York 1916",
+   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt",
+   "topic": "pieces.bishop_diagonal",
+   "src": "E41",
+   "meaning": "placement",
+   "sign": -1,
+   "verdict": true,
+   "shapley": {
+    "a1": {
+     "phi": -0.08900072885444388,
+     "se": 0.02312702167541683,
+     "single": -0.1387530118227005,
+     "piece": "R",
+     "disagree": false
+    },
+    "d1": {
+     "phi": 0.06892003363464028,
+     "se": 0.03639065750135746,
+     "single": 0.1242992336099798,
+     "piece": "R",
+     "disagree": false
+    },
+    "e2": {
+     "phi": 0.05063417326891795,
+     "se": 0.03455716535578493,
+     "single": 0.13432826904150155,
+     "piece": "N",
+     "disagree": false
+    },
+    "e3": {
+     "phi": -0.019906467525288463,
+     "se": 0.0350255848641905,
+     "single": 0.013449311256408691,
+     "piece": "B",
+     "disagree": false
+    },
+    "e4": {
+     "phi": -0.20213593496009707,
+     "se": 0.04235391832992566,
+     "single": -0.018077902495861053,
+     "piece": "Q",
+     "disagree": true
+    },
+    "a5": {
+     "phi": 0.09981036430690438,
+     "se": 0.047489554588693084,
+     "single": -0.12407650301853816,
+     "piece": "q",
+     "disagree": true
+    },
+    "c6": {
+     "phi": -0.04405771987512708,
+     "se": 0.06322196415228191,
+     "single": -0.04859628528356552,
+     "piece": "n",
+     "disagree": false
+    },
+    "a8": {
+     "phi": 0.02866610896307975,
+     "se": 0.02031885801855849,
+     "single": -0.09226085245609283,
+     "piece": "r",
+     "disagree": true
+    },
+    "h8": {
+     "phi": -0.1009577268268913,
+     "se": 0.030101521084061826,
+     "single": -0.07923316806554795,
+     "piece": "r",
+     "disagree": false
+    },
+    "c8": {
+     "phi": 0.0,
+     "se": 0.0,
+     "fixed": true,
+     "single": 0.0,
+     "piece": "b",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.021527777777777778,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "e7",
+   "piece": "b",
+   "type": "B",
+   "colour": "black",
+   "v": 0.0026226043701171875,
+   "gap": -0.048525579273700714,
+   "ceiling": 0.08194325119256973,
+   "best": "a5",
+   "best moves": 2,
+   "reachable": 7,
+   "median square": "c7",
+   "v median": -0.03079506754875183,
+   "rank": 3,
+   "marginal": 0.04073074460029602,
+   "swap": -0.0494629368185997,
+   "squares": {
+    "e7": [
+     0,
+     0.0026
+    ],
+    "b4": [
+     1,
+     0.0337
+    ],
+    "c5": [
+     1,
+     -0.0643
+    ],
+    "d6": [
+     1,
+     -0.0291
+    ],
+    "d8": [
+     1,
+     -0.0986
+    ],
+    "a5": [
+     2,
+     0.0511
+    ],
+    "c7": [
+     2,
+     -0.0308
+    ],
+    "b8": [
+     2,
+     -0.1289
+    ]
+   },
+   "pct gap": 51.4,
+   "pct ceiling": 24.1,
+   "pct swap": 68.7,
+   "rank fraction": 0.2857142857142857,
+   "general score": 27.699999999999996,
+   "fen": "r4rk1/p3bppp/1q3n2/3p4/2p5/2N1PN2/PP2QPPP/2R2RK1 w - - 0 16",
+   "source": "Capablanca, My Chess Career (1920), Game No. 21, note to Black's 15th move",
+   "quote": "By it the defensive Bishop becomes an attacking piece, since the long diagonal is open to him",
+   "claim": null,
+   "game": "Bernstein \u2013 Capablanca, Moscow 1914",
+   "url": "https://archive.org/download/15748865AJoseRaulMyChessCareer_201906/15748865-a-Jose-Raul-My-Chess-Career_djvu.txt",
+   "topic": "pieces.bishop_diagonal",
+   "src": "E42",
+   "meaning": "ambiguous",
+   "sign": 1,
+   "verdict": null,
+   "shapley": {
+    "c1": {
+     "phi": -0.005929590435698628,
+     "se": 0.024919476438658772,
+     "single": -0.11049613687727186,
+     "piece": "R",
+     "disagree": true
+    },
+    "f1": {
+     "phi": -0.09177198860561475,
+     "se": 0.024108749651748494,
+     "single": -0.2587573922106198,
+     "piece": "R",
+     "disagree": true
+    },
+    "e2": {
+     "phi": -0.05808560975128785,
+     "se": 0.02918874340399217,
+     "single": -0.16365940123796463,
+     "piece": "Q",
+     "disagree": true
+    },
+    "c3": {
+     "phi": 0.30912553158123046,
+     "se": 0.038021552511850666,
+     "single": -0.10260612145066261,
+     "piece": "N",
+     "disagree": true
+    },
+    "f3": {
+     "phi": 0.05552788043860346,
+     "se": 0.039342923106568915,
+     "single": -0.10977216204628348,
+     "piece": "N",
+     "disagree": true
+    },
+    "b6": {
+     "phi": -0.09008497011382133,
+     "se": 0.03468364402211105,
+     "single": 0.06695372728925002,
+     "piece": "q",
+     "disagree": true
+    },
+    "f6": {
+     "phi": 0.4031683801440522,
+     "se": 0.048816052021232965,
+     "single": 0.844548013257353,
+     "piece": "n",
+     "disagree": true
+    },
+    "e7": {
+     "phi": -0.03534912574104965,
+     "se": 0.027734597828333523,
+     "single": 0.04073074460029602,
+     "piece": "b",
+     "disagree": false
+    },
+    "a8": {
+     "phi": -0.11692253680666909,
+     "se": 0.023060126999490043,
+     "single": 0.04428479261696339,
+     "piece": "r",
+     "disagree": true
+    },
+    "f8": {
+     "phi": -0.0743210133514367,
+     "se": 0.021162712527569818,
+     "single": 0.04708879068493843,
+     "piece": "r",
+     "disagree": true
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "c8",
+   "piece": "b",
+   "type": "B",
+   "colour": "black",
+   "v": -0.05443136394023895,
+   "gap": -0.12957923114299774,
+   "ceiling": 0.026503488421440125,
+   "best": "d7",
+   "best moves": 1,
+   "reachable": 2,
+   "median square": "c6",
+   "v median": 0.048644378781318665,
+   "rank": 3,
+   "marginal": -0.11632748693227768,
+   "swap": -0.0245477557182312,
+   "squares": {
+    "c8": [
+     0,
+     -0.0544
+    ],
+    "d7": [
+     1,
+     0.0751
+    ],
+    "c6": [
+     2,
+     0.0486
+    ]
+   },
+   "pct gap": 38.6,
+   "pct ceiling": 9.4,
+   "pct swap": 71.9,
+   "rank fraction": 1.0,
+   "general score": 18.75,
+   "fen": "rnbqk2r/ppp1bppp/4p3/3pP1B1/3Pn3/2N5/PPP2PPP/R2QKBNR w KQkq - 1 6",
+   "source": "Edward Lasker, Chess Strategy (1915), Game No. 22, note to Black's 5th move",
+   "quote": "The text move allows the exchange of two minor pieces, which can only be to White\u2019s advantage, as Black cannot get his [c8 bishop] into play, and is for a long time practically a piece down.",
+   "claim": null,
+   "game": "Forgacs \u2013 Tartakower, St Petersburg 1909",
+   "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt",
+   "topic": "pieces.bad_bishop",
+   "src": "E43",
+   "meaning": "general",
+   "sign": -1,
+   "verdict": true,
+   "shapley": {
+    "a1": {
+     "phi": -0.0289454780286178,
+     "se": 0.01084760729073413,
+     "single": -0.04183177649974823,
+     "piece": "R",
+     "disagree": false
+    },
+    "d1": {
+     "phi": -0.05081280821468681,
+     "se": 0.02012108994679452,
+     "single": -0.27654468606818805,
+     "piece": "Q",
+     "disagree": true
+    },
+    "f1": {
+     "phi": -0.06549732445273548,
+     "se": 0.022285513686679644,
+     "single": -0.05891810605923335,
+     "piece": "B",
+     "disagree": false
+    },
+    "g1": {
+     "phi": -0.24663306528236717,
+     "se": 0.028225998820577046,
+     "single": -0.25445715089639026,
+     "piece": "N",
+     "disagree": false
+    },
+    "c3": {
+     "phi": -0.042144581908360124,
+     "se": 0.02835599272053479,
+     "single": 0.013101259867350258,
+     "piece": "N",
+     "disagree": false
+    },
+    "g5": {
+     "phi": 0.02285658079199493,
+     "se": 0.04123150565643827,
+     "single": -0.10378138720989227,
+     "piece": "B",
+     "disagree": true
+    },
+    "e7": {
+     "phi": 0.2650490498635918,
+     "se": 0.05256631900783319,
+     "single": 0.9319345653057098,
+     "piece": "b",
+     "disagree": true
+    },
+    "b8": {
+     "phi": -0.19826794206164777,
+     "se": 0.023026254503578175,
+     "single": -0.016798259483443365,
+     "piece": "n",
+     "disagree": true
+    },
+    "c8": {
+     "phi": -0.23830909514799714,
+     "se": 0.024374102125630015,
+     "single": -0.11632748693227768,
+     "piece": "b",
+     "disagree": true
+    },
+    "d8": {
+     "phi": -0.21611338132061064,
+     "se": 0.05020816092912449,
+     "single": 0.23376261691252392,
+     "piece": "q",
+     "disagree": true
+    },
+    "h8": {
+     "phi": 0.022593026282265782,
+     "se": 0.02235074710621742,
+     "single": 0.11462639272212982,
+     "piece": "r",
+     "disagree": false
+    },
+    "h1": {
+     "phi": 0.0,
+     "se": 0.0,
+     "fixed": true,
+     "single": 0.0,
+     "piece": "R",
+     "disagree": false
+    },
+    "e4": {
+     "phi": 0.0,
+     "se": 0.0,
+     "fixed": true,
+     "single": 0.0,
+     "piece": "n",
+     "disagree": false
+    },
+    "a8": {
+     "phi": 0.0,
+     "se": 0.0,
+     "fixed": true,
+     "single": 0.0,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.004734848484848485,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "a5",
+   "piece": "b",
+   "type": "B",
+   "colour": "black",
+   "v": 0.3395049571990967,
+   "gap": 0.0,
+   "ceiling": 0.2069578468799591,
+   "best": "a5",
+   "best moves": 0,
+   "reachable": 6,
+   "median square": "d8",
+   "v median": 0.13254711031913757,
+   "rank": 1,
+   "marginal": 0.42418710390726727,
+   "swap": -0.7884712815284729,
+   "squares": {
+    "a5": [
+     0,
+     0.3395
+    ],
+    "b4": [
+     1,
+     0.1787
+    ],
+    "b6": [
+     1,
+     0.1848
+    ],
+    "c7": [
+     1,
+     0.1346
+    ],
+    "d8": [
+     1,
+     0.1325
+    ],
+    "b8": [
+     2,
+     -0.2288
+    ],
+    "e7": [
+     2,
+     -0.9098
+    ]
+   },
+   "pct gap": 83.9,
+   "pct ceiling": 53.4,
+   "pct swap": 3.4,
+   "rank fraction": 0.0,
+   "general score": 75.0,
+   "fen": "r4rk1/pp3ppp/3p1q2/b1pP1b2/3p1P2/1P1B1Q2/PBPP2PP/4RRK1 w - - 6 15",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 84, note to Black's 13th move",
+   "quote": "In order to post this Bishop on [a5], an especially favourable position as White cannot screen his [d2 pawn] from its attack, because of the unfavourable position of his [d3 bishop].",
+   "claim": null,
+   "game": "Wolf \u2013 Alekhine, Carlsbad 1923",
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "pieces.bad_bishop",
+   "src": "E44",
+   "meaning": "placement",
+   "sign": 1,
+   "verdict": true,
+   "shapley": {
+    "e1": {
+     "phi": 0.23323998763225973,
+     "se": 0.03660984693771377,
+     "single": -0.00938486804564792,
+     "piece": "R",
+     "disagree": true
+    },
+    "f1": {
+     "phi": -0.1458914839895442,
+     "se": 0.035134421208102,
+     "single": -0.0696311667561531,
+     "piece": "R",
+     "disagree": false
+    },
+    "b2": {
+     "phi": 0.05195838469080627,
+     "se": 0.01179942740012412,
+     "single": 0.01846011479695636,
+     "piece": "B",
+     "disagree": false
+    },
+    "d3": {
+     "phi": 0.27803729253355414,
+     "se": 0.038911897942385136,
+     "single": 0.14466809162071775,
+     "piece": "B",
+     "disagree": true
+    },
+    "f3": {
+     "phi": 0.05928162077907473,
+     "se": 0.04212653791143332,
+     "single": -0.21921681463718415,
+     "piece": "Q",
+     "disagree": true
+    },
+    "a5": {
+     "phi": 0.2230002423748374,
+     "se": 0.027199520050123584,
+     "single": 0.42418710390726727,
+     "piece": "b",
+     "disagree": true
+    },
+    "f5": {
+     "phi": 0.16481124935671687,
+     "se": 0.04276273962678639,
+     "single": 0.41008182242512703,
+     "piece": "b",
+     "disagree": true
+    },
+    "f6": {
+     "phi": 0.39631896442733705,
+     "se": 0.051580802444498794,
+     "single": 0.8605269938707352,
+     "piece": "q",
+     "disagree": true
+    },
+    "a8": {
+     "phi": -0.046275905100628734,
+     "se": 0.023562334870323064,
+     "single": 0.1437906857047762,
+     "piece": "r",
+     "disagree": true
+    },
+    "f8": {
+     "phi": 0.202092902851291,
+     "se": 0.03536222938271004,
+     "single": 0.20479263152394975,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.001278409090909091,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "d3",
+   "piece": "B",
+   "type": "B",
+   "colour": "white",
+   "v": -0.3395049571990967,
+   "gap": -0.11122961342334747,
+   "ceiling": 0.20677168667316437,
+   "best": "e4",
+   "best moves": 1,
+   "reachable": 7,
+   "median square": "c4",
+   "v median": -0.4350470304489136,
+   "rank": 2,
+   "marginal": 0.14466809162071775,
+   "swap": -0.28296715021133423,
+   "squares": {
+    "d3": [
+     0,
+     -0.3395
+    ],
+    "e2": [
+     1,
+     -0.5133
+    ],
+    "c4": [
+     1,
+     -0.435
+    ],
+    "e4": [
+     1,
+     -0.2283
+    ],
+    "b5": [
+     1,
+     -0.411
+    ],
+    "d1": [
+     2,
+     -0.382
+    ],
+    "a4": [
+     2,
+     -0.5338
+    ],
+    "e8": [
+     2,
+     -0.8858
+    ]
+   },
+   "pct gap": 41.3,
+   "pct ceiling": 53.4,
+   "pct swap": 34.5,
+   "rank fraction": 0.14285714285714285,
+   "general score": 59.45,
+   "fen": "r4rk1/pp3ppp/3p1q2/b1pP1b2/3p1P2/1P1B1Q2/PBPP2PP/4RRK1 w - - 6 15",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 84, note to Black's 13th move",
+   "quote": "In order to post this Bishop on [a5], an especially favourable position as White cannot screen his [d2 pawn] from its attack, because of the unfavourable position of his [d3 bishop].",
+   "claim": null,
+   "game": "Wolf \u2013 Alekhine, Carlsbad 1923",
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "pieces.bad_bishop",
+   "src": "E44",
+   "meaning": "placement",
+   "sign": -1,
+   "verdict": false,
+   "shapley": {
+    "e1": {
+     "phi": 0.23323998763225973,
+     "se": 0.03660984693771377,
+     "single": -0.00938486804564792,
+     "piece": "R",
+     "disagree": true
+    },
+    "f1": {
+     "phi": -0.1458914839895442,
+     "se": 0.035134421208102,
+     "single": -0.0696311667561531,
+     "piece": "R",
+     "disagree": false
+    },
+    "b2": {
+     "phi": 0.05195838469080627,
+     "se": 0.01179942740012412,
+     "single": 0.01846011479695636,
+     "piece": "B",
+     "disagree": false
+    },
+    "d3": {
+     "phi": 0.27803729253355414,
+     "se": 0.038911897942385136,
+     "single": 0.14466809162071775,
+     "piece": "B",
+     "disagree": true
+    },
+    "f3": {
+     "phi": 0.05928162077907473,
+     "se": 0.04212653791143332,
+     "single": -0.21921681463718415,
+     "piece": "Q",
+     "disagree": true
+    },
+    "a5": {
+     "phi": 0.2230002423748374,
+     "se": 0.027199520050123584,
+     "single": 0.42418710390726727,
+     "piece": "b",
+     "disagree": true
+    },
+    "f5": {
+     "phi": 0.16481124935671687,
+     "se": 0.04276273962678639,
+     "single": 0.41008182242512703,
+     "piece": "b",
+     "disagree": true
+    },
+    "f6": {
+     "phi": 0.39631896442733705,
+     "se": 0.051580802444498794,
+     "single": 0.8605269938707352,
+     "piece": "q",
+     "disagree": true
+    },
+    "a8": {
+     "phi": -0.046275905100628734,
+     "se": 0.023562334870323064,
+     "single": 0.1437906857047762,
+     "piece": "r",
+     "disagree": true
+    },
+    "f8": {
+     "phi": 0.202092902851291,
+     "se": 0.03536222938271004,
+     "single": 0.20479263152394975,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.001278409090909091,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "g2",
+   "piece": "B",
+   "type": "B",
+   "colour": "white",
+   "v": 0.48130616545677185,
+   "gap": 0.0,
+   "ceiling": 0.2573583275079727,
+   "best": "g2",
+   "best moves": 0,
+   "reachable": 2,
+   "median square": "h1",
+   "v median": 0.22394783794879913,
+   "rank": 1,
+   "marginal": 0.18953702598810196,
+   "swap": -0.21921172738075256,
+   "squares": {
+    "g2": [
+     0,
+     0.4813
+    ],
+    "h1": [
+     1,
+     0.2239
+    ],
+    "f3": [
+     1,
+     0.3596
+    ]
+   },
+   "pct gap": 83.9,
+   "pct ceiling": 60.7,
+   "pct swap": 42.4,
+   "rank fraction": 0.0,
+   "general score": 59.14999999999999,
+   "fen": "1r3r2/p2bppbk/q1np2pp/1n1P4/4PPP1/4B2P/P2QN1B1/2RN1RK1 b - - 0 21",
+   "source": "Edward Lasker, Chess Strategy (1915), Game No. 30, note to White's 21st move",
+   "quote": "This shuts in the White [g2 bishop] altogether, and at the same time opens the diagonal of Black\u2019s [g7 bishop].",
+   "claim": null,
+   "game": "Tarrasch \u2013 Spielmann, Mannheim 1914",
+   "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt",
+   "topic": "pieces.bad_bishop",
+   "src": "E45",
+   "meaning": "general",
+   "sign": -1,
+   "verdict": false,
+   "shapley": {
+    "c1": {
+     "phi": 0.026152248261496425,
+     "se": 0.04004811045320639,
+     "single": 0.28600587546825407,
+     "piece": "R",
+     "disagree": true
+    },
+    "d1": {
+     "phi": 0.07762903370894492,
+     "se": 0.03903169926483511,
+     "single": 0.22800710661844775,
+     "piece": "N",
+     "disagree": true
+    },
+    "f1": {
+     "phi": 0.07534187659621239,
+     "se": 0.02652625470509529,
+     "single": -0.07653014361858368,
+     "piece": "R",
+     "disagree": true
+    },
+    "d2": {
+     "phi": 0.1610386713873595,
+     "se": 0.051983416704345836,
+     "single": 0.6890074353326451,
+     "piece": "Q",
+     "disagree": true
+    },
+    "e2": {
+     "phi": 0.14193356316536665,
+     "se": 0.03211117636638169,
+     "single": 0.33634414374828336,
+     "piece": "N",
+     "disagree": true
+    },
+    "g2": {
+     "phi": 0.1656394344754517,
+     "se": 0.018868972002128226,
+     "single": 0.18953702598810196,
+     "piece": "B",
+     "disagree": false
+    },
+    "e3": {
+     "phi": 0.28680033842101693,
+     "se": 0.051511502265801076,
+     "single": 0.6981429335745898,
+     "piece": "B",
+     "disagree": true
+    },
+    "b5": {
+     "phi": -0.1261619075667113,
+     "se": 0.04782718716241111,
+     "single": -0.6437270322016307,
+     "piece": "n",
+     "disagree": true
+    },
+    "a6": {
+     "phi": 0.0940590484533459,
+     "se": 0.052919191874048865,
+     "single": 0.0930891692638397,
+     "piece": "q",
+     "disagree": false
+    },
+    "c6": {
+     "phi": -0.15892138227354735,
+     "se": 0.05572969546443366,
+     "single": -0.5351274162530899,
+     "piece": "n",
+     "disagree": true
+    },
+    "d7": {
+     "phi": 0.14137669675983489,
+     "se": 0.018446716636954675,
+     "single": 0.2513851374387741,
+     "piece": "b",
+     "disagree": true
+    },
+    "g7": {
+     "phi": 0.1301784684183076,
+     "se": 0.04187856593645872,
+     "single": -0.27455049877365434,
+     "piece": "b",
+     "disagree": true
+    },
+    "b8": {
+     "phi": -0.004603132256306708,
+     "se": 0.024371811372130694,
+     "single": -0.045652794341246306,
+     "piece": "r",
+     "disagree": false
+    },
+    "f8": {
+     "phi": -0.039206945220939815,
+     "se": 0.015586562824772374,
+     "single": -0.046488866209983826,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.007068452380952381,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "e7",
+   "piece": "r",
+   "type": "R",
+   "colour": "black",
+   "v": -0.6196862459182739,
+   "gap": -0.7199691534042358,
+   "ceiling": 0.5211987197399139,
+   "best": "f6",
+   "best moves": 2,
+   "reachable": 20,
+   "median square": "e1",
+   "v median": -0.420915812253952,
+   "rank": 17,
+   "marginal": -0.2701308183372021,
+   "swap": null,
+   "squares": {
+    "e7": [
+     0,
+     -0.6197
+    ],
+    "d7": [
+     1,
+     -0.5806
+    ],
+    "f7": [
+     1,
+     -0.619
+    ],
+    "g7": [
+     1,
+     -0.4297
+    ],
+    "e8": [
+     1,
+     -0.6349
+    ],
+    "d8": [
+     2,
+     -0.6557
+    ],
+    "f6": [
+     2,
+     0.1003
+    ],
+    "f8": [
+     2,
+     -0.6551
+    ],
+    "g1": [
+     2,
+     -0.4677
+    ],
+    "g2": [
+     2,
+     -0.1231
+    ],
+    "g4": [
+     2,
+     -0.3773
+    ],
+    "g6": [
+     2,
+     0.0312
+    ],
+    "g8": [
+     2,
+     -0.6423
+    ],
+    "h8": [
+     2,
+     -0.1454
+    ],
+    "a1": [
+     3,
+     -0.1751
+    ],
+    "b1": [
+     3,
+     -0.112
+    ],
+    "c1": [
+     3,
+     -0.3967
+    ],
+    "e1": [
+     3,
+     -0.4209
+    ],
+    "f1": [
+     3,
+     -0.0817
+    ],
+    "h1": [
+     3,
+     -0.4623
+    ],
+    "h2": [
+     3,
+     -0.1431
+    ]
+   },
+   "pct gap": 10.0,
+   "pct ceiling": 84.4,
+   "pct swap": null,
+   "rank fraction": 0.8,
+   "general score": 84.4,
+   "fen": "2k5/p1p1r2p/2p1p3/2Pp1p1R/3P1P1P/3K4/PP3P2/8 b - - 2 36",
+   "source": "Capablanca, Chess Fundamentals (1921), ch. V, Example 57, note to 20.R-R5 (36.Rh5 in the game)",
+   "quote": "To prevent the Black Rook from controlling the open file",
+   "claim": null,
+   "game": "Capablanca \u2013 Kupchik, Havana 1913",
+   "url": "https://www.gutenberg.org/cache/epub/33870/pg33870.txt",
+   "topic": "pieces.rook_file",
+   "src": "E47",
+   "meaning": "ambiguous",
+   "sign": 1,
+   "verdict": null,
+   "shapley": {
+    "h5": {
+     "phi": 0.16110885882517323,
+     "se": 0.031763579636615434,
+     "single": 0.12306310762377348,
+     "piece": "R",
+     "disagree": false
+    },
+    "e7": {
+     "phi": -0.2684529958642088,
+     "se": 0.026038082821843705,
+     "single": -0.2701308183372021,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "f4",
+   "piece": "R",
+   "type": "R",
+   "colour": "white",
+   "v": -0.10252141952514648,
+   "gap": -0.8553508520126343,
+   "ceiling": 0.9958510249853134,
+   "best": "c3",
+   "best moves": 2,
+   "reachable": 29,
+   "median square": "b3",
+   "v median": -0.24302159249782562,
+   "rank": 9,
+   "marginal": 0.07011469556339855,
+   "swap": null,
+   "squares": {
+    "f4": [
+     0,
+     -0.1025
+    ],
+    "f1": [
+     1,
+     -0.1455
+    ],
+    "f2": [
+     1,
+     -0.1591
+    ],
+    "f3": [
+     1,
+     -0.1227
+    ],
+    "a4": [
+     1,
+     0.1332
+    ],
+    "b4": [
+     1,
+     -0.2583
+    ],
+    "c4": [
+     1,
+     0.7405
+    ],
+    "d4": [
+     1,
+     -0.2036
+    ],
+    "e4": [
+     1,
+     -0.1103
+    ],
+    "g4": [
+     1,
+     -0.2461
+    ],
+    "h4": [
+     1,
+     -0.0689
+    ],
+    "a1": [
+     2,
+     -0.5041
+    ],
+    "b1": [
+     2,
+     -0.4135
+    ],
+    "c1": [
+     2,
+     -0.4649
+    ],
+    "d1": [
+     2,
+     -0.3723
+    ],
+    "e1": [
+     2,
+     -0.272
+    ],
+    "g1": [
+     2,
+     -0.5418
+    ],
+    "h1": [
+     2,
+     -0.5288
+    ],
+    "e3": [
+     2,
+     -0.1654
+    ],
+    "g3": [
+     2,
+     -0.3114
+    ],
+    "h3": [
+     2,
+     -0.0389
+    ],
+    "a3": [
+     2,
+     0.1694
+    ],
+    "a6": [
+     2,
+     0.1605
+    ],
+    "b2": [
+     2,
+     -0.4754
+    ],
+    "b3": [
+     2,
+     -0.243
+    ],
+    "b5": [
+     2,
+     -0.3325
+    ],
+    "c3": [
+     2,
+     0.7528
+    ],
+    "g5": [
+     2,
+     -0.5139
+    ],
+    "h6": [
+     2,
+     -0.0318
+    ],
+    "d2": [
+     3,
+     -0.4387
+    ]
+   },
+   "pct gap": 8.5,
+   "pct ceiling": 93.1,
+   "pct swap": null,
+   "rank fraction": 0.27586206896551724,
+   "general score": 93.1,
+   "fen": "5r2/p1p2p1p/1p2k1p1/4P3/5R2/3P4/P1P1K1PP/8 w - - 4 4",
+   "source": "Edward Lasker, Chess Strategy (1915), end-game examples, Diagram 88, note to Black's 3rd move",
+   "quote": "Black naturally dare not allow the Rook to penetrate into the seventh.",
+   "claim": null,
+   "game": "Steiner \u2013 Forgacz, Szekesfehervar 1907",
+   "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt",
+   "topic": "pieces.rook_seventh",
+   "src": "E50",
+   "meaning": "ambiguous",
+   "sign": 1,
+   "verdict": null,
+   "shapley": {
+    "f4": {
+     "phi": 0.08716304792324081,
+     "se": 0.037691669609656774,
+     "single": 0.07011469556339855,
+     "piece": "R",
+     "disagree": false
+    },
+    "f8": {
+     "phi": -0.15799483918817714,
+     "se": 0.0399870152338061,
+     "single": -0.057938420772552485,
+     "piece": "r",
+     "disagree": true
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "e8",
+   "piece": "r",
+   "type": "R",
+   "colour": "black",
+   "v": 0.29218417406082153,
+   "gap": -0.09564825892448425,
+   "ceiling": 0.0962146520614624,
+   "best": "d7",
+   "best moves": 2,
+   "reachable": 6,
+   "median square": "c7",
+   "v median": 0.2916177809238434,
+   "rank": 4,
+   "marginal": -0.017198393742243467,
+   "swap": null,
+   "squares": {
+    "e8": [
+     0,
+     0.2922
+    ],
+    "e7": [
+     1,
+     0.3
+    ],
+    "f8": [
+     1,
+     0.2588
+    ],
+    "c7": [
+     2,
+     0.2916
+    ],
+    "d7": [
+     2,
+     0.3878
+    ],
+    "f7": [
+     2,
+     0.3523
+    ],
+    "c8": [
+     3,
+     0.2658
+    ]
+   },
+   "pct gap": 43.9,
+   "pct ceiling": 37.9,
+   "pct swap": null,
+   "rank fraction": 0.5,
+   "general score": 37.9,
+   "fen": "r2qr1k1/pp4pp/2nbbp2/2p1p3/4P3/2PPBN2/PP2Q1PP/R2N1RK1 w - - 1 15",
+   "source": "Nimzowitsch, My System (1930), Part II ch. 2, p. 178, and Illustrative Game 32",
+   "quote": "The 'mysterious' Rook move, which places a Rook in a closed file, which can only be opened by the enemy himself, and if he does not do so our Rook is standing there with 'nothing doing', such a move must never be made, except consciously and with the intention of sacrificing something of the Rook's effective strength.",
+   "claim": null,
+   "game": "Blackburne \u2013 Nimzowitsch, St Petersburg 1914",
+   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
+   "topic": "pieces.rook_blocked",
+   "src": "E56",
+   "meaning": "placement",
+   "sign": -1,
+   "verdict": false,
+   "shapley": {
+    "a1": {
+     "phi": 0.011501093744300306,
+     "se": 0.007372436764993601,
+     "single": 0.02187732607126236,
+     "piece": "R",
+     "disagree": false
+    },
+    "d1": {
+     "phi": 0.01963393692858517,
+     "se": 0.01732419719419683,
+     "single": 0.011152923107147217,
+     "piece": "N",
+     "disagree": false
+    },
+    "f1": {
+     "phi": 0.043923981371335685,
+     "se": 0.007274336536515509,
+     "single": 0.04228277504444122,
+     "piece": "R",
+     "disagree": false
+    },
+    "e2": {
+     "phi": 0.08445046399720013,
+     "se": 0.013468613009873526,
+     "single": 0.05895064026117325,
+     "piece": "Q",
+     "disagree": false
+    },
+    "e3": {
+     "phi": 0.11463146202731878,
+     "se": 0.014680419870127396,
+     "single": -0.002090747157732664,
+     "piece": "B",
+     "disagree": true
+    },
+    "f3": {
+     "phi": -0.03375992982182652,
+     "se": 0.0242343911559818,
+     "single": -0.0157384208657525,
+     "piece": "N",
+     "disagree": false
+    },
+    "c6": {
+     "phi": 0.049330000998452306,
+     "se": 0.014181413541131381,
+     "single": 0.12395098929603895,
+     "piece": "n",
+     "disagree": false
+    },
+    "d6": {
+     "phi": -0.02656364976428449,
+     "se": 0.026299532949846553,
+     "single": 0.22052238136529922,
+     "piece": "b",
+     "disagree": true
+    },
+    "e6": {
+     "phi": 0.11072374519426376,
+     "se": 0.016066734819859405,
+     "single": 0.08098561068375906,
+     "piece": "b",
+     "disagree": false
+    },
+    "a8": {
+     "phi": -0.08037382387556136,
+     "se": 0.01569654720840043,
+     "single": -0.05810638268788654,
+     "piece": "r",
+     "disagree": false
+    },
+    "d8": {
+     "phi": 0.04214271588716656,
+     "se": 0.012198411119004385,
+     "single": 0.03255258713449749,
+     "piece": "q",
+     "disagree": false
+    },
+    "e8": {
+     "phi": -0.015557380393147469,
+     "se": 0.012261575810276076,
+     "single": -0.017198393742243467,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "d1",
+   "piece": "R",
+   "type": "R",
+   "colour": "white",
+   "v": 0.330560564994812,
+   "gap": 0.0,
+   "ceiling": 0.7294089794158936,
+   "best": "d1",
+   "best moves": 0,
+   "reachable": 5,
+   "median square": "c1",
+   "v median": -0.39884841442108154,
+   "rank": 1,
+   "marginal": 0.6217691123485565,
+   "swap": null,
+   "squares": {
+    "d1": [
+     0,
+     0.3306
+    ],
+    "a1": [
+     1,
+     -0.57
+    ],
+    "b1": [
+     1,
+     -0.065
+    ],
+    "c1": [
+     1,
+     -0.3988
+    ],
+    "a2": [
+     2,
+     -0.4423
+    ],
+    "c2": [
+     2,
+     0.0201
+    ]
+   },
+   "pct gap": 88.0,
+   "pct ceiling": 88.3,
+   "pct swap": null,
+   "rank fraction": 0.0,
+   "general score": 88.3,
+   "fen": "2r1k2r/pp1b1pp1/1q2p3/n2pPn1p/3P4/P1N2N1P/1P1QBPP1/3RR1K1 b k - 4 18",
+   "source": "Nimzowitsch, My System (1930), Part II ch. 5 (Over-protection), \u00a71, note to White's 18th move",
+   "quote": "18. [Rfe1] ([d4] and to a certain degree [e5] are now systematically over-protected, and this strategy makes it possible later to be automatically, so to speak, master of the situation, whatever complications may arise)",
+   "claim": null,
+   "game": "Nimzowitsch \u2013 Spielmann, Stockholm 1920",
+   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
+   "topic": "pieces.rook_blocked",
+   "src": "E58",
+   "meaning": "ambiguous",
+   "sign": 1,
+   "verdict": null,
+   "shapley": {
+    "d1": {
+     "phi": 0.1661122776567936,
+     "se": 0.03874836596012736,
+     "single": 0.6217691123485565,
+     "piece": "R",
+     "disagree": true
+    },
+    "e1": {
+     "phi": 0.1753614911576733,
+     "se": 0.02110111898238377,
+     "single": 0.09893213212490082,
+     "piece": "R",
+     "disagree": false
+    },
+    "d2": {
+     "phi": 0.12660811690147966,
+     "se": 0.06013947287704976,
+     "single": 0.24641724675893784,
+     "piece": "Q",
+     "disagree": true
+    },
+    "e2": {
+     "phi": 0.02283020573668182,
+     "se": 0.04396616025726385,
+     "single": 0.1692181804350444,
+     "piece": "B",
+     "disagree": true
+    },
+    "c3": {
+     "phi": 0.19051201280672103,
+     "se": 0.03115187248995864,
+     "single": 0.38996289883341106,
+     "piece": "N",
+     "disagree": true
+    },
+    "f3": {
+     "phi": 0.1990797787439078,
+     "se": 0.02650608254178614,
+     "single": 0.15942816138267518,
+     "piece": "N",
+     "disagree": false
+    },
+    "a5": {
+     "phi": -0.08424361026845872,
+     "se": 0.04825634217483748,
+     "single": -0.09552063213454354,
+     "piece": "n",
+     "disagree": false
+    },
+    "f5": {
+     "phi": 0.2948722302680835,
+     "se": 0.02795997213936319,
+     "single": 0.33698324859142303,
+     "piece": "n",
+     "disagree": false
+    },
+    "b6": {
+     "phi": 0.2899019639007747,
+     "se": 0.0320761181056378,
+     "single": 0.26936638355255127,
+     "piece": "q",
+     "disagree": false
+    },
+    "d7": {
+     "phi": -0.21202587930019945,
+     "se": 0.03993337877074876,
+     "single": -0.18835671246051788,
+     "piece": "b",
+     "disagree": false
+    },
+    "c8": {
+     "phi": 0.14526790485251695,
+     "se": 0.02479841704322265,
+     "single": 0.16051402688026428,
+     "piece": "r",
+     "disagree": false
+    },
+    "h8": {
+     "phi": 0.15647016162984073,
+     "se": 0.016018502930370077,
+     "single": 0.1741627931594849,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.013922275641025642,
+    "illegal boards": 0.0006009615384615385,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "e1",
+   "piece": "R",
+   "type": "R",
+   "colour": "white",
+   "v": 0.330560564994812,
+   "gap": 0.0,
+   "ceiling": 0.09893213212490082,
+   "best": "e1",
+   "best moves": 0,
+   "reachable": 1,
+   "median square": "f1",
+   "v median": 0.2316284328699112,
+   "rank": 1,
+   "marginal": 0.09893213212490082,
+   "swap": null,
+   "squares": {
+    "e1": [
+     0,
+     0.3306
+    ],
+    "f1": [
+     1,
+     0.2316
+    ]
+   },
+   "pct gap": 88.0,
+   "pct ceiling": 39.3,
+   "pct swap": null,
+   "rank fraction": 0.0,
+   "general score": 39.3,
+   "fen": "2r1k2r/pp1b1pp1/1q2p3/n2pPn1p/3P4/P1N2N1P/1P1QBPP1/3RR1K1 b k - 4 18",
+   "source": "Nimzowitsch, My System (1930), Part II ch. 5 (Over-protection), \u00a71, note to White's 18th move",
+   "quote": "18. [Rfe1] ([d4] and to a certain degree [e5] are now systematically over-protected, and this strategy makes it possible later to be automatically, so to speak, master of the situation, whatever complications may arise)",
+   "claim": null,
+   "game": "Nimzowitsch \u2013 Spielmann, Stockholm 1920",
+   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
+   "topic": "pieces.rook_blocked",
+   "src": "E58",
+   "meaning": "ambiguous",
+   "sign": 1,
+   "verdict": null,
+   "shapley": {
+    "d1": {
+     "phi": 0.1661122776567936,
+     "se": 0.03874836596012736,
+     "single": 0.6217691123485565,
+     "piece": "R",
+     "disagree": true
+    },
+    "e1": {
+     "phi": 0.1753614911576733,
+     "se": 0.02110111898238377,
+     "single": 0.09893213212490082,
+     "piece": "R",
+     "disagree": false
+    },
+    "d2": {
+     "phi": 0.12660811690147966,
+     "se": 0.06013947287704976,
+     "single": 0.24641724675893784,
+     "piece": "Q",
+     "disagree": true
+    },
+    "e2": {
+     "phi": 0.02283020573668182,
+     "se": 0.04396616025726385,
+     "single": 0.1692181804350444,
+     "piece": "B",
+     "disagree": true
+    },
+    "c3": {
+     "phi": 0.19051201280672103,
+     "se": 0.03115187248995864,
+     "single": 0.38996289883341106,
+     "piece": "N",
+     "disagree": true
+    },
+    "f3": {
+     "phi": 0.1990797787439078,
+     "se": 0.02650608254178614,
+     "single": 0.15942816138267518,
+     "piece": "N",
+     "disagree": false
+    },
+    "a5": {
+     "phi": -0.08424361026845872,
+     "se": 0.04825634217483748,
+     "single": -0.09552063213454354,
+     "piece": "n",
+     "disagree": false
+    },
+    "f5": {
+     "phi": 0.2948722302680835,
+     "se": 0.02795997213936319,
+     "single": 0.33698324859142303,
+     "piece": "n",
+     "disagree": false
+    },
+    "b6": {
+     "phi": 0.2899019639007747,
+     "se": 0.0320761181056378,
+     "single": 0.26936638355255127,
+     "piece": "q",
+     "disagree": false
+    },
+    "d7": {
+     "phi": -0.21202587930019945,
+     "se": 0.03993337877074876,
+     "single": -0.18835671246051788,
+     "piece": "b",
+     "disagree": false
+    },
+    "c8": {
+     "phi": 0.14526790485251695,
+     "se": 0.02479841704322265,
+     "single": 0.16051402688026428,
+     "piece": "r",
+     "disagree": false
+    },
+    "h8": {
+     "phi": 0.15647016162984073,
+     "se": 0.016018502930370077,
+     "single": 0.1741627931594849,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.013922275641025642,
+    "illegal boards": 0.0006009615384615385,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "d4",
+   "piece": "Q",
+   "type": "Q",
+   "colour": "white",
+   "v": 0.2704944610595703,
+   "gap": -0.3907105326652527,
+   "ceiling": 0.40573155879974365,
+   "best": "b4",
+   "best moves": 1,
+   "reachable": 20,
+   "median square": "e2",
+   "v median": 0.25547343492507935,
+   "rank": 11,
+   "marginal": 0.028875353559851658,
+   "swap": null,
+   "squares": {
+    "d4": [
+     0,
+     0.2705
+    ],
+    "d2": [
+     1,
+     0.0014
+    ],
+    "c3": [
+     1,
+     0.3891
+    ],
+    "d3": [
+     1,
+     0.2468
+    ],
+    "e3": [
+     1,
+     -0.07
+    ],
+    "a4": [
+     1,
+     0.3012
+    ],
+    "b4": [
+     1,
+     0.6612
+    ],
+    "e4": [
+     1,
+     0.3938
+    ],
+    "h4": [
+     1,
+     -0.1537
+    ],
+    "c5": [
+     1,
+     0.5121
+    ],
+    "e5": [
+     1,
+     0.4897
+    ],
+    "c1": [
+     2,
+     -0.1034
+    ],
+    "e2": [
+     2,
+     0.2555
+    ],
+    "a5": [
+     2,
+     0.3949
+    ],
+    "g5": [
+     2,
+     0.3563
+    ],
+    "a3": [
+     2,
+     0.3264
+    ],
+    "f1": [
+     2,
+     0.1772
+    ],
+    "b5": [
+     2,
+     0.5191
+    ],
+    "h5": [
+     2,
+     -0.085
+    ],
+    "a1": [
+     3,
+     0.125
+    ],
+    "b1": [
+     3,
+     0.095
+    ]
+   },
+   "pct gap": 25.2,
+   "pct ceiling": 67.1,
+   "pct swap": null,
+   "rank fraction": 0.5,
+   "general score": 67.1,
+   "fen": "r4rk1/ppp1nppp/4b2q/8/3Q4/5NN1/PPP2PPP/3RR1K1 b - - 2 14",
+   "source": "Edward Lasker, Chess Strategy (1915), Game No. 10, note to White's 14th move",
+   "quote": "Now White is ahead with his development, having both Rooks in play and his Queen better placed. Nor can the latter be attacked by [...Rd8], as White would simply play [Qxd8].",
+   "claim": null,
+   "game": "Teichmann \u2013 Amateurs (consultation), Glasgow 1902",
+   "url": "https://www.gutenberg.org/cache/epub/5614/pg5614.txt",
+   "topic": "pieces.queen",
+   "src": "E59",
+   "meaning": "placement",
+   "sign": 1,
+   "verdict": false,
+   "shapley": {
+    "d1": {
+     "phi": 0.03433551953639835,
+     "se": 0.03279925859592593,
+     "single": 0.1796953481222902,
+     "piece": "R",
+     "disagree": true
+    },
+    "e1": {
+     "phi": 0.18496142543153837,
+     "se": 0.042310325244598455,
+     "single": 0.23974386933777067,
+     "piece": "R",
+     "disagree": false
+    },
+    "f3": {
+     "phi": 0.1735772813553922,
+     "se": 0.033284445079520275,
+     "single": 0.10649197122880391,
+     "piece": "N",
+     "disagree": false
+    },
+    "g3": {
+     "phi": 0.06954954494722188,
+     "se": 0.040309216538193963,
+     "single": 0.10837193933271227,
+     "piece": "N",
+     "disagree": false
+    },
+    "d4": {
+     "phi": -0.13556927314493805,
+     "se": 0.044141781026396265,
+     "single": 0.028875353559851658,
+     "piece": "Q",
+     "disagree": true
+    },
+    "e6": {
+     "phi": 0.008943486667703837,
+     "se": 0.041016509446621864,
+     "single": 0.04935185797512531,
+     "piece": "b",
+     "disagree": false
+    },
+    "h6": {
+     "phi": -0.17680883937282488,
+     "se": 0.03966577597383053,
+     "single": -0.0729768673578898,
+     "piece": "q",
+     "disagree": true
+    },
+    "e7": {
+     "phi": 0.01429004460806027,
+     "se": 0.04722142138558667,
+     "single": -0.1458131663856052,
+     "piece": "n",
+     "disagree": true
+    },
+    "a8": {
+     "phi": -0.20055640180362388,
+     "se": 0.04071968775622781,
+     "single": -0.4648939942320188,
+     "piece": "r",
+     "disagree": true
+    },
+    "f8": {
+     "phi": -0.10989027644973248,
+     "se": 0.04922211622870996,
+     "single": -0.3569299193720023,
+     "piece": "r",
+     "disagree": true
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.002840909090909091,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "a2",
+   "piece": "q",
+   "type": "Q",
+   "colour": "black",
+   "v": 0.0936066210269928,
+   "gap": -0.30675873160362244,
+   "ceiling": 0.20098651945590973,
+   "best": "b4",
+   "best moves": 2,
+   "reachable": 12,
+   "median square": "e7",
+   "v median": 0.1993788331747055,
+   "rank": 10,
+   "marginal": -0.03690510367353758,
+   "swap": null,
+   "squares": {
+    "a2": [
+     0,
+     0.0936
+    ],
+    "a1": [
+     1,
+     0.1614
+    ],
+    "b1": [
+     1,
+     -0.0587
+    ],
+    "a4": [
+     1,
+     -0.6897
+    ],
+    "a5": [
+     1,
+     0.1651
+    ],
+    "a6": [
+     1,
+     -0.0043
+    ],
+    "b4": [
+     2,
+     0.4004
+    ],
+    "c7": [
+     2,
+     0.355
+    ],
+    "b7": [
+     2,
+     0.2339
+    ],
+    "c8": [
+     2,
+     0.2113
+    ],
+    "e7": [
+     3,
+     0.1994
+    ],
+    "f8": [
+     3,
+     0.357
+    ],
+    "b8": [
+     3,
+     0.2354
+    ]
+   },
+   "pct gap": 30.3,
+   "pct ceiling": 43.9,
+   "pct swap": null,
+   "rank fraction": 0.75,
+   "general score": 43.9,
+   "fen": "r3r1k1/p4ppp/2p5/1p2n3/2n2NP1/5P2/qPP1R2P/2BR1QK1 w - - 0 23",
+   "source": "Alekhine, My Best Games of Chess 1908\u20131923 (1927), Game 6, note to Black's 21st move",
+   "quote": "Against that, however, the Black Queen, after capturing the [a2 pawn], will momentarily be out of play, which will give White the necessary time to inaugurate a counter-attack.",
+   "claim": null,
+   "game": "Alapin \u2013 Alekhine, Carlsbad 1911",
+   "url": "https://archive.org/download/mybestgamesofche0000alex_f6z2/mybestgamesofche0000alex_f6z2_djvu.txt",
+   "topic": "pieces.queen",
+   "src": "E61",
+   "meaning": "placement",
+   "sign": -1,
+   "verdict": false,
+   "shapley": {
+    "c1": {
+     "phi": -0.023822093615308404,
+     "se": 0.03865947062524408,
+     "single": 0.07497801010807356,
+     "piece": "B",
+     "disagree": false
+    },
+    "d1": {
+     "phi": -0.17274337424896657,
+     "se": 0.03488379503353517,
+     "single": -0.29424167672793067,
+     "piece": "R",
+     "disagree": true
+    },
+    "f1": {
+     "phi": -0.03951233543921262,
+     "se": 0.03681551388464859,
+     "single": -0.0443037785589695,
+     "piece": "Q",
+     "disagree": false
+    },
+    "a2": {
+     "phi": -0.18978882825467736,
+     "se": 0.036559101194002325,
+     "single": -0.03690510367353758,
+     "piece": "q",
+     "disagree": true
+    },
+    "e2": {
+     "phi": 0.330000136164017,
+     "se": 0.050710014066370476,
+     "single": 0.42697656340897083,
+     "piece": "R",
+     "disagree": false
+    },
+    "c4": {
+     "phi": 0.10990509600378573,
+     "se": 0.03689687078877278,
+     "single": 0.10510556995868683,
+     "piece": "n",
+     "disagree": false
+    },
+    "f4": {
+     "phi": -0.0760814311215654,
+     "se": 0.039785122812701114,
+     "single": -0.1329798342453109,
+     "piece": "N",
+     "disagree": false
+    },
+    "e5": {
+     "phi": -0.0644787655910477,
+     "se": 0.051369835938843374,
+     "single": 0.16610251553356647,
+     "piece": "n",
+     "disagree": true
+    },
+    "a8": {
+     "phi": 0.16374387231189758,
+     "se": 0.037389980388427384,
+     "single": 0.33249513556559884,
+     "piece": "r",
+     "disagree": true
+    },
+    "e8": {
+     "phi": 0.3291348011698574,
+     "se": 0.053536591038187344,
+     "single": 0.5503409940462847,
+     "piece": "r",
+     "disagree": true
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0008522727272727272,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "h7",
+   "piece": "q",
+   "type": "Q",
+   "colour": "black",
+   "v": 0.5330073833465576,
+   "gap": -0.025687813758850098,
+   "ceiling": 0.1859636902809143,
+   "best": "h8",
+   "best moves": 1,
+   "reachable": 12,
+   "median square": "f5",
+   "v median": 0.3727315068244934,
+   "rank": 3,
+   "marginal": 0.11884995301564533,
+   "swap": null,
+   "squares": {
+    "h7": [
+     0,
+     0.533
+    ],
+    "f5": [
+     1,
+     0.3727
+    ],
+    "g6": [
+     1,
+     0.4491
+    ],
+    "h6": [
+     1,
+     0.5585
+    ],
+    "h8": [
+     1,
+     0.5587
+    ],
+    "e6": [
+     2,
+     0.3699
+    ],
+    "d7": [
+     2,
+     0.4028
+    ],
+    "a4": [
+     3,
+     0.4725
+    ],
+    "c6": [
+     3,
+     0.364
+    ],
+    "b7": [
+     3,
+     0.3208
+    ],
+    "c7": [
+     3,
+     0.3983
+    ],
+    "d8": [
+     3,
+     0.3551
+    ],
+    "e8": [
+     3,
+     0.3476
+    ]
+   },
+   "pct gap": 75.3,
+   "pct ceiling": 39.9,
+   "pct swap": null,
+   "rank fraction": 0.16666666666666666,
+   "general score": 39.9,
+   "fen": "r1b2rk1/p3nppq/1p1p1n2/2p4p/2PPpP2/1NP1P2P/P2BB1PK/R3QR2 w - - 4 17",
+   "source": "Nimzowitsch, My System (1930), Game 35, note to Black's 15th move",
+   "quote": "The [queen] is bound for\u2014[h7]! Where she will be excellently placed, for then the crippling of White\u2019s K side by [...h4] will at once be threatened.",
+   "claim": null,
+   "game": "Johner \u2013 Nimzowitsch, Dresden 1926",
+   "url": "https://archive.org/download/mysystemchesstre0000aron/mysystemchesstre0000aron_djvu.txt",
+   "topic": "pieces.queen",
+   "src": "E62",
+   "meaning": "placement",
+   "sign": 1,
+   "verdict": true,
+   "shapley": {
+    "a1": {
+     "phi": 0.019160776399075985,
+     "se": 0.01988933072448193,
+     "single": 0.026863408088684038,
+     "piece": "R",
+     "disagree": false
+    },
+    "e1": {
+     "phi": 0.014555398374795914,
+     "se": 0.019524467876121523,
+     "single": -0.009634593358406662,
+     "piece": "Q",
+     "disagree": false
+    },
+    "f1": {
+     "phi": 0.010153323994018137,
+     "se": 0.006025203022992767,
+     "single": -0.004374980926513672,
+     "piece": "R",
+     "disagree": false
+    },
+    "d2": {
+     "phi": 0.17658578464761376,
+     "se": 0.023613217790304723,
+     "single": 0.09252965450286865,
+     "piece": "B",
+     "disagree": false
+    },
+    "e2": {
+     "phi": 0.037685518618673086,
+     "se": 0.01183253842988874,
+     "single": 0.01549452543258667,
+     "piece": "B",
+     "disagree": false
+    },
+    "b3": {
+     "phi": 0.3258732060203329,
+     "se": 0.03281505705962971,
+     "single": 0.06245046854019165,
+     "piece": "N",
+     "disagree": true
+    },
+    "f6": {
+     "phi": 0.29823472921270877,
+     "se": 0.02660709413195134,
+     "single": 0.28349480458668297,
+     "piece": "n",
+     "disagree": false
+    },
+    "e7": {
+     "phi": 0.19503620150499046,
+     "se": 0.024872349471360525,
+     "single": 0.35548633957902587,
+     "piece": "n",
+     "disagree": true
+    },
+    "h7": {
+     "phi": 0.1534741809591651,
+     "se": 0.02586764163661002,
+     "single": 0.11884995301564533,
+     "piece": "q",
+     "disagree": false
+    },
+    "a8": {
+     "phi": -0.021202039439231157,
+     "se": 0.01017239405252822,
+     "single": -0.02280096709728241,
+     "piece": "r",
+     "disagree": false
+    },
+    "c8": {
+     "phi": 0.03700672695413232,
+     "se": 0.019203814512106215,
+     "single": 0.030735787418153526,
+     "piece": "b",
+     "disagree": false
+    },
+    "f8": {
+     "phi": 0.03645047580357641,
+     "se": 0.01705706289940573,
+     "single": 0.00587154626846309,
+     "piece": "r",
+     "disagree": false
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.029847756410256412,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "a1",
+   "piece": "R",
+   "type": "R",
+   "colour": "white",
+   "v": -0.366460919380188,
+   "gap": 0.0,
+   "ceiling": 0.04300534725189209,
+   "best": "a1",
+   "best moves": 0,
+   "reachable": 1,
+   "median square": "b1",
+   "v median": -0.4094662666320801,
+   "rank": 1,
+   "marginal": 0.04300534725189209,
+   "swap": null,
+   "squares": {
+    "a1": [
+     0,
+     -0.3665
+    ],
+    "b1": [
+     1,
+     -0.4095
+    ]
+   },
+   "pct gap": 88.0,
+   "pct ceiling": 16.4,
+   "pct swap": null,
+   "rank fraction": 0.0,
+   "general score": 16.4,
+   "fen": "r4rk1/1bq1bppp/p3pn2/1p6/4P3/1NNR4/PP2QPPP/R1B3K1 w - - 1 16",
+   "source": "Znosko-Borovsky, The Middle Game in Chess (1922), ch. on construction and execution of the plan, Diagram XLVI (game 2 of the 1921 world-championship match)",
+   "quote": "Meanwhile, White has one Rook blocked by the Bishop and the other, though occupying an open file, is quite unnaturally placed on the third rank.",
+   "claim": null,
+   "game": "Em. Lasker \u2013 Capablanca, Havana 1921",
+   "url": "https://archive.org/download/middlegameinches00znos/middlegameinches00znos_djvu.txt",
+   "topic": "pieces.coordination",
+   "src": "E68",
+   "meaning": "placement",
+   "sign": -1,
+   "verdict": false,
+   "shapley": {
+    "a1": {
+     "phi": -0.008405736996792257,
+     "se": 0.013476446353007465,
+     "single": 0.04300534725189209,
+     "piece": "R",
+     "disagree": false
+    },
+    "c1": {
+     "phi": -0.393236426403746,
+     "se": 0.04803514261980201,
+     "single": -0.5088154971599579,
+     "piece": "B",
+     "disagree": true
+    },
+    "e2": {
+     "phi": 0.07708288042340428,
+     "se": 0.028510062166124287,
+     "single": -0.005135155149868564,
+     "piece": "Q",
+     "disagree": false
+    },
+    "b3": {
+     "phi": 0.10490601108176634,
+     "se": 0.035140351933608795,
+     "single": 0.19083355118831002,
+     "piece": "N",
+     "disagree": false
+    },
+    "c3": {
+     "phi": 0.0626198761165142,
+     "se": 0.027142563117528606,
+     "single": 0.09530978401501972,
+     "piece": "N",
+     "disagree": false
+    },
+    "d3": {
+     "phi": 0.07560038357041776,
+     "se": 0.040623934609725416,
+     "single": -0.01340558322576374,
+     "piece": "R",
+     "disagree": false
+    },
+    "f6": {
+     "phi": -0.02446614479413256,
+     "se": 0.041663884899570534,
+     "single": -0.010626893490552902,
+     "piece": "n",
+     "disagree": false
+    },
+    "b7": {
+     "phi": 0.1626242648344487,
+     "se": 0.02644710098094071,
+     "single": 0.24305150285363197,
+     "piece": "b",
+     "disagree": false
+    },
+    "c7": {
+     "phi": 0.015325131709687412,
+     "se": 0.04226137095255988,
+     "single": 0.30099198909906244,
+     "piece": "q",
+     "disagree": true
+    },
+    "e7": {
+     "phi": 0.17356688238214701,
+     "se": 0.047431276851095605,
+     "single": 0.2030671848492189,
+     "piece": "b",
+     "disagree": false
+    },
+    "a8": {
+     "phi": -0.03831589128822088,
+     "se": 0.022003609805794876,
+     "single": 0.042310698164833904,
+     "piece": "r",
+     "disagree": false
+    },
+    "f8": {
+     "phi": -0.13581981614697725,
+     "se": 0.03364910838472476,
+     "single": -0.013316350057721138,
+     "piece": "r",
+     "disagree": true
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  },
+  {
+   "square": "d3",
+   "piece": "R",
+   "type": "R",
+   "colour": "white",
+   "v": -0.366460919380188,
+   "gap": -0.7141745388507843,
+   "ceiling": 0.7631453573703766,
+   "best": "c2",
+   "best moves": 2,
+   "reachable": 13,
+   "median square": "f3",
+   "v median": -0.4154317378997803,
+   "rank": 7,
+   "marginal": -0.01340558322576374,
+   "swap": null,
+   "squares": {
+    "d3": [
+     0,
+     -0.3665
+    ],
+    "d1": [
+     1,
+     -0.2504
+    ],
+    "d2": [
+     1,
+     -0.4499
+    ],
+    "e3": [
+     1,
+     -0.5418
+    ],
+    "f3": [
+     1,
+     -0.4154
+    ],
+    "g3": [
+     1,
+     -0.1233
+    ],
+    "h3": [
+     1,
+     -0.3481
+    ],
+    "d4": [
+     1,
+     -0.2582
+    ],
+    "e1": [
+     2,
+     -0.2957
+    ],
+    "f1": [
+     2,
+     -0.4441
+    ],
+    "c2": [
+     2,
+     0.3477
+    ],
+    "f4": [
+     2,
+     -0.7372
+    ],
+    "g5": [
+     2,
+     -0.6077
+    ],
+    "h4": [
+     2,
+     -0.4656
+    ]
+   },
+   "pct gap": 10.2,
+   "pct ceiling": 89.0,
+   "pct swap": null,
+   "rank fraction": 0.46153846153846156,
+   "general score": 89.0,
+   "fen": "r4rk1/1bq1bppp/p3pn2/1p6/4P3/1NNR4/PP2QPPP/R1B3K1 w - - 1 16",
+   "source": "Znosko-Borovsky, The Middle Game in Chess (1922), ch. on construction and execution of the plan, Diagram XLVI (game 2 of the 1921 world-championship match)",
+   "quote": "Meanwhile, White has one Rook blocked by the Bishop and the other, though occupying an open file, is quite unnaturally placed on the third rank.",
+   "claim": null,
+   "game": "Em. Lasker \u2013 Capablanca, Havana 1921",
+   "url": "https://archive.org/download/middlegameinches00znos/middlegameinches00znos_djvu.txt",
+   "topic": "pieces.coordination",
+   "src": "E68",
+   "meaning": "placement",
+   "sign": -1,
+   "verdict": false,
+   "shapley": {
+    "a1": {
+     "phi": -0.008405736996792257,
+     "se": 0.013476446353007465,
+     "single": 0.04300534725189209,
+     "piece": "R",
+     "disagree": false
+    },
+    "c1": {
+     "phi": -0.393236426403746,
+     "se": 0.04803514261980201,
+     "single": -0.5088154971599579,
+     "piece": "B",
+     "disagree": true
+    },
+    "e2": {
+     "phi": 0.07708288042340428,
+     "se": 0.028510062166124287,
+     "single": -0.005135155149868564,
+     "piece": "Q",
+     "disagree": false
+    },
+    "b3": {
+     "phi": 0.10490601108176634,
+     "se": 0.035140351933608795,
+     "single": 0.19083355118831002,
+     "piece": "N",
+     "disagree": false
+    },
+    "c3": {
+     "phi": 0.0626198761165142,
+     "se": 0.027142563117528606,
+     "single": 0.09530978401501972,
+     "piece": "N",
+     "disagree": false
+    },
+    "d3": {
+     "phi": 0.07560038357041776,
+     "se": 0.040623934609725416,
+     "single": -0.01340558322576374,
+     "piece": "R",
+     "disagree": false
+    },
+    "f6": {
+     "phi": -0.02446614479413256,
+     "se": 0.041663884899570534,
+     "single": -0.010626893490552902,
+     "piece": "n",
+     "disagree": false
+    },
+    "b7": {
+     "phi": 0.1626242648344487,
+     "se": 0.02644710098094071,
+     "single": 0.24305150285363197,
+     "piece": "b",
+     "disagree": false
+    },
+    "c7": {
+     "phi": 0.015325131709687412,
+     "se": 0.04226137095255988,
+     "single": 0.30099198909906244,
+     "piece": "q",
+     "disagree": true
+    },
+    "e7": {
+     "phi": 0.17356688238214701,
+     "se": 0.047431276851095605,
+     "single": 0.2030671848492189,
+     "piece": "b",
+     "disagree": false
+    },
+    "a8": {
+     "phi": -0.03831589128822088,
+     "se": 0.022003609805794876,
+     "single": 0.042310698164833904,
+     "piece": "r",
+     "disagree": false
+    },
+    "f8": {
+     "phi": -0.13581981614697725,
+     "se": 0.03364910838472476,
+     "single": -0.013316350057721138,
+     "piece": "r",
+     "disagree": true
+    }
+   },
+   "shapley fallback": {
+    "unsafe draws": 0.0,
+    "illegal boards": 0.0,
+    "efficiency residual": 0.0,
+    "unreliable": false
+   }
+  }
+ ]
+}
