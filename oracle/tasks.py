@@ -6,6 +6,8 @@ score(row, text, engine=None) -> metrics; best's cp loss off the top 5 and every
 
   best         best move (SAN)                   exact, top5, cp loss (Stockfish depth 18 MultiPV 5 labels)
   pv           first 6 plies of the top line     accurate prefix: plies until one is illegal or loses > 50 cp
+  multipv      top 3 lines of 6 plies + evals     each stated eval vs Stockfish depth 12 at the end of the line as
+                                                 written (needs an engine): pawn MAE, bin right
   control      squares piece x controls          set F1; direct attacks plus batteries (features/src/geo.rs)
   attacks      enemy pieces piece x attacks      set F1 on squares (+ piece kinds); no x-rays; king included;
                                                  half the pieces asked about attack something
@@ -19,9 +21,12 @@ give away capture and check.
 """
 import re
 import chess, chess.engine
+import qa
 
-TASKS = ["best", "pv", "control", "attacks", "phase", "move_facts", "move_attacks", "move_board"]
+TASKS = ["best", "pv", "control", "attacks", "phase", "move_facts", "move_attacks", "move_board", "multipv"]
+SF_TASKS = ("best", "pv", "multipv")    # need sf.jsonl labels
 PV_LEN = 6
+MPV_N = 3
 PV_TOL = 50          # cp a pv move may lose against the best move and still count
 PV_DEPTH = 12        # depth of the per-ply check at score time
 MATE = 10000
@@ -37,6 +42,8 @@ QUESTIONS = {
            ("How should play continue?", "AB")],
     "control": [("Which squares does {piece} control?", "AB"), ("What does {piece} control?", "AB")],
     "attacks": [("Which pieces does {piece} attack?", "ABC"), ("What is {piece} attacking?", "ABC")],
+    "multipv": [("What are the three best lines and their evaluations?", "A"),
+                ("Give the top three lines with evaluations.", "A")],
     "phase": [("What stage of the game is this?", "AB"), ("Is this the opening, middlegame or endgame?", "AB")],
     "move_facts": [("What happens after {move}?", "A"), ("What does {move} do?", "A")],
     "move_attacks": [("What changes in the attacks after {move}?", "A"),
@@ -259,15 +266,26 @@ def _san_line(b, ucis, numbered):
     return " ".join(out)
 
 
+def fmt_eval(c):
+    """cp from the side to move -> '+0.45', or '#3' / '#-3' for mates."""
+    if abs(c) >= MATE - 1000:
+        return f"#{MATE - c}" if c > 0 else f"#-{MATE + c}"
+    return f"{c / 100:+.2f}"
+
+
 def sample(task, rng, fen, sf=None):
     b = chess.Board(fen)
     q = int(rng.integers(len(QUESTIONS[task])))
     qt, fmts = QUESTIONS[task][q]
     fmt = fmts[int(rng.integers(len(fmts)))]
     row = dict(task=task, q=q, fmt=fmt, fen=fen)
-    if task in ("best", "pv"):
+    if task in SF_TASKS:
         if not sf:
             return None
+        if task == "multipv":
+            ls = sf[:MPV_N]
+            ans = "; ".join(f"{_san_line(b, l['pv'][:PV_LEN], False)} ({fmt_eval(cp(l))})" for l in ls)
+            return dict(row, question=qt, target=[cp(l) for l in ls], answer=ans)
         if task == "best":
             san = b.san(chess.Move.from_uci(sf[0]["uci"]))
             ans = san if fmt == "A" else f"The best move is {san}."
@@ -317,6 +335,21 @@ def sample(task, rng, fen, sf=None):
 
 # ---- parse ----
 _SQ = re.compile(r"[a-h][1-8]")
+_MPV = re.compile(r"(.*?)\s*\(([+-]\d+\.\d+|#-?\d+)\)")
+
+
+def _line(b, t):
+    """SAN line -> uci list; an illegal move ends it as None."""
+    b, out = b.copy(stack=False), []
+    for tok in t.split():
+        if re.fullmatch(r"\d+\.(\.\.)?", tok):
+            continue
+        try:
+            mv = b.parse_san(tok)
+        except ValueError:
+            out.append(None); break
+        out.append(mv.uci()); b.push(mv)
+    return out
 
 
 def parse(row, text):
@@ -327,15 +360,16 @@ def parse(row, text):
             m = re.fullmatch(r"(?:The best move is )?(\S+?)\.?", t)
             return b.parse_san(m[1]).uci() if m else None
         if task == "pv":
+            return _line(b, t)                          # illegal: the line ends there, unscored past it
+        if task == "multipv":
             out = []
-            for tok in t.split():
-                if re.fullmatch(r"\d+\.(\.\.)?", tok):
-                    continue
-                try:
-                    mv = b.parse_san(tok)
-                except ValueError:
-                    out.append(None); break             # illegal: the line ends here, unscored past this
-                out.append(mv.uci()); b.push(mv)
+            for x in t.split(";"):
+                m = _MPV.fullmatch(x.strip())
+                if not m:
+                    return None
+                e = m[2]
+                c = (MATE - int(e[1:]) if not e.startswith("#-") else -MATE + int(e[2:])) if e[0] == "#" else round(float(e) * 100)
+                out.append([_line(b, m[1]), c])
             return out
         if task == "phase":
             m = re.fullmatch(r"(?:This is the )?(opening|middlegame|endgame)\.?", t, re.I)
@@ -404,6 +438,20 @@ def move_loss(engine, b, m, depth=PV_DEPTH):
     return min(1000, max(0, best - got))
 
 
+def line_eval(engine, b, ucis):
+    """cp at the end of the legal prefix of ucis, from b's side to move, Stockfish at PV_DEPTH."""
+    root, b = b.turn, b.copy(stack=False)
+    for u in ucis:
+        if u is None:
+            break
+        b.push(chess.Move.from_uci(u))
+    if b.is_checkmate():
+        return -MATE if b.turn == root else MATE
+    if b.is_game_over():
+        return 0
+    return _cp(engine.analyse(b, chess.engine.Limit(depth=PV_DEPTH))["score"].pov(root))
+
+
 def score(row, text, engine=None):
     p = parse(row, text)
     task, tg = row["task"], row["target"]
@@ -430,6 +478,18 @@ def score(row, text, engine=None):
             full = len(tg) if len(tg) < PV_LEN else PV_LEN                 # a shorter label line ends in mate
             out.update(acc_len=n, full=n >= full)
         out.update(prefix=next((k for k, (x, y) in enumerate(zip(p, tg)) if x != y), min(len(p), len(tg))))
+    elif task == "multipv":
+        out["lines"] = min(len(p), MPV_N) / MPV_N
+        if engine is not None:
+            b, err, ok = chess.Board(row["fen"]), [], []
+            for ucis, c in p[:MPV_N]:
+                if not ucis or ucis[0] is None:
+                    continue                            # no legal first move: no line to evaluate
+                pw = lambda x: max(-qa.PAWN_CLIP, min(qa.PAWN_CLIP, x / 100))
+                t = pw(line_eval(engine, b, ucis))
+                err.append(abs(pw(c) - t)); ok.append(qa.bin_of(pw(c)) == qa.bin_of(t))
+            if err:
+                out.update(pawn_mae=sum(err) / len(err), bin=sum(ok) / len(ok))
     elif task == "phase":
         out["exact"] = p == tg
     elif task == "control":

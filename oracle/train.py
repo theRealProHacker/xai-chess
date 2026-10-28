@@ -74,6 +74,7 @@ ap.add_argument("--test-n", type=int, default=1000, help="test rows scored once 
 ap.add_argument("--log-every", type=int, default=50)
 ap.add_argument("--seed", type=int, default=0)
 ap.add_argument("--tasks", nargs="+", help="tasks.py tasks or eval: train on the last, replay the earlier ones")
+ap.add_argument("--sf", default=str(ROOT / "vendor/stockfish/stockfish-ubuntu-x86-64-avx2"), help="Stockfish for multipv scoring")
 ap.add_argument("--replay", type=float, default=0.2, help="--tasks: share of samples from the earlier tasks")
 ap.add_argument("--sched", choices=["onecycle", "cosine"], default="onecycle",
                 help="onecycle: 5%% warmup, cosine anneal, cycled momentum; cosine: cosine decay to 0")
@@ -91,22 +92,31 @@ wdl, black, split, fens = D["wdl"], D["black"], D["split"], D["fens"]
 for d in a.data[1:]:                                                                   # same positions, split and labels
     E = np.load(Path(d) / "labels.npz")
     assert (E["fens"] == fens).all() and (E["split"] == split).all() and np.allclose(E["wdl"], wdl), f"{d} differs from {a.data[0]}"
-raws = [torch.from_numpy(np.load(Path(d) / "acts.npy").astype(np.float32)) for d in a.data]  # each (N, 64, 256)
+raws = [np.load(Path(d) / "acts.npy", mmap_mode="r") for d in a.data]                 # each (N, 64, 256) float16, on disk
 tr = np.flatnonzero(split == 0)
 if a.train_n: tr = tr[:a.train_n]
 
 
+def norm_stats(x, rows, chunk=1024):
+    """Per-channel mean and (unbiased) std over x[rows], read in chunks: no full float copy in RAM."""
+    s = q = 0; n = 0
+    for k in range(0, len(rows), chunk):
+        c = torch.from_numpy(np.asarray(x[rows[k:k + chunk]], dtype=np.float64)).flatten(0, 1)
+        s, q, n = s + c.sum(0), q + c.pow(2).sum(0), n + len(c)
+    m = s / n
+    return m.float(), ((q - n * m ** 2) / (n - 1)).sqrt().float()
+
+
 def set_norm(mu_, sd_):
-    """mu/sd: one (256,) pair, or (n_layers, 256) stacked; sets the normalised acts per layer."""
-    global mu, sd, acts
+    """mu/sd: one (256,) pair, or (n_layers, 256) stacked; soft() normalises each layer's rows with them."""
+    global mu, sd, norms
     mu, sd = mu_, sd_
-    ms = [mu_] if mu_.dim() == 1 else list(mu_); ss = [sd_] if sd_.dim() == 1 else list(sd_)
-    acts = [(r - m) / s for r, m, s in zip(raws, ms, ss)]
+    norms = list(zip([mu_] if mu_.dim() == 1 else list(mu_), [sd_] if sd_.dim() == 1 else list(sd_)))
 
 
-acts = raws
+norms = [(torch.zeros(256), torch.ones(256))] * len(raws)
 if len(tr):
-    ms = [r[tr].mean((0, 1)) for r in raws]; ss = [r[tr].std((0, 1)) + 1e-6 for r in raws]   # per channel, train only
+    st = [norm_stats(r, tr) for r in raws]; ms = [m for m, _ in st]; ss = [s + 1e-6 for _, s in st]  # per channel, train only
     set_norm(ms[0], ss[0]) if len(raws) == 1 else set_norm(torch.stack(ms), torch.stack(ss))
 val = [json.loads(l) for l in open(Path(a.data[0]) / "val.jsonl")][:a.eval_n]
 test = [json.loads(l) for l in open(Path(a.data[0]) / "test.jsonl")][:a.test_n] if a.test_n else []
@@ -117,7 +127,11 @@ if a.tasks:
     if (Path(a.data[0]) / "sf.jsonl").exists():
         for l in open(Path(a.data[0]) / "sf.jsonl"):
             if l.endswith("\n"): r = json.loads(l); sf[r["i"]] = r["lines"]
-    POOL = {t: tr[[int(i) in sf for i in tr]] if t in ("best", "pv") else tr for t in a.tasks}
+    POOL = {t: tr[[int(i) in sf for i in tr]] if t in tasks.SF_TASKS else tr for t in a.tasks}
+    ENGINE = None                                                                      # multipv scores evals with Stockfish
+    if "multipv" in a.tasks:
+        import chess.engine
+        ENGINE = chess.engine.SimpleEngine.popen_uci(a.sf); ENGINE.configure({"Threads": 1, "Hash": 16})
     tr = POOL[a.tasks[-1]]
 
     def task_rows(name, n):
@@ -294,8 +308,9 @@ elif (a.init_ckpt or a.init_proj) and not a.eval_only:
 
 def soft(i, j, sq):
     """Projected vectors of position i's layer-j tokens at squares sq (in prompt order): (len(sq), d)."""
-    t = torch.as_tensor(sq)
-    return proj(acts[j][i][t].to(dev), t.to(dev))
+    t = torch.as_tensor(sq); m, s = norms[j]
+    x = torch.from_numpy(np.asarray(raws[j][i][np.asarray(sq)], dtype=np.float32))
+    return proj(((x - m) / s).to(dev), t.to(dev))
 
 
 def embed(ids_list, softs, poss):
@@ -332,7 +347,7 @@ def sample_row(i, rng):
     prev = a.tasks[:-1]
     t = prev[int(rng.integers(len(prev)))] if prev and rng.random() < a.replay else a.tasks[-1]
     if t == "eval": return i, *qa.sample(rng, wdl[i], black[i])[3:]
-    if t in ("best", "pv") and int(i) not in sf: i = int(rng.choice(POOL[t]))
+    if t in tasks.SF_TASKS and int(i) not in sf: i = int(rng.choice(POOL[t]))
     r = tasks.sample(t, rng, str(fens[i]), sf.get(int(i)))
     return i, r["question"], r["answer"]
 
@@ -470,8 +485,8 @@ def task_score(rows, preds):
     if rows[0]["task"] == "eval": return score(rows, preds)
     m = {}
     for r, p_ in zip(rows, preds):
-        s = tasks.score(r, p_)
-        if not s["parsed"] and r["task"] != "pv": s["exact"] = False
+        s = tasks.score(r, p_, ENGINE if r["task"] == "multipv" else None)
+        if not s["parsed"] and r["task"] not in ("pv", "multipv"): s["exact"] = False
         for k, v in s.items():
             if k != "task": m.setdefault(k, []).append(float(v))
     return {k: round(float(np.mean(v)), 4) for k, v in m.items()}

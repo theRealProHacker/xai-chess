@@ -55,13 +55,30 @@ from transformers import AutoModelForImageTextToText, AutoTokenizer
 # ---- data ----
 D = np.load(Path(a.data) / "labels.npz")
 wdl, black, split = D["wdl"], D["black"], D["split"]
-acts = torch.from_numpy(np.load(Path(a.data) / "acts.npy").astype(np.float32))       # (N, 64, 256)
+raw = np.load(Path(a.data) / "acts.npy", mmap_mode="r")                              # (N, 64, 256) float16, on disk
 tr = np.flatnonzero(split == 0)
 if a.train_n: tr = tr[:a.train_n]
-raw = acts
+
+
+def norm_stats(x, rows, chunk=1024):
+    """Per-channel mean and (unbiased) std over x[rows], read in chunks: no full float copy in RAM."""
+    s = q = 0; n = 0
+    for k in range(0, len(rows), chunk):
+        c = torch.from_numpy(np.asarray(x[rows[k:k + chunk]], dtype=np.float64)).flatten(0, 1)
+        s, q, n = s + c.sum(0), q + c.pow(2).sum(0), n + len(c)
+    m = s / n
+    return m.float(), ((q - n * m ** 2) / (n - 1)).sqrt().float()
+
+
+mu, sd = torch.zeros(256), torch.ones(256)
 if len(tr):
-    mu, sd = acts[tr].mean((0, 1)), acts[tr].std((0, 1)) + 1e-6                      # per channel, train only
-    acts = (acts - mu) / sd
+    mu, sd = norm_stats(raw, tr); sd = sd + 1e-6                                       # per channel, train only
+
+
+def acts(idx):
+    """Normalised tokens of positions idx on the GPU: (len(idx), 64, 256)."""
+    x = torch.from_numpy(np.asarray(raw[np.asarray(idx)], dtype=np.float32)).to(dev)
+    return (x - mu.to(dev)) / sd.to(dev)
 val = [json.loads(l) for l in open(Path(a.data) / "val.jsonl")][:a.eval_n]
 test = [json.loads(l) for l in open(Path(a.data) / "test.jsonl")][:a.test_n] if a.test_n else []
 
@@ -155,13 +172,13 @@ if (out / "last.pt").exists() and not a.eval_only:
     assert ck.get("lora") == lcfg, f"last.pt has LoRA config {ck.get('lora')}, flags say {lcfg}"
     proj.load_state_dict(ck["proj"]); opt.load_state_dict(ck["opt"]); sched.load_state_dict(ck["sched"])
     if lcfg: set_peft_model_state_dict(llm, ck["lora_sd"])
-    mu, sd = ck["mu"].cpu(), ck["sd"].cpu(); acts = (raw - mu) / sd
+    mu, sd = ck["mu"].cpu(), ck["sd"].cpu()
     start, s0, rng_state = ck["epoch"], ck.get("step", steps_per_epoch), ck.get("rng")  # old checkpoints: epoch end
     if "trng" in ck: torch.set_rng_state(ck["trng"].cpu())
     print(f"resumed from epoch {start} step {s0}/{steps_per_epoch}", flush=True)
 elif (a.init_ckpt or a.init_proj) and not a.eval_only:
     ck = torch.load(a.init_ckpt or a.init_proj, map_location=dev); proj.load_state_dict(ck["proj"])
-    mu, sd = ck["mu"].cpu(), ck["sd"].cpu(); acts = (raw - mu) / sd
+    mu, sd = ck["mu"].cpu(), ck["sd"].cpu()
     if a.init_ckpt:
         assert ck.get("lora") == lcfg, f"{a.init_ckpt} has LoRA config {ck.get('lora')}, flags say {lcfg}"
         if lcfg: set_peft_model_state_dict(llm, ck["lora_sd"])
@@ -202,7 +219,7 @@ def batch(idx, rng):
         _, _, _, qt, at = qa.sample(rng, wdl[i], black[i])
         p = prompt_ids(qt); y = tok(at + END, add_special_tokens=False)["input_ids"]
         ids.append(p + y); labels.append([-100] * len(p) + y)
-    x, mask, pos = embed(ids, board(acts[idx].to(dev)))
+    x, mask, pos = embed(ids, board(acts(idx)))
     lab = torch.full(mask.shape, -100, dtype=torch.long)
     for k, l in enumerate(labels): lab[k, :len(l)] = torch.tensor(l)
     # logits only where some row predicts an answer token: the 248k-wide output layer dominates memory
@@ -228,7 +245,7 @@ def generate(rows, idx):
     for ks in groups.values():
         for s in range(0, len(ks), a.eval_batch):
             kk = ks[s:s + a.eval_batch]
-            x, _, pos = embed([prompt_ids(rows[k]["question"]) for k in kk], board(acts[[idx[k] for k in kk]].to(dev)))
+            x, _, pos = embed([prompt_ids(rows[k]["question"]) for k in kk], board(acts([idx[k] for k in kk])))
             gen = torch.zeros((len(kk), 0), dtype=torch.long, device=dev)
             o = llm(inputs_embeds=x, position_ids=pos, use_cache=not a.no_cache, logits_to_keep=1)
             for _ in range(a.max_new):
@@ -329,7 +346,7 @@ def evaluate(ep, step, t0, report, rows=None, name="val"):
 if a.eval_only:
     for c in a.eval_only:
         ck = torch.load(c, map_location=dev); proj.load_state_dict(ck["proj"])
-        acts = (raw - ck["mu"].cpu()) / ck["sd"].cpu()                                # the checkpoint's train stats
+        mu, sd = ck["mu"].cpu(), ck["sd"].cpu()                                        # the checkpoint's train stats
         if ck.get("lora"): set_peft_model_state_dict(llm, ck["lora_sd"])
         with llm.disable_adapter() if lcfg and not ck.get("lora") else contextlib.nullcontext():
             evaluate(ck["epoch"], ck.get("step", steps_per_epoch), None, out / "report_rescored.jsonl")
