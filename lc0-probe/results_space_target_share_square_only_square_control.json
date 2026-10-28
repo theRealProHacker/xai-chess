@@ -1,0 +1,122 @@
+[
+ {
+  "claim": 1,
+  "pieces": [
+   {
+    "square": "e4",
+    "piece": "P",
+    "share": 0.00078,
+    "of |score|": 0.0081
+   },
+   {
+    "square": "f4",
+    "piece": "P",
+    "share": 0.00213,
+    "of |score|": 0.0223
+   },
+   {
+    "square": "d4",
+    "piece": "N",
+    "share": -0.00453,
+    "of |score|": -0.0474
+   }
+  ],
+  "pass": false
+ },
+ {
+  "claim": 2,
+  "pieces": [
+   {
+    "square": "e4",
+    "piece": "p",
+    "share": -0.00481,
+    "of |score|": -0.0066
+   },
+   {
+    "square": "f5",
+    "piece": "p",
+    "share": -0.00331,
+    "of |score|": -0.0046
+   },
+   {
+    "square": "e5",
+    "piece": "n",
+    "share": 0.03265,
+    "of |score|": 0.0449
+   }
+  ],
+  "pass": false
+ },
+ {
+  "claim": 3,
+  "pieces": [
+   {
+    "square": "d5",
+    "piece": "P",
+    "share": -0.01225,
+    "of |score|": -0.0613
+   },
+   {
+    "square": "f4",
+    "piece": "P",
+    "share": 0.00563,
+    "of |score|": 0.0282
+   },
+   {
+    "square": "d4",
+    "piece": "Q",
+    "share": 0.04317,
+    "of |score|": 0.216
+   }
+  ],
+  "pass": false
+ },
+ {
+  "claim": 4,
+  "pieces": [
+   {
+    "square": "b4",
+    "piece": "p",
+    "share": -0.00217,
+    "of |score|": -0.0041
+   },
+   {
+    "square": "c3",
+    "piece": "p",
+    "share": 4e-05,
+    "of |score|": 0.0001
+   }
+  ],
+  "pass": false
+ },
+ {
+  "claim": 39,
+  "pieces": [
+   {
+    "square": "b4",
+    "piece": "p",
+    "share": 0.00079,
+    "of |score|": 0.0042
+   },
+   {
+    "square": "c5",
+    "piece": "p",
+    "share": -0.00998,
+    "of |score|": -0.0539
+   },
+   {
+    "square": "a6",
+    "piece": "p",
+    "share": -0.00019,
+    "of |score|": -0.001
+   },
+   {
+    "square": "a8",
+    "piece": "r",
+    "share": 0.00357,
+    "of |score|": 0.0193
+   }
+  ],
+  "pass": true
+ }
+]
