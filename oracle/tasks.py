@@ -8,7 +8,8 @@ score(row, text, engine=None) -> metrics; best's cp loss off the top 5 and every
   pv           first 6 plies of the top line     accurate prefix: plies until one is illegal or loses > 50 cp
   multipv      top 3 lines of 6 plies + evals     each stated eval vs Stockfish depth 12 at the end of the line as
                                                  written (needs an engine): pawn MAE, bin right
-  control      squares piece x controls          set F1; direct attacks plus batteries (features/src/geo.rs)
+  control      squares the piece on x controls   set F1; direct attacks plus batteries (features/src/geo.rs);
+                                                 the question names only the square, empty with prob CONTROL_EMPTY
   attacks      enemy pieces piece x attacks      set F1 on squares (+ piece kinds); no x-rays; king included;
                                                  half the pieces asked about attack something
   phase        opening / middlegame / endgame    accuracy; lichess Divider on this position alone (context.rs)
@@ -26,6 +27,7 @@ import qa
 TASKS = ["best", "pv", "control", "attacks", "phase", "move_facts", "move_attacks", "move_board", "multipv"]
 SF_TASKS = ("best", "pv", "multipv")    # need sf.jsonl labels
 PV_LEN = 6
+CONTROL_EMPTY = 0.1     # share of control questions about an empty square
 MPV_N = 3
 PV_TOL = 50          # cp a pv move may lose against the best move and still count
 PV_DEPTH = 12        # depth of the per-ply check at score time
@@ -40,7 +42,7 @@ QUESTIONS = {
              ("Find the strongest move.", "AB")],
     "pv": [("What is the main line?", "AB"), ("Give the principal variation.", "AB"),
            ("How should play continue?", "AB")],
-    "control": [("Which squares does {piece} control?", "AB"), ("What does {piece} control?", "AB")],
+    "control": [("Which squares does the piece on {square} control?", "AB"), ("What does the piece on {square} control?", "AB")],
     "attacks": [("Which pieces does {piece} attack?", "ABC"), ("What is {piece} attacking?", "ABC")],
     "multipv": [("What are the three best lines and their evaluations?", "A"),
                 ("Give the top three lines with evaluations.", "A")],
@@ -303,13 +305,19 @@ def sample(task, rng, fen, sf=None):
         if task == "attacks":                          # half the time a piece that attacks something
             hit = [x for x in sqs if b.attacks(x) & b.occupied_co[not b.color_at(x)]]
             sqs = hit if hit and rng.random() < 0.5 else sqs
+        if task == "control" and rng.random() < CONTROL_EMPTY:
+            sqs = sorted(set(chess.SQUARES) - set(sqs))
         s = sqs[int(rng.integers(len(sqs)))]
-        name = piece_name(b, s)
-        if task == "control":
+        if task == "control":                          # the question names the square, never the piece
+            q = qt.format(square=chess.square_name(s))
+            if b.piece_at(s) is None:
+                return dict(row, question=q, square=s, target="empty", answer=f"There is no piece on {chess.square_name(s)}.")
+            name = piece_name(b, s)
             c = sorted(control(b, s))
             names = [chess.square_name(t) for t in c]
             ans = ", ".join(names) if fmt == "A" else f"{name[0].upper() + name[1:]} controls {join(names)}."
-            return dict(row, question=qt.format(piece=name), square=s, target=c, answer=ans)
+            return dict(row, question=q, square=s, target=c, answer=ans)
+        name = piece_name(b, s)
         col = b.color_at(s)
         tg = sorted(t for t in b.attacks(s) if b.color_at(t) == (not col))
         if not tg:
@@ -390,6 +398,8 @@ def parse(row, text):
             m = re.fullmatch(r"(?:This is the )?(opening|middlegame|endgame)\.?", t, re.I)
             return m[1].lower() if m else None
         if task == "control":
+            if re.fullmatch(r"There is no piece on [a-h][1-8]\.", t):
+                return "empty"
             m = re.fullmatch(r"The \w+ on [a-h][1-8] controls (.+)\.", t)
             items = split(m[1] if m else t)
             return sorted(chess.parse_square(x) for x in items) if all(_SQ.fullmatch(x) for x in items) else None
@@ -501,7 +511,10 @@ def score(row, text, engine=None):
     elif task == "phase":
         out["exact"] = p == tg
     elif task == "control":
-        out.update(exact=p == tg, f1=f1(set(p), set(tg)))
+        if "empty" in (p, tg):
+            out.update(exact=p == tg, f1=float(p == tg))
+        else:
+            out.update(exact=p == tg, f1=f1(set(p), set(tg)))
     elif task == "attacks":
         ps, ts = {s for s, _ in p}, {s for s, _ in tg}
         out.update(exact=ps == ts, f1=f1(ps, ts))
