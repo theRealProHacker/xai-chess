@@ -352,6 +352,21 @@ def _line(b, t):
     return out
 
 
+def _attacks(t, fmt):
+    """Attacks answer in format fmt -> sorted [square, kind] (kind None when fmt C names no piece), or None."""
+    if fmt == "A":
+        p = pieces_of(t.rstrip("."))
+        return None if p is None else sorted([s, k] for s, k in p)
+    out = []
+    for x in split(t):
+        m = re.fullmatch(r"([NBRQK]?)([a-h][1-8])" if fmt == "B" else r"()([a-h][1-8])", x)
+        if not m:
+            return None
+        kind = chess.Piece.from_symbol(m[1]).piece_type if m[1] else (chess.PAWN if fmt == "B" else None)
+        out.append([chess.parse_square(m[2]), kind])
+    return sorted(out, key=lambda x: x[0])
+
+
 def parse(row, text):
     """Model answer -> the value score() compares with row["target"], or None if it does not parse."""
     t, task, fmt, b = text.strip(), row["task"], row["fmt"], chess.Board(row["fen"])
@@ -378,20 +393,13 @@ def parse(row, text):
             m = re.fullmatch(r"The \w+ on [a-h][1-8] controls (.+)\.", t)
             items = split(m[1] if m else t)
             return sorted(chess.parse_square(x) for x in items) if all(_SQ.fullmatch(x) for x in items) else None
-        if task == "attacks":
+        if task == "attacks":                           # the question does not name the format: any one parses
             if t == "Nothing.":
                 return []
-            if fmt == "A":
-                p = pieces_of(t.rstrip("."))
-                return None if p is None else sorted([s, k] for s, k in p)
-            out = []
-            for x in split(t):
-                m = re.fullmatch(r"([NBRQK]?)([a-h][1-8])" if fmt == "B" else r"()([a-h][1-8])", x)
-                if not m:
-                    return None
-                kind = chess.Piece.from_symbol(m[1]).piece_type if m[1] else (chess.PAWN if fmt == "B" else None)
-                out.append([chess.parse_square(m[2]), kind])
-            return sorted(out, key=lambda x: x[0])
+            for f in [fmt] + [f for f in "ABC" if f != fmt]:
+                if (p := _attacks(t, f)) is not None:
+                    return p
+            return None
         if task == "move_facts":
             if t == "Nothing special.":
                 return []
@@ -497,7 +505,7 @@ def score(row, text, engine=None):
     elif task == "attacks":
         ps, ts = {s for s, _ in p}, {s for s, _ in tg}
         out.update(exact=ps == ts, f1=f1(ps, ts))
-        if row["fmt"] != "C":
+        if all(k is not None for _, k in p):
             out["kind_ok"] = {tuple(x) for x in p} == {tuple(x) for x in tg}
     elif task == "move_facts":
         out.update(exact=set(p) == set(tg), f1=f1(set(p), set(tg)))
