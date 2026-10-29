@@ -121,17 +121,13 @@ if len(tr):
 val = [json.loads(l) for l in open(Path(a.data[0]) / "val.jsonl")][:a.eval_n]
 test = [json.loads(l) for l in open(Path(a.data[0]) / "test.jsonl")][:a.test_n] if a.test_n else []
 if a.tasks:
-    import tasks                                                                       # needs python-chess
+    import tasks, chess.engine                                                         # needs python-chess
     assert set(a.tasks) <= {"eval", *tasks.TASKS}, f"--tasks: pick from eval {' '.join(tasks.TASKS)}"
     sf = {}                                                                            # best/pv labels; may be partial
     if (Path(a.data[0]) / "sf.jsonl").exists():
         for l in open(Path(a.data[0]) / "sf.jsonl"):
             if l.endswith("\n"): r = json.loads(l); sf[r["i"]] = r["lines"]
     POOL = {t: tr[[int(i) in sf for i in tr]] if t in tasks.SF_TASKS else tr for t in a.tasks}
-    ENGINE = None                                                                      # multipv scores evals with Stockfish
-    if "multipv" in a.tasks:
-        import chess.engine
-        ENGINE = chess.engine.SimpleEngine.popen_uci(a.sf); ENGINE.configure({"Threads": 1, "Hash": 16})
     tr = POOL[a.tasks[-1]]
 
     def task_rows(name, n):
@@ -484,11 +480,14 @@ def task_score(rows, preds):
     """Means of tasks.score's metrics (WDL score() for eval); exact counts an unparsed answer as wrong."""
     if rows[0]["task"] == "eval": return score(rows, preds)
     m = {}
-    for r, p_ in zip(rows, preds):
-        s = tasks.score(r, p_, ENGINE if r["task"] == "multipv" else None)
-        if not s["parsed"] and r["task"] not in ("pv", "multipv"): s["exact"] = False
-        for k, v in s.items():
-            if k != "task": m.setdefault(k, []).append(float(v))
+    # multipv scores evals with Stockfish, open only here: python-chess's engine thread keeps Python from exiting
+    with chess.engine.SimpleEngine.popen_uci(a.sf) if rows[0]["task"] == "multipv" else contextlib.nullcontext() as eng:
+        if eng: eng.configure({"Threads": 1, "Hash": 16})
+        for r, p_ in zip(rows, preds):
+            s = tasks.score(r, p_, eng)
+            if not s["parsed"] and r["task"] not in ("pv", "multipv"): s["exact"] = False
+            for k, v in s.items():
+                if k != "task": m.setdefault(k, []).append(float(v))
     return {k: round(float(np.mean(v)), 4) for k, v in m.items()}
 
 
