@@ -110,17 +110,17 @@
   #view-attr details.intro summary{cursor:pointer}
   #view-attr main{display:grid;grid-template-columns:440px 1fr;gap:2rem;align-items:start}
   @media (max-width:860px){#view-attr main{grid-template-columns:1fr}}
-  #a-board{
+  #a-board,#c-board{
     display:grid;grid-template-columns:repeat(8,1fr);width:100%;aspect-ratio:1;
     border-radius:6px;overflow:hidden;box-shadow:var(--shadow-m);
   }
-  #a-board .sq{position:relative;cursor:pointer}
-  #a-board .sq.light{background:#f0d9b5} #a-board .sq.dark{background:#b58863}
-  #a-board .sq .heat{position:absolute;inset:0}
+  #a-board .sq{position:relative;cursor:pointer} #c-board .sq{position:relative}
+  :is(#a-board,#c-board) .sq.light{background:#f0d9b5} :is(#a-board,#c-board) .sq.dark{background:#b58863}
+  :is(#a-board,#c-board) .sq .heat{position:absolute;inset:0}
   /* chessground.base.css sizes pieces to one square of its own board; these fill their square */
-  #a-board .sq piece{position:absolute;inset:0;width:auto;height:auto;z-index:auto;pointer-events:auto;will-change:auto;background-size:cover}
+  :is(#a-board,#c-board) .sq piece{position:absolute;inset:0;width:auto;height:auto;z-index:auto;pointer-events:auto;will-change:auto;background-size:cover}
   #a-board .sq.sel{outline:3px solid var(--accent);outline-offset:-3px;z-index:1}
-  #a-board .sq.hi{outline:3px solid #1a1a1a;outline-offset:-3px;z-index:1}
+  :is(#a-board,#c-board) .sq.hi{outline:3px solid #1a1a1a;outline-offset:-3px;z-index:1}
   #a-board.fixed .sq{cursor:default}
   #view-attr .nav{display:flex;align-items:center;gap:.6rem;margin-top:1rem}
   #view-attr .nav span{flex:1;text-align:center;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -152,12 +152,37 @@
   #view-attr .fit input{cursor:pointer;accent-color:var(--ink)}
   #a-heldbox{margin-top:2rem}
   #a-heldbox h2{margin-bottom:.6rem}
+  /* Control view: same board and rows as the attribution view */
+  #view-ctrl{font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+  #view-ctrl,#view-ctrl *{box-sizing:border-box}
+  #view-ctrl h2{font-size:1.05rem;font-weight:600;margin:0}
+  #view-ctrl p.intro{color:var(--muted);margin:0 0 .4rem;max-width:68ch}
+  #view-ctrl details.intro{color:var(--muted);margin:0 0 1.2rem;max-width:68ch;font-size:.9rem}
+  #view-ctrl details.intro summary{cursor:pointer}
+  #view-ctrl main{display:grid;grid-template-columns:440px 1fr;gap:2rem;align-items:start}
+  @media (max-width:860px){#view-ctrl main{grid-template-columns:1fr}}
+  #c-pick{width:100%;font:inherit;font-size:.9rem;padding:.5rem .6rem;margin:0 0 .8rem;border:1px solid var(--line);
+      border-radius:8px;background:#fff;color:var(--ink);cursor:pointer;box-shadow:var(--shadow-s)}
+  #c-pick:focus{outline:none;border-color:var(--accent)}
+  #view-ctrl .nav{display:flex;align-items:center;gap:.6rem;margin-top:1rem}
+  #view-ctrl .nav span{flex:1;text-align:center;color:var(--muted);font-variant-numeric:tabular-nums}
+  #c-when{color:var(--muted);margin:.2rem 0 1rem}
+  #c-when span{white-space:nowrap}
+  #view-ctrl main>section:last-child{max-width:28rem}
+  #view-ctrl .side{display:flex;justify-content:space-between;align-items:baseline;font-weight:600;margin:1.2rem 0 .3rem;padding:.6rem .3rem 0;border-top:1px solid var(--line)}
+  #view-ctrl .side .v{font:13px ui-monospace,Menlo,Consolas,monospace;font-weight:600}
+  #view-ctrl .row{display:grid;grid-template-columns:2.6rem 1fr 4.6rem;gap:.6rem;align-items:center;padding:.15rem .3rem;border-radius:5px}
+  #view-ctrl .row:hover{background:#f6f6f6}
+  #view-ctrl .row .v{font:13px ui-monospace,Menlo,Consolas,monospace;text-align:right}
+  #view-ctrl .bar{position:relative;height:10px}
+  #view-ctrl .bar::after{content:"";position:absolute;left:var(--z);top:-2px;bottom:-2px;width:1px;background:#00000040}
+  #view-ctrl .bar i{position:absolute;top:0;bottom:0;border-radius:2px}
 </style>
 </head>
 <body>
   <a class="back" href="index.html">&larr; xai-chess</a>
   <h1>Features</h1>
-  <div class="mode views"><button id="v-feat">Features</button><button id="v-attr">Attribution</button></div>
+  <div class="mode views"><button id="v-feat">Features</button><button id="v-attr">Attribution</button><button id="v-ctrl">Control</button></div>
 
   <div id="view-feat">
   <p class="intro">Yes/no positional features, each a fixed rule over the board. Counts and scores
@@ -227,6 +252,92 @@
   </main>
   <div id="a-tip" hidden></div>
   </div>
+
+  <div id="view-ctrl" hidden>
+  <p class="intro">Not just how much each piece controls, but how much that control is worth to Leela. Green helps its side, red hurts.</p>
+  <details class="intro"><summary>How it is computed</summary>
+  Integrated gradients, one run per piece, through the decoder for Leela&rsquo;s first layer. Only that piece&rsquo;s control
+  features move, from their average for any piece on its square to their real values; everything else stays as on the board.
+  A piece&rsquo;s value is how much Leela&rsquo;s win &minus; loss changes. Kings are not scored.</details>
+  <main>
+    <section>
+      <select id="c-pick" aria-label="Game"></select>
+      <div id="c-board" class="cg-wrap"></div>
+      <div class="nav"><button id="c-prev">Previous</button><span id="c-count"></span><button id="c-next">Next</button></div>
+    </section>
+    <section>
+      <h2 id="c-title"></h2>
+      <p id="c-when"></p>
+      <div id="c-sides"></div>
+    </section>
+  </main>
+  </div>
+
+<script>
+// --- control view: each piece's control, valued by Leela (control_demo.js, from lc0-probe/control_demo_data.py) ---
+{
+  const $ = id => document.getElementById("c-" + id);
+  const ROLE = {p: "pawn", n: "knight", b: "bishop", r: "rook", q: "queen", k: "king"};
+  const fmt = v => Math.abs(v) < 5e-4 ? "0.000" : (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(3);
+  const parse = fen => {
+    const m = {};
+    fen.split(" ")[0].split("/").forEach((row, r) => {
+      let f = 0;
+      for (const c of row) { if (c >= "1" && c <= "8") f += +c; else m["abcdefgh"[f++] + (8 - r)] = c; }
+    });
+    return m;
+  };
+  let P = null, cur = 0;
+  const draw = () => {
+    const p = P[cur], on = parse(p.fen), val = Object.fromEntries(p.pieces);
+    const max = Math.max(...p.pieces.map(x => Math.abs(x[1])), 1e-9);
+    let html = "";
+    for (let r = 8; r >= 1; r--) for (let f = 0; f < 8; f++) {
+      const s = "abcdefgh"[f] + r, v = Math.abs(val[s] || 0) < .02 * max ? 0 : val[s], c = on[s];
+      const heat = v ? `<div class="heat" style="background:var(--${v > 0 ? "pos" : "neg"});opacity:${(.2 + .65 * Math.sqrt(Math.abs(v) / max)).toFixed(2)}"></div>` : "";
+      const piece = c ? `<piece class="${c === c.toUpperCase() ? "white" : "black"} ${ROLE[c.toLowerCase()]}"></piece>` : "";
+      html += `<div class="sq ${(f + r) % 2 ? "dark" : "light"}" data-s="${s}">${heat}${piece}</div>`;
+    }
+    $("board").innerHTML = html;
+    const pos = Math.max(0, ...p.pieces.map(x => x[1])), neg = Math.max(0, ...p.pieces.map(x => -x[1]));
+    const z = Math.max(10, Math.min(50, 100 * neg / (pos + neg || 1))), k = Math.min((100 - z) / (pos || 1e-9), z / (neg || 1e-9));   // zero axis at z%, one scale
+    $("sides").innerHTML = ["White", "Black"].map(name => {
+      const mine = p.pieces.filter(([s]) => (on[s] === on[s].toUpperCase()) === (name === "White"));
+      const tot = mine.reduce((t, x) => t + Math.sign(x[1]) * Math.abs(x[1]).toFixed(3) * 1000, 0) / 1000;   // sum of the shown values
+      return `<div class="side"><span>${name}</span><span class="v">${fmt(tot)}</span></div>` + mine.map(([s, v]) =>
+        `<div class="row" data-s="${s}" style="--z:${z}%"><span>${on[s].toUpperCase() === "P" ? "" : on[s].toUpperCase()}${s}</span>` +
+        `<span class="bar">${Math.abs(v) < 5e-4 ? "" : `<i style="background:var(--${v >= 0 ? "pos" : "neg"});width:${k * Math.abs(v)}%;${v >= 0 ? `left:${z}%` : `right:${100 - z}%`}"></i>`}</span>` +
+        `<span class="v">${fmt(v)}</span></div>`).join("");
+    }).join("");
+    $("title").textContent = p.game;
+    $("when").innerHTML = [p.event, p.after && `<span>${p.after}</span>`].filter(Boolean).join(", ");
+    $("pick").value = cur;
+    $("count").textContent = `${cur + 1} / ${P.length}`;
+  };
+  const step = d => { cur = (cur + P.length + d) % P.length; draw(); };
+  const start = () => {
+    P = window.CONTROL;
+    const year = p => (p.event.match(/\b(1[89]|20)\d\d\b/) || [""])[0];
+    $("pick").innerHTML = P.map((p, i) => `<option value="${i}">${p.game}${year(p) ? " " + year(p) : ""}</option>`).join("");
+    $("pick").onchange = e => { cur = +e.target.value; draw(); };
+    $("prev").onclick = () => step(-1); $("next").onclick = () => step(1);
+    $("sides").onmouseover = $("sides").onmouseout = e => {
+      const r = e.type === "mouseover" && e.target.closest(".row");
+      [...$("board").children].forEach(d => d.classList.toggle("hi", !!r && d.dataset.s === r.dataset.s));
+    };
+    addEventListener("keydown", e => { if (document.getElementById("view-ctrl").hidden || e.target.tagName === "SELECT") return;
+      if (e.key === "ArrowLeft") step(-1); if (e.key === "ArrowRight") step(1); });
+    draw();
+  };
+  let opened = false;
+  window.openControl = () => {
+    if (opened) return; opened = true;
+    const script = document.createElement("script");
+    script.src = "control_demo.js"; script.onload = start;
+    document.head.append(script);
+  };
+}
+</script>
 
 <script>
 // --- attribution view: its data (11 MB) loads when the view first opens ---
@@ -500,20 +611,22 @@ function start() {
   draw();
 }
 
-// --- the view switch: attribution's hashes open it, anything else is the features view ---
+// --- the view switch: attribution's hashes open it, #control the control view, anything else is the features view ---
 {
   const ATTR = ["#attribution", "#relative", "#shapley", "#shapley-held"], el = id => document.getElementById(id);
   let last = "#attribution";                        // attribution's mode, kept across switches
   const view = () => {
-    const a = ATTR.includes(location.hash);
+    const a = ATTR.includes(location.hash), c = location.hash === "#control";
     if (a) last = location.hash;
-    el("view-feat").hidden = a; el("view-attr").hidden = !a;
-    document.body.classList.toggle("wide", a);
-    el("v-feat").classList.toggle("on", !a); el("v-attr").classList.toggle("on", a);
+    el("view-feat").hidden = a || c; el("view-attr").hidden = !a; el("view-ctrl").hidden = !c;
+    document.body.classList.toggle("wide", a || c);
+    el("v-feat").classList.toggle("on", !a && !c); el("v-attr").classList.toggle("on", a); el("v-ctrl").classList.toggle("on", c);
     if (a) openAttribution();
+    if (c) openControl();
   };
-  el("v-feat").onclick = () => { if (!ATTR.includes(location.hash)) return; history.pushState(null, "", location.pathname + location.search); view(); };
+  el("v-feat").onclick = () => { if (!ATTR.includes(location.hash) && location.hash !== "#control") return; history.pushState(null, "", location.pathname + location.search); view(); };
   el("v-attr").onclick = () => { location.hash = last; };
+  el("v-ctrl").onclick = () => { location.hash = "#control"; };
   addEventListener("hashchange", view); addEventListener("popstate", view);
   view();
 }

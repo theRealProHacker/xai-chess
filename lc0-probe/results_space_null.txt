@@ -1,0 +1,20 @@
+zone: claim 39 score +0.0032; 1152 window scores, |score| median 0.0164, 90% 0.1110; 21% have |score| <= |claim 39|
+claim 1: real +0.0112; random removals n=9 pass rate 89%, drop median -0.0049
+    off e4  drop -0.0068  pass yes  44% of random removals drop as much  strict fail
+    off f4  drop -0.0074  pass yes  44% of random removals drop as much  strict fail
+    off d4  drop -0.0083  pass yes  44% of random removals drop as much  strict fail
+  claim 1 strict: fail
+claim 2: real -0.0526; random removals n=10 pass rate 90%, drop median -0.0657
+    off e4  drop -0.0152  pass yes  80% of random removals drop as much  strict fail
+    off f5  drop -0.0166  pass yes  80% of random removals drop as much  strict fail
+    off e5  drop -0.1187  pass yes  30% of random removals drop as much  strict fail
+  claim 2 strict: fail
+claim 3: real +0.0651; random removals n=9 pass rate 100%, drop median -0.0641
+    off d5  drop -0.0399  pass yes  89% of random removals drop as much  strict fail
+    off f4  drop -0.0278  pass yes  100% of random removals drop as much  strict fail
+    off d4  drop -0.0658  pass yes  22% of random removals drop as much  strict fail
+  claim 3 strict: fail
+claim 4: real -0.1222; random removals n=10 pass rate 70%, drop median -0.0419
+    off b4  drop -0.0211  pass yes  60% of random removals drop as much  strict fail
+    off c3  drop -0.0514  pass yes  40% of random removals drop as much  strict fail
+  claim 4 strict: fail

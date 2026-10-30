@@ -34,7 +34,8 @@ keep = torch.load(ROOT / f"lc0-probe/data/square_decoder_{TAP}_n100000.pt", weig
 SCH = json.loads(subprocess.run([ROOT / "features/square/target/release/square", "--schema"],
                                 capture_output=True, text=True, check=True).stdout)["labels"]
 COL = {SCH[i]: n for n, i in enumerate(keep)}
-Z = np.load(ROOT / f"lc0-probe/data/ig_means_n100000_20000{'' if len(keep) == 22498 else f'_k{len(keep)}'}.npz"); XM, XC = Z["XM"], Z["XC"]
+MN = next((x[1:] for x in SUF.split("_") if x[:1] == "m" and x[1:].isdigit()), "20000")   # baseline means over this many rows
+Z = np.load(ROOT / f"lc0-probe/data/ig_means_n100000_{MN}{'' if len(keep) == 22498 else f'_k{len(keep)}'}.npz"); XM, XC = Z["XM"], Z["XC"]
 SM = (XM * XC[:, None]).reshape(13, 64, -1).sum(0) / np.maximum(XC.reshape(13, 64).sum(0), 1)[:, None]
 rank = np.array([chess.square_rank(t) for t in chess.SQUARES])
 FWD = {W: rank.astype(float), B: (7 - rank).astype(float)}
@@ -49,7 +50,7 @@ if "pc" in CON:
 LAB = [x for x in LAB if x[0] in COL]
 GEO = [f"control.geometry.{chess.square_name(t)}" for t in chess.SQUARES]
 
-def run(fen, X, files="abcdefgh"):
+def run(fen, X, files="abcdefgh", A=A):
     real = chess.Board(fen); mir = real.turn == B
     b = real.mirror() if mir else real
     C = (not X) if mir else X
@@ -104,26 +105,27 @@ def run(fen, X, files="abcdefgh"):
     return total, score, norm, by, sum(abs(z) for _, _, z, _ in bits)
 
 TESTS = {1: W, 2: B, 3: W, 4: B, 39: B}
-ww, sh = 0, 0
-for c, X in TESTS.items():
-    g = CC[next(k for k in CC if c in k)]
-    n0, s0, z0, by, tot = run(g["orig_fen"], X, Q39 if c == 39 else "abcdefgh")
-    bd = chess.Board(g["orig_fen"])
-    if c == 39:
-        p = s0 <= 0
-        _, _, _, by, tot = run(g["orig_fen"], X)
-        sq = [s for s in chess.SQUARES if bd.color_at(s) == X and chess.square_file(s) <= 2]
-        q = sum(by.get(s, 0) for s in sq) <= 0
-        print(f"{c:3} space {n0:+4.0f} score {s0:+.4f}  {'pass' if p else 'fail'} | share a-c {sum(by.get(s, 0) for s in sq):+.4f} {'pass' if q else 'fail'}")
-    else:
-        line, p = f"{c:3} space {n0:+4.0f} score {s0:+.4f}", True
-        for t in g["tests"]:
-            n1, s1, z1, _, _ = run(t["fen without"], X)
-            ok = s1 < s0 and z1 < z0; p &= ok
-            line += f" | {t['edit']} {n1:+4.0f} {s1:+.4f} {'P' if ok else 'F'}"
-        sq = [chess.parse_square(t["edit"].split()[1]) for t in g["tests"]]
-        q = all(by.get(s, 0) > 0 for s in sq)
-        line += " || share " + " ".join(f"{bd.piece_at(s).symbol()}{chess.square_name(s)} {by.get(s, 0) / max(tot, 1e-9):+.1%}" for s in sq) + f" {'pass' if q else 'fail'}"
-        print(line)
-    ww += p; sh += q
-print(f"{TAP} {SUF} {'+'.join(CON)}: with/without {ww}/5, own share {sh}/5")
+if __name__ == "__main__":
+    ww, sh = 0, 0
+    for c, X in TESTS.items():
+        g = CC[next(k for k in CC if c in k)]
+        n0, s0, z0, by, tot = run(g["orig_fen"], X, Q39 if c == 39 else "abcdefgh")
+        bd = chess.Board(g["orig_fen"])
+        if c == 39:
+            p = s0 <= 0
+            _, _, _, by, tot = run(g["orig_fen"], X)
+            sq = [s for s in chess.SQUARES if bd.color_at(s) == X and chess.square_file(s) <= 2]
+            q = sum(by.get(s, 0) for s in sq) <= 0
+            print(f"{c:3} space {n0:+4.0f} score {s0:+.4f}  {'pass' if p else 'fail'} | share a-c {sum(by.get(s, 0) for s in sq):+.4f} {'pass' if q else 'fail'}")
+        else:
+            line, p = f"{c:3} space {n0:+4.0f} score {s0:+.4f}", True
+            for t in g["tests"]:
+                n1, s1, z1, _, _ = run(t["fen without"], X)
+                ok = s1 < s0 and z1 < z0; p &= ok
+                line += f" | {t['edit']} {n1:+4.0f} {s1:+.4f} {'P' if ok else 'F'}"
+            sq = [chess.parse_square(t["edit"].split()[1]) for t in g["tests"]]
+            q = all(by.get(s, 0) > 0 for s in sq)
+            line += " || share " + " ".join(f"{bd.piece_at(s).symbol()}{chess.square_name(s)} {by.get(s, 0) / max(tot, 1e-9):+.1%}" for s in sq) + f" {'pass' if q else 'fail'}"
+            print(line)
+        ww += p; sh += q
+    print(f"{TAP} {SUF} {'+'.join(CON)}: with/without {ww}/5, own share {sh}/5")

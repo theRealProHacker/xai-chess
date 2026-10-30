@@ -48,10 +48,12 @@ ap.add_argument("--ig-base", choices=["off", "mean", "square", "expected", "star
                 "(of the first --mean) as baselines, --eg-steps midpoint steps each; or the starting position's bits")
 ap.add_argument("--mean", type=int, default=20000)
 ap.add_argument("--eg-steps", type=int, default=8, help="expected gradients: midpoint steps per baseline board")
-ap.add_argument("--ig-only", help="IG path over the bits with this label prefix only (e.g. square.control.); every "
+ap.add_argument("--ig-only", help="IG path over the bits with these label prefixes only (comma-separated, e.g. square.control.); every "
                 "other bit stays at its value in the position, so the attributions sum to y - y(those bits at baseline)")
-ap.add_argument("--target", choices=["wl", "logit", "atanh", "win"], default="wl", help="attributed output: P(win) - P(loss), "
-                "log P(win) - log P(loss), atanh(P(win) - P(loss)), or P(win)")
+ap.add_argument("--ig-alone", help="one IG run per non-king piece, moving only that piece's own bits with these label prefixes "
+                "(comma-separated); every other bit stays at the position's value")
+ap.add_argument("--target", choices=["wl", "logit", "atanh", "win", "loss"], default="wl", help="attributed output: P(win) - P(loss), "
+                "log P(win) - log P(loss), atanh(P(win) - P(loss)), P(win), or -P(loss)")
 a = ap.parse_args()
 torch.set_num_threads(a.threads)
 TAP = a.tap
@@ -174,7 +176,7 @@ def value(P):
     """(B, 64, hidden) decoder pre-activations -> (B,) P(win) - P(loss)."""
     w = tail((out(torch.nn.functional.gelu(P)) * sd + mu).reshape(-1, mu.shape[0]))
     q = w[:, 0] - w[:, 2]
-    return w[:, 0].log() - w[:, 2].log() if a.target == "logit" else q.clamp(-0.9999, 0.9999).atanh() if a.target == "atanh" else w[:, 0] if a.target == "win" else q
+    return w[:, 0].log() - w[:, 2].log() if a.target == "logit" else q.clamp(-0.9999, 0.9999).atanh() if a.target == "atanh" else w[:, 0] if a.target == "win" else -w[:, 2] if a.target == "loss" else q
 
 KS = [1, 2, 5, 10, 20, 50, 100]                                            # deletion test: features switched off
 rng = np.random.default_rng(0)
@@ -206,7 +208,7 @@ for r, d in rows():
                 if XC[k] < 10: fallback += 1
                 xm[s] = torch.from_numpy(XM[k] if XC[k] >= 10 else SM[s])
         if a.ig_only:                                                  # hold every other bit at the position's value
-            fix = torch.from_numpy(np.array([not labels[j].startswith(a.ig_only) for j in range(len(keep))]))
+            fix = torch.from_numpy(np.array([not labels[j].startswith(tuple(a.ig_only.split(','))) for j in range(len(keep))]))
             for s in range(64):
                 x = torch.zeros(len(keep)); x[torch.from_numpy(col[by_sq.get(s, [])][col[by_sq.get(s, [])] >= 0])] = 1
                 xm[s, fix] = x[fix]
@@ -232,6 +234,21 @@ for r, d in rows():
             gi = P.grad.mean(0)
             EG = (E[:len(keep)] @ gi.T).numpy().astype(np.float64)    # (inputs, 64): input row x mean gradient
             with torch.no_grad(): y0 = float(value((base + feat0)[None])[0])
+        if a.ig_alone:                                                 # per piece: only its own bits with these prefixes move
+            mv = torch.from_numpy(np.array([labels[j].startswith(tuple(a.ig_alone.split(','))) for j in range(len(keep))]))
+            X = torch.zeros(64, len(keep))
+            for s in range(64): X[s, torch.from_numpy(col[by_sq.get(s, [])][col[by_sq.get(s, [])] >= 0])] = 1
+            bd, xa, EG, y0 = chess.Board(r["fen"]), X.clone(), np.zeros((len(keep), 64)), float(y)
+            for s in range(64):
+                if not bd.piece_at(s) or bd.piece_type_at(s) == chess.KING: continue
+                x0 = X.clone(); x0[s, mv] = xm[s, mv]; xa[s] = x0[s]
+                feat0 = x0 @ E[:len(keep)]
+                al = ((torch.arange(a.ig) + 0.5) / a.ig)[:, None, None]
+                P = (base + feat0 + al * (feat - feat0)).requires_grad_(True)
+                value(P).sum().backward()
+                EG[:, s] = (E[:len(keep)] @ P.grad.mean(0)[s]).numpy()
+                with torch.no_grad(): y0 -= float(y) - float(value((base + feat0)[None])[0])   # completeness: sum = sum over pieces of y - y(piece at baseline)
+            xm = xa
     wr = full.run(["/output/wdl"], {"/input/planes": encode_fens([r["fen"]])})[0][0]
     squares, absent, flat = {}, {}, {"gradient x input": [], "integrated gradients": []}   # (square, input row, attribution)
     for s in range(64):
@@ -298,7 +315,7 @@ for r in res:
         q["bits"] = [[int(new[j]), round(float(v), 5)] for j, v in zip(*q["bits"])]
         if "absent" in q: q["absent"] = [[int(new[j]), round(float(v), 5)] for j, v in zip(*q["absent"]) if round(float(v), 5)]
 tag = "" if TAP == "/attn_body/rehape" else TAP.replace("/", "_")             # e.g. _encoder2_ln2
-out_path = ROOT / f"lc0-probe/square_attribution_n{N}{tag}{'_ig' if a.ig else ''}{'_' + a.ig_base if a.ig_base != 'off' else ''}{'_s' + str(a.eg_steps) if a.ig_base == 'expected' and a.eg_steps != 8 else ''}{'_only_' + a.ig_only.strip('.').replace('.', '_') if a.ig_only else ''}{'_' + a.target if a.target != 'wl' else ''}{'_games' if a.pgn else ''}{'_' + Path(a.fens).stem if a.fens else ''}.js"                  # a script, so the demo opens from file://
+out_path = ROOT / f"lc0-probe/square_attribution_n{N}{tag}{'_ig' if a.ig else ''}{'_' + a.ig_base if a.ig_base != 'off' else ''}{'_m' + str(a.mean) if a.mean != 20000 else ''}{'_s' + str(a.eg_steps) if a.ig_base == 'expected' and a.eg_steps != 8 else ''}{'_only_' + '_'.join(x.strip('.').replace('.', '_') for x in a.ig_only.split(',')) if a.ig_only else ''}{'_alone_' + '_'.join(x.strip('.').replace('.', '_') for x in a.ig_alone.split(',')) if a.ig_alone else ''}{'_' + a.target if a.target != 'wl' else ''}{'_games' if a.pgn else ''}{'_' + Path(a.fens).stem if a.fens else ''}.js"                  # a script, so the demo opens from file://
 out_path.write_text("window.ATTRIBUTION = " + json.dumps({
     "n": N, "tap": TAP, "method": f"integrated gradients, {a.ig} steps{', ' + a.ig_base + ' mean baseline' if a.ig_base != 'off' else ''}{', path over ' + a.ig_only + '* only' if a.ig_only else ''}" if a.ig else "gradient x input", "gap": a.gap, "source": a.pgn or a.fens or "held-out puzzles", "labels": [labels[j] for j in used],
     "usual": [[round(float(m), 6), round(float(d), 6), int(c)] for m, d, c in zip(mean, std, cnt[used])],   # mean, spread, tokens
