@@ -41,6 +41,7 @@ ap.add_argument("--layers", nargs="+", type=int, help="Leela layer of each --dat
 ap.add_argument("--placeholder", choices=["pad", "q", "image", "square", "piece"], default="pad")
 ap.add_argument("--inject", choices=["embed", "add"], default="embed")
 ap.add_argument("--inject-layer", type=int, default=1, help="--inject add: decoder layer whose output gets the vectors")
+ap.add_argument("--stm", action=argparse.BooleanOptionalAction, default=True, help="state the side to move in the prompt (\"White to move.\"); --no-stm = v1/v2 prompt")
 ap.add_argument("--squares", action="store_true", help="random square subsets instead of all 64")
 ap.add_argument("--single-frac", type=float, default=1 / 3)
 ap.add_argument("--eval-squares", default="64,8,1", help="--squares: subset sizes scored on val")
@@ -220,6 +221,7 @@ def prompt_order(i, sq):
 def prompt_ids(question, i=None, j=0, sq=None):
     """Token ids and the positions that carry square vectors, for position i, layer j, squares sq (None = all)."""
     sq = ALL if sq is None else sq
+    if a.stm and i is not None: question = f"{'Black' if black[i] else 'White'} to move.\n{question}"
     ids = list(PRES[j]); pos = []
     for k in (prompt_order(i, sq) if i is not None else sq):
         if a.placeholder in ("square", "piece"):
