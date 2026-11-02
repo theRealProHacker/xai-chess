@@ -122,13 +122,15 @@ if len(tr):
 val = [json.loads(l) for l in open(Path(a.data[0]) / "val.jsonl")][:a.eval_n]
 test = [json.loads(l) for l in open(Path(a.data[0]) / "test.jsonl")][:a.test_n] if a.test_n else []
 if a.tasks:
-    import tasks, chess.engine                                                         # needs python-chess
+    import tasks, chess, chess.engine                                                  # needs python-chess
     assert set(a.tasks) <= {"eval", *tasks.TASKS}, f"--tasks: pick from eval {' '.join(tasks.TASKS)}"
     sf = {}                                                                            # best/pv labels; may be partial
     if (Path(a.data[0]) / "sf.jsonl").exists():
         for l in open(Path(a.data[0]) / "sf.jsonl"):
             if l.endswith("\n"): r = json.loads(l); sf[r["i"]] = r["lines"]
     POOL = {t: tr[[int(i) in sf for i in tr]] if t in tasks.SF_TASKS else tr for t in a.tasks}
+    YES = {t: tr[[tasks.POOLED[t](chess.Board(str(fens[i]))) for i in tr]] for t in a.tasks if t in tasks.POOLED}
+    for t, v in YES.items(): print(f"{t}: {len(v):,} of {len(tr):,} train positions answer yes", flush=True)
     tr = POOL[a.tasks[-1]]
 
     def task_rows(name, n):
@@ -346,7 +348,8 @@ def sample_row(i, rng):
     t = prev[int(rng.integers(len(prev)))] if prev and rng.random() < a.replay else a.tasks[-1]
     if t == "eval": return i, *qa.sample(rng, wdl[i], black[i])[3:]
     if t in tasks.SF_TASKS and int(i) not in sf: i = int(rng.choice(POOL[t]))
-    r = tasks.sample(t, rng, str(fens[i]), sf.get(int(i)))
+    if t in YES and len(YES[t]) and rng.random() < tasks.POOL_SHARE: i = int(rng.choice(YES[t]))
+    while (r := tasks.sample(t, rng, str(fens[i]), sf.get(int(i)))) is None: i = int(rng.choice(POOL[t]))
     return i, r["question"], r["answer"]
 
 

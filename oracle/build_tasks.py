@@ -34,11 +34,23 @@ def rows(idx, seed):
                 yield dict(i=int(i), **r)
 
 
+def balance(rs):
+    """POOLED tasks: every yes row and as many no rows (the first ones), so "no" alone scores 50%."""
+    out, no = [], collections.Counter()
+    yes = collections.Counter(r["task"] for r in rs if r["task"] in tasks.POOLED and r["target"])
+    for r in rs:
+        if r["task"] in tasks.POOLED and not r["target"]:
+            no[r["task"]] += 1
+            if no[r["task"]] > yes[r["task"]]: continue
+        out.append(r)
+    return out
+
+
 for name, k, seed in (("val", 1, 1), ("test", 2, 2), ("train_preview", 0, 3)):
     idx = np.flatnonzero(split == k)[:200 if k == 0 else None]
     n = collections.Counter()
     with open(D / f"tasks_{name}.jsonl", "w") as f:
-        for r in rows(idx, seed):
+        for r in balance(list(rows(idx, seed))):
             f.write(json.dumps(r) + "\n"); n[r["task"]] += 1
     print(f"tasks_{name}: {len(idx):,} positions,", " ".join(f"{t} {n[t]}" for t in a.tasks))
 

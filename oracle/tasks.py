@@ -16,6 +16,16 @@ score(row, text, engine=None) -> metrics; best's cp loss off the top 5 and every
   move_facts   rule facts of a move              set F1: captures, en passant, check, mate, stalemate, castles
   move_attacks attack changes of a move          set F1: attacks, discovers, leaves undefended
   move_board   board after a move                exact placement field + per-square accuracy
+Minimal v1 ladder (moves in UCI, colours absolute):
+  inventory    pieces per colour and kind        exact + share of the 12 counts right
+  lookup       what is on a square               exact; half the squares asked about are occupied
+  render       piece placement (FEN field 1)     exact + per-square accuracy
+  piece_moves  legal moves of the piece on x     set F1; side to move's pieces, half of them with a move
+  legal_moves  all legal moves                   set F1
+  apply_move   squares a UCI move changes        set F1 on (square, new content)
+  result_fen   FEN after a UCI move              exact on the first four fields (no move counters) + per-square
+  check        is the side to move in check      exact + F1 on the checkers; POOLED: half the samples in check
+  mate1        all mates in one                  set F1; POOLED: half the samples have one
 
 Moves in move_* questions are named by piece and squares ("the knight on g5 to f6"), never SAN, which would
 give away capture and check.
@@ -24,7 +34,9 @@ import re
 import chess, chess.engine
 import qa
 
-TASKS = ["best", "pv", "control", "attacks", "phase", "move_facts", "move_attacks", "move_board", "multipv"]
+TASKS = ["best", "pv", "control", "attacks", "phase", "move_facts", "move_attacks", "move_board", "multipv",
+         "inventory", "lookup", "render", "piece_moves", "legal_moves", "apply_move", "result_fen", "check", "mate1"]
+V1_TASKS = TASKS[9:]
 SF_TASKS = ("best", "pv", "multipv")    # need sf.jsonl labels
 PV_LEN = 6
 CONTROL_EMPTY = 0.1     # share of control questions about an empty square
@@ -36,6 +48,8 @@ NAMES = {chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop", che
          chess.QUEEN: "queen", chess.KING: "king"}
 KINDS = {v: k for k, v in NAMES.items()}
 PHASES = ["opening", "middlegame", "endgame"]
+KIND_ORDER = "KQRBNP"
+POOL_SHARE = 0.5        # share of a POOLED task's train samples drawn from positions where the answer is not "no"
 
 QUESTIONS = {
     "best": [("What is the best move?", "AB"), ("What should the side to move play?", "AB"),
@@ -52,6 +66,15 @@ QUESTIONS = {
                      ("Which attacks does {move} create or give up?", "A")],
     "move_board": [("What does the board look like after {move}?", "A"),
                    ("Give the piece placement after {move}.", "A")],
+    "inventory": [("List all pieces.", "A"), ("Which pieces are on the board?", "A")],
+    "lookup": [("What is on {square}?", "A"), ("Which piece stands on {square}?", "A")],
+    "render": [("Give the board as FEN.", "A"), ("Write the piece placement.", "A")],
+    "piece_moves": [("List the legal moves of the piece on {square}.", "A"), ("Where can the piece on {square} move?", "A")],
+    "legal_moves": [("List all legal moves.", "A"), ("Which moves are legal?", "A")],
+    "apply_move": [("Play {uci}. Which squares change?", "A"), ("What changes after {uci}?", "A")],
+    "result_fen": [("Play {uci}. Give the resulting FEN.", "A"), ("What is the FEN after {uci}?", "A")],
+    "check": [("Is the side to move in check?", "A"), ("Is the king in check?", "A")],
+    "mate1": [("Find all mates in one.", "A"), ("Which moves give checkmate?", "A")],
 }
 
 
@@ -275,12 +298,82 @@ def fmt_eval(c):
     return f"{c / 100:+.2f}"
 
 
+def mates_in_one(b):
+    out = []
+    for m in b.legal_moves:
+        b.push(m)
+        if b.is_checkmate(): out.append(m.uci())
+        b.pop()
+    return sorted(out)
+
+
+POOLED = {"check": lambda b: b.is_check(), "mate1": lambda b: bool(mates_in_one(b))}
+
+
+def content(b, s):
+    p = b.piece_at(s)
+    return f"{'white' if p.color else 'black'} {NAMES[p.piece_type]}" if p else "empty"
+
+
+def inventory(b):
+    out = []
+    for col, name in ((chess.WHITE, "White"), (chess.BLACK, "Black")):
+        n = [(k, len(b.pieces(chess.Piece.from_symbol(k).piece_type, col))) for k in KIND_ORDER]
+        out.append(name + " " + " ".join(f"{k}{c}" for k, c in n if c))
+    return "; ".join(out)
+
+
+def fen4(b):
+    return " ".join(b.fen().split()[:4])
+
+
+def _v1(task, row, qt, rng, b):
+    if task == "inventory":
+        t = inventory(b); return dict(row, question=qt, target=t, answer=t)
+    if task == "render":
+        return dict(row, question=qt, target=b.board_fen(), answer=b.board_fen())
+    if task == "lookup":
+        occ = sorted(b.piece_map())
+        sqs = occ if rng.random() < 0.5 else sorted(set(chess.SQUARES) - set(occ))
+        s = sqs[int(rng.integers(len(sqs)))]
+        c = content(b, s)
+        return dict(row, question=qt.format(square=chess.square_name(s)), square=s, target=c,
+                    answer="Nothing." if c == "empty" else f"A {c}.")
+    if task == "piece_moves":
+        own = sorted(chess.SquareSet(b.occupied_co[b.turn]))
+        mov = sorted({m.from_square for m in b.legal_moves})
+        sqs = mov if mov and rng.random() < 0.5 else own
+        s = sqs[int(rng.integers(len(sqs)))]
+        ms = sorted(m.uci() for m in b.legal_moves if m.from_square == s)
+        return dict(row, question=qt.format(square=chess.square_name(s)), square=s, target=ms, answer=" ".join(ms) or "None.")
+    if task == "legal_moves":
+        ms = sorted(m.uci() for m in b.legal_moves)
+        return dict(row, question=qt, target=ms, answer=" ".join(ms) or "None.")
+    if task == "check":
+        cs = sorted(b.checkers())
+        ans = f"Yes, by {join([piece_name(b, x) for x in cs])}." if cs else "No."
+        return dict(row, question=qt, target=cs, answer=ans)
+    if task == "mate1":
+        ms = mates_in_one(b)
+        return dict(row, question=qt, target=ms, answer=" ".join(ms) or "None.")
+    if not any(b.legal_moves): return None                       # apply_move, result_fen
+    m = pick_move(rng, b)
+    a = b.copy(stack=False); a.push(m)
+    row.update(question=qt.format(uci=m.uci()), move=m.uci())
+    if task == "apply_move":
+        ch = [[s, content(a, s)] for s in chess.SQUARES if b.piece_at(s) != a.piece_at(s)]
+        return dict(row, target=ch, answer=", ".join(f"{chess.square_name(s)} {c}" for s, c in ch))
+    return dict(row, target=fen4(a), answer=fen4(a))
+
+
 def sample(task, rng, fen, sf=None):
     b = chess.Board(fen)
     q = int(rng.integers(len(QUESTIONS[task])))
     qt, fmts = QUESTIONS[task][q]
     fmt = fmts[int(rng.integers(len(fmts)))]
     row = dict(task=task, q=q, fmt=fmt, fen=fen)
+    if task in V1_TASKS:
+        return _v1(task, row, qt, rng, b)
     if task in SF_TASKS:
         if not sf:
             return None
@@ -427,9 +520,37 @@ def parse(row, text):
                     return None
                 out.append(sorted([s, k] for s, k in p))
             return out
-        if task == "move_board":
+        if task in ("move_board", "render"):
             chess.BaseBoard(t)
             return t
+        if task == "inventory":
+            m = re.fullmatch(r"White((?: [KQRBNP]\d+)*); Black((?: [KQRBNP]\d+)*)", t)
+            return [{x[0]: int(x[1:]) for x in g.split()} for g in (m[1], m[2])] if m else None
+        if task == "lookup":
+            if t == "Nothing.": return "empty"
+            m = re.fullmatch(r"An? ((?:white|black) (?:pawn|knight|bishop|rook|queen|king))\.", t)
+            return m[1] if m else None
+        if task in ("piece_moves", "legal_moves", "mate1"):
+            if t == "None.": return []
+            xs = t.split()
+            return sorted(set(xs)) if all(re.fullmatch(r"[a-h][1-8][a-h][1-8][qrbn]?", x) for x in xs) else None
+        if task == "apply_move":
+            out = []
+            for x in t.split(", "):
+                m = re.fullmatch(r"([a-h][1-8]) (empty|(?:white|black) (?:pawn|knight|bishop|rook|queen|king))", x)
+                if not m: return None
+                out.append([chess.parse_square(m[1]), m[2]])
+            return out
+        if task == "result_fen":
+            f = t.split()
+            if len(f) != 4: return None
+            chess.BaseBoard(f[0])
+            return t
+        if task == "check":
+            if t == "No.": return []
+            m = re.fullmatch(r"Yes, by (.+)\.", t)
+            ps = pieces_of(m[1]) if m else None
+            return sorted(s for s, _ in ps) if ps is not None else None
     except (ValueError, KeyError, IndexError):
         return None
     raise ValueError(task)
@@ -526,7 +647,17 @@ def score(row, text, engine=None):
         ps = {(g, s, k) for g, xs in enumerate(p) for s, k in xs}
         ts = {(g, s, k) for g, xs in enumerate(tg) for s, k in xs}
         out.update(exact=ps == ts, f1=f1(ps, ts))
-    elif task == "move_board":
-        pb, tb = chess.BaseBoard(p), chess.BaseBoard(tg)
+    elif task in ("move_board", "render", "result_fen"):
+        pb, tb = chess.BaseBoard(p.split()[0]), chess.BaseBoard(tg.split()[0])
         out.update(exact=p == tg, square_acc=sum(pb.piece_at(s) == tb.piece_at(s) for s in chess.SQUARES) / 64)
+    elif task == "inventory":
+        tg_ = parse(dict(row, task="inventory"), tg)
+        out.update(exact=p == tg_, counts=sum(p[c].get(k, 0) == tg_[c].get(k, 0) for c in (0, 1) for k in KIND_ORDER) / 12)
+    elif task == "lookup":
+        out["exact"] = p == tg
+    elif task in ("piece_moves", "legal_moves", "mate1", "check"):
+        out.update(exact=set(p) == set(tg), f1=f1(set(p), set(tg)))
+    elif task == "apply_move":
+        ps, ts = {tuple(x) for x in p}, {tuple(x) for x in tg}
+        out.update(exact=ps == ts, f1=f1(ps, ts))
     return out
