@@ -1,14 +1,16 @@
 """Queen's domain-adaptation curriculum (Bhaskar, Cheng, Chen 2026, arXiv:2610.03695, Sec. 3.2 and App. A) on the oracle:
 Leela layer-9 tokens -> fresh projector -> Qwen3.5-0.8B with fresh LoRA r16, as in train.py --inject embed.
 
-Stages (Table 8 replay mix, Table 9 steps scaled 50k/60k/30k/100k -> 5k/6k/3k/10k at batch 16, LRs as given):
+Stages (Table 8 replay mix, Table 9 steps scaled 50k/60k/30k/100k -> 5k/6k/3k/10k at batch 16; LRs are train.py's,
+since Table 9's 1e-4 left a fresh projector at batch 16 unable to read the board):
   1 static-current   2 dynamic-current   3 static-future   4 dynamic-future
 Question types: the 13 of Table 7, three paired (question, answer) formats each; "future" asks about the position
 after 1-8 random legal moves, given as square tokens. 64 square and 12 piece tokens are new; their embeddings
-(tied in and out, as Qwen ties them) train at 0.1x the stage LR. Pieces are named from the side to move in the
+(tied in and out, as Qwen ties them) train at --token-lr. The prompt states the side to move of the encoded
+position ("White to move."): the Leela tokens are in the side-to-move frame, square tokens are absolute. Pieces are named from the side to move in the
 position asked about: <PIECE_MN> my knight, <PIECE_OK> opponent's king. Squares: <SQUARE_1> = a1 .. <SQUARE_64> = h8.
 Per stage: AdamW, 5% warmup, cosine to 5% of peak; val every --eval-every steps on the stage's own questions,
-early stopping after --patience evals without gain, best.pt starts the next stage. After each stage the test set of
+optional early stopping after --patience evals without gain (0 = off), best.pt starts the next stage. After each stage the test set of
 every stage so far is scored (exact match of the whole answer), as Table 10.
 Each stage dir resumes from last.pt (scavenger requeue); a stage with report_test.jsonl is done.
 
@@ -25,16 +27,17 @@ ap.add_argument("--data", default=str(ROOT / "oracle/data_g50k"))
 ap.add_argument("--out", default=str(ROOT / "oracle/runs/queen"))
 ap.add_argument("--model", default="Qwen/Qwen3.5-0.8B")
 ap.add_argument("--steps", default="5000,6000,3000,10000", help="max training steps per stage")
-ap.add_argument("--lrs", default="1e-4,8e-5,7.5e-5,2e-4", help="peak LR of projector and LoRA per stage")
-ap.add_argument("--token-lr", type=float, default=0.1, help="new token embeddings: this times the stage LR")
+ap.add_argument("--lr", type=float, default=1e-3, help="projector peak LR (train.py --lr)")
+ap.add_argument("--lora-lr", type=float, default=2e-4, help="LoRA peak LR (train.py --lora-lr)")
+ap.add_argument("--token-lr", type=float, default=1e-4, help="new token embeddings peak LR")
 ap.add_argument("--batch", type=int, default=16)
 ap.add_argument("--wd", type=float, default=0.01)
 ap.add_argument("--hidden", type=int, default=1024)
 ap.add_argument("--lora", type=int, default=16)
 ap.add_argument("--lora-targets", default="q_proj,k_proj,v_proj,o_proj,in_proj_qkv,in_proj_z,out_proj,gate_proj,up_proj,down_proj")
 ap.add_argument("--eval-every", type=int, default=500)
-ap.add_argument("--patience", type=int, default=3, help="evals without a new best before the stage stops")
-ap.add_argument("--val-n", type=int, default=35, help="val questions per question type")
+ap.add_argument("--patience", type=int, default=0, help="evals without a new best before the stage stops (0 = run all steps)")
+ap.add_argument("--val-n", type=int, default=100, help="val questions per question type")
 ap.add_argument("--test-n", type=int, default=150, help="test questions per question type")
 ap.add_argument("--eval-batch", type=int, default=32)
 ap.add_argument("--train-n", type=int, default=0, help="only the first n train positions (smoke tests)")
@@ -332,7 +335,8 @@ pre_s, post_s = chat.split("@@BOARD@@")
 PRE = tok(pre_s, add_special_tokens=False)["input_ids"]
 
 
-def prompt_ids(question):
+def prompt_ids(question, i):
+    question = f"{'Black' if black[i] else 'White'} to move.\n{question}"
     ids = PRE + [pad_id] * 64
     return ids + tok(post_s.replace("@@Q@@", question), add_special_tokens=False)["input_ids"], list(range(len(PRE), len(PRE) + 64))
 
@@ -397,7 +401,7 @@ def batch(idx, stage, rng):
     rows = [sample(stage, i, rng) for i in idx]
     ids, labels = [], []
     for r in rows:
-        p, _ = prompt_ids(r["question"]); y = tok(r["answer"] + END, add_special_tokens=False)["input_ids"]
+        p, _ = prompt_ids(r["question"], r["i"]); y = tok(r["answer"] + END, add_special_tokens=False)["input_ids"]
         ids.append(p + y); labels.append([-100] * len(p) + y)
     x, mask = embed(ids, [r["i"] for r in rows])
     lab = torch.full(mask.shape, -100, dtype=torch.long)
@@ -416,7 +420,7 @@ def loss_fn(x, mask, lab, keep):
 def generate(rows):
     """Greedy (text, token ids) per row; rows of equal prompt length batched together (no padding), KV cache."""
     proj.eval(); llm.eval()
-    prompts = [prompt_ids(r["question"])[0] for r in rows]
+    prompts = [prompt_ids(r["question"], r["i"])[0] for r in rows]
     outs = [None] * len(rows); groups = {}
     for k, p in enumerate(prompts): groups.setdefault(len(p), []).append(k)
     for ks in groups.values():
@@ -474,16 +478,16 @@ def save(obj, path):
 
 
 # ---- stages ----
-STEPS = [int(x) for x in a.steps.split(",")]; LRS = [float(x) for x in a.lrs.split(",")]
+STEPS = [int(x) for x in a.steps.split(",")]
 NAMES = {1: "static_current", 2: "dynamic_current", 3: "static_future", 4: "dynamic_future"}
 prev = None
 for stage in map(int, a.stages.split(",")):
     sd_ = out / f"{stage}_{NAMES[stage]}"; sd_.mkdir(exist_ok=True)
     if (sd_ / "report_test.jsonl").exists():
         prev = sd_ / "best.pt"; print(f"stage {stage} done", flush=True); continue
-    n, lr = STEPS[stage - 1], LRS[stage - 1]
-    opt = torch.optim.AdamW([dict(params=list(proj.parameters()) + lora_params, lr=lr),
-                             dict(params=[new_emb], lr=lr * a.token_lr)], weight_decay=a.wd)
+    n = STEPS[stage - 1]
+    opt = torch.optim.AdamW([dict(params=list(proj.parameters()), lr=a.lr), dict(params=lora_params, lr=a.lora_lr),
+                             dict(params=[new_emb], lr=a.token_lr)], weight_decay=a.wd)
     warm = max(1, round(0.05 * n))
     lam = lambda s: (s + 1) / warm if s < warm else 0.05 + 0.95 * 0.5 * (1 + math.cos(math.pi * (s - warm) / max(1, n - warm)))
     sched = torch.optim.lr_scheduler.LambdaLR(opt, lam)
@@ -496,9 +500,9 @@ for stage in map(int, a.stages.split(",")):
         print(f"stage {stage}: resumed at step {step}, best {best}, bad {bad}", flush=True)
     elif prev:
         load(torch.load(prev, map_location=dev, weights_only=False)); print(f"stage {stage}: from {prev}", flush=True)
-    print(f"stage {stage} {NAMES[stage]}: {n} steps, lr {lr}, mix {MIX[stage]}", flush=True)
+    print(f"stage {stage} {NAMES[stage]}: {n} steps, lr {a.lr}/{a.lora_lr}/{a.token_lr}, mix {MIX[stage]}", flush=True)
     t0, run, k = time.time(), 0.0, 0
-    while step < n and bad < a.patience:
+    while step < n and (not a.patience or bad < a.patience):
         idx = rng.choice(tr, a.batch)
         loss = loss_fn(*batch(idx, stage, rng))
         opt.zero_grad(set_to_none=True); loss.backward()
