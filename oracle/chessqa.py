@@ -124,10 +124,13 @@ def text(task, ans):
 # ---- sampling ----
 def sample(task, rng, fen, moves=None):
     """One ChessQA-format row for this position, or None when ChessQA would skip it (empty answer, no fitting piece,
-    game too short). Like ChessQA, every row has a non-empty answer; check detection only in check."""
+    game too short). Like ChessQA, every row has a non-empty answer; check detection only in check, check_in_1 and the
+    capture/control/protect questions only out of check."""
     b = chess.Board(fen)
     row = dict(task=task, fen=fen, answer_type="single" if task in SINGLE else "multi")
     sq = piece = mv = None
+    if task == "cqa_check_det" and not b.is_check(): return None
+    if task in ("cqa_check_in_1", "cqa_capture", "cqa_control", "cqa_protect") and b.is_check(): return None
     if task in TRACK:
         lo, hi = TRACK[task]
         if not moves or len(moves) < lo: return None
@@ -141,8 +144,6 @@ def sample(task, rng, fen, moves=None):
         if not ok: return None
         sq = ok[int(rng.integers(len(ok)))]
         piece = f"{COLOUR[b.color_at(sq)]} {NAME[b.piece_type_at(sq)]}"
-    elif task == "cqa_check_det" and not b.is_check():
-        return None
     ans = answer(task, b, sq, mv)
     if not ans: return None
     t = text(task, ans)
