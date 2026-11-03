@@ -26,7 +26,7 @@ AO-style options (Karvonen et al. 2025); the defaults are the setup above:
 
 Supervised tasks (tasks.py, rows from build_tasks.py): --tasks T1 .. Tn trains on Tn and, with prob --replay,
 draws a sample from T1 .. Tn-1 instead; "eval" is the WDL question above. Val/test score every listed task.
-oracle/curriculum.sh chains the stages. --sched cosine: cosine decay from --lr to 0, no warmup.
+oracle/curriculum.sh chains the stages. --sched cosine: cosine decay from --lr to 0, after --warmup N linear steps (default none).
 """
 import argparse, contextlib, json, math, os, sys, time
 from pathlib import Path
@@ -79,6 +79,7 @@ ap.add_argument("--sf", default=str(ROOT / "vendor/stockfish/stockfish-ubuntu-x8
 ap.add_argument("--replay", type=float, default=0.2, help="--tasks: share of samples from the earlier tasks")
 ap.add_argument("--sched", choices=["onecycle", "cosine"], default="onecycle",
                 help="onecycle: 5%% warmup, cosine anneal, cycled momentum; cosine: cosine decay to 0")
+ap.add_argument("--warmup", type=int, default=0, help="--sched cosine: linear LR warmup over the first N steps (0 = none)")
 a = ap.parse_args()
 out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
 torch.manual_seed(a.seed)
@@ -129,6 +130,14 @@ if a.tasks:
         for l in open(Path(a.data[0]) / "sf.jsonl"):
             if l.endswith("\n"): r = json.loads(l); sf[r["i"]] = r["lines"]
     POOL = {t: tr[[int(i) in sf for i in tr]] if t in tasks.SF_TASKS else tr for t in a.tasks}
+    MOVES = {}                                                                         # game continuations (cqa state tracking)
+    if (Path(a.data[0]) / "moves.jsonl").exists():
+        for l in open(Path(a.data[0]) / "moves.jsonl"): r = json.loads(l); MOVES[r["i"]] = r["moves"]
+    for t in a.tasks:                                  # ChessQA: state tracking on game positions, the rest on puzzles
+        if t not in tasks.chessqa.TASKS: continue
+        POOL[t] = tr[[(int(i) in MOVES) == (t in tasks.chessqa.TRACK) for i in tr]]
+        if t == "cqa_check_det": POOL[t] = POOL[t][[chess.Board(str(fens[i])).is_check() for i in POOL[t]]]
+        print(f"{t}: {len(POOL[t]):,} train positions", flush=True)
     YES = {t: tr[[tasks.POOLED[t](chess.Board(str(fens[i]))) for i in tr]] for t in a.tasks if t in tasks.POOLED}
     for t, v in YES.items(): print(f"{t}: {len(v):,} of {len(tr):,} train positions answer yes", flush=True)
     tr = POOL[a.tasks[-1]]
@@ -282,8 +291,12 @@ if a.inject == "add":
 groups = [dict(params=list(proj.parameters()), lr=a.lr)] + ([dict(params=lora_params, lr=a.lora_lr)] if lora_params else [])
 opt = torch.optim.AdamW(groups, weight_decay=a.wd)
 steps_per_epoch = max(1, math.ceil(len(tr) / a.batch))                          # eval-only sets have no train split
-if a.sched == "cosine":
-    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, a.epochs * steps_per_epoch)
+T = a.epochs * steps_per_epoch
+if a.sched == "cosine" and a.warmup:                                             # linear warmup, then cosine over the rest
+    W = min(a.warmup, T - 1)
+    sched = torch.optim.lr_scheduler.LambdaLR(opt, lambda s: (s + 1) / W if s < W else 0.5 * (1 + math.cos(math.pi * (s - W) / (T - W))))
+elif a.sched == "cosine":
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T)
 else:
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, [g["lr"] for g in groups], total_steps=a.epochs * steps_per_epoch, pct_start=0.05)
 start, s0, rng_state = 0, 0, None
@@ -347,9 +360,9 @@ def sample_row(i, rng):
     prev = a.tasks[:-1]
     t = prev[int(rng.integers(len(prev)))] if prev and rng.random() < a.replay else a.tasks[-1]
     if t == "eval": return i, *qa.sample(rng, wdl[i], black[i])[3:]
-    if t in tasks.SF_TASKS and int(i) not in sf: i = int(rng.choice(POOL[t]))
+    if (t in tasks.SF_TASKS and int(i) not in sf) or (t in tasks.chessqa.TASKS and t != a.tasks[-1]): i = int(rng.choice(POOL[t]))
     if t in YES and len(YES[t]) and rng.random() < tasks.POOL_SHARE: i = int(rng.choice(YES[t]))
-    while (r := tasks.sample(t, rng, str(fens[i]), sf.get(int(i)))) is None: i = int(rng.choice(POOL[t]))
+    while (r := tasks.sample(t, rng, str(fens[i]), sf.get(int(i)), MOVES.get(int(i)))) is None: i = int(rng.choice(POOL[t]))
     return i, r["question"], r["answer"]
 
 
@@ -497,22 +510,21 @@ def task_score(rows, preds):
 
 
 def evaluate_tasks(ep, step, t0, report, sets=None, name="val"):
-    """--tasks: every task's rows at every combo, model and shuffled; one report line, one samples file."""
+    """--tasks: every task's rows at every combo; one report line, one samples file."""
     sets = sets or val
     t1 = time.time()
     by, samples = {}, []
     for t, rows in sets.items():
         if not rows: continue
         idx = [r["i"] for r in rows]
-        perm = list(np.random.default_rng(ep * 100003 + step).permutation(idx))
         mn = max(len(tok(r["answer"] + END, add_special_tokens=False)["input_ids"]) for r in rows) + 8
         for j, k in COMBOS:
             specs = [(j, eval_squares(i, k)) for i in idx]
-            pr, sh = generate(rows, idx, specs, mn), generate(rows, perm, specs, mn)
+            pr = generate(rows, idx, specs, mn)
             key = t + (f" {combo_name(j, k)}" if len(COMBOS) > 1 else "")
-            by[key] = dict(model=task_score(rows, pr), shuffled=task_score(rows, sh))
+            by[key] = dict(model=task_score(rows, pr))
             samples += [dict(task=t, combo=combo_name(j, k), question=r["question"], answer=r["answer"], pred=p_,
-                             shuffled=s_, fen=r["fen"]) for r, p_, s_ in zip(rows, pr, sh)]
+                             fen=r["fen"]) for r, p_ in zip(rows, pr)]
     rep = dict(epoch=ep, step=step, data=name, tasks=a.tasks, train_min=round((t1 - t0) / 60, 1) if t0 else None,
                eval_min=round((time.time() - t1) / 60, 1), by=by)
     with open(report, "a") as f: f.write(json.dumps(rep) + "\n")
@@ -521,7 +533,7 @@ def evaluate_tasks(ep, step, t0, report, sets=None, name="val"):
         for r in samples: f.write(json.dumps(r) + "\n")
     print(f"\n== {name} epoch {ep} step {step}/{steps_per_epoch} ==", flush=True)
     for key, v in by.items():
-        for t_ in ("model", "shuffled"):
+        for t_ in ("model",):
             print(f"{key:24}{t_:10}" + "  ".join(f"{k} {x}" for k, x in v[t_].items() if x is not None))
     seen = set()
     for r in samples:

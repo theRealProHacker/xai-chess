@@ -27,16 +27,19 @@ Minimal v1 ladder (moves in UCI, colours absolute):
   check        is the side to move in check      exact + F1 on the checkers; POOLED: half the samples in check
   mate1        all mates in one                  set F1; POOLED: half the samples have one
 
+ChessQA structural (chessqa.py, cqa_* tasks): its 11 tasks, prompts verbatim with the FEN, answer "FINAL ANSWER: ...".
+
 Moves in move_* questions are named by piece and squares ("the knight on g5 to f6"), never SAN, which would
 give away capture and check.
 """
 import re
 import chess, chess.engine
-import qa
+import qa, chessqa
 
 TASKS = ["best", "pv", "control", "attacks", "phase", "move_facts", "move_attacks", "move_board", "multipv",
-         "inventory", "lookup", "render", "piece_moves", "legal_moves", "apply_move", "result_fen", "check", "mate1"]
-V1_TASKS = TASKS[9:]
+         "inventory", "lookup", "render", "piece_moves", "legal_moves", "apply_move", "result_fen", "check", "mate1",
+         *chessqa.TASKS]
+V1_TASKS = TASKS[9:18]
 SF_TASKS = ("best", "pv", "multipv")    # need sf.jsonl labels
 PV_LEN = 6
 CONTROL_EMPTY = 0.1     # share of control questions about an empty square
@@ -366,7 +369,9 @@ def _v1(task, row, qt, rng, b):
     return dict(row, target=fen4(a), answer=fen4(a))
 
 
-def sample(task, rng, fen, sf=None):
+def sample(task, rng, fen, sf=None, moves=None):
+    if task in chessqa.TASKS:
+        return chessqa.sample(task, rng, fen, moves)
     b = chess.Board(fen)
     q = int(rng.integers(len(QUESTIONS[task])))
     qt, fmts = QUESTIONS[task][q]
@@ -592,6 +597,8 @@ def line_eval(engine, b, ucis):
 
 
 def score(row, text, engine=None):
+    if row["task"] in chessqa.TASKS:
+        return dict(task=row["task"], **chessqa.score(row, text))
     p = parse(row, text)
     task, tg = row["task"], row["target"]
     out = dict(task=task, parsed=p is not None)
