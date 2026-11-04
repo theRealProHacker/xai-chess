@@ -28,6 +28,7 @@ fn roles<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<Role>, D::Error> {
 /// `Control` every square, `Isolated`, `Doubled`, `Backward` and `Hanging` some such opponent pawn or piece,
 /// `Hole` some hole on the opponent's 3rd or 4th rank,
 /// `Pressure` more squares aimed at than the opponent aims at, `Outnumber` more squares outnumbering than outnumbered.
+/// On `KingZone` and `KingWing` the king they belong to does not count as a defender.
 #[derive(Debug, Deserialize)]
 #[serde(bound(deserialize = "'de: 'static"))]
 pub(crate) enum Region {

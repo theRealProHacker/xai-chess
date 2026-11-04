@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent run &middot; xai-chess</title>
+<link rel="stylesheet" href="vendor/chessground/chessground.base.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.brown.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.cburnett.css">
+<style>
+  :root{
+    --shadow-s:
+      inset 0 1px 2px #ffffff30,
+      0 1px 2px #00000030,
+      0 2px 4px #00000015;
+    --shadow-m:
+      inset 0 1px 2px #ffffff50,
+      0 2px 4px #00000030,
+      0 4px 8px #00000015;
+    --accent:#0b5fa5; --line:#e4e4e4;
+    --yes:#0b7a2f; --no:#b00020; --unk:#6b6b6b;
+    --mono:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  body{max-width:1480px;margin:2rem auto 4rem;padding:0 1.5rem;background:#fff;color:#1a1a1a;
+      font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+  h1{font-size:1.25rem;font-weight:600;margin:0}
+  header{display:flex;align-items:baseline;gap:1.2rem;flex-wrap:wrap;margin:0 0 1.25rem}
+  header .sum{color:#6b6b6b;font-size:.9rem}
+  .holds{color:var(--yes)} .unknown{color:var(--unk)} .failed,.fails,.error{color:var(--no)}
+
+  main{display:grid;grid-template-columns:minmax(0,250px) minmax(0,400px) minmax(0,1fr);gap:2rem;align-items:start}
+  @media (max-width:1180px){main{grid-template-columns:minmax(0,250px) minmax(0,1fr)} #detail{grid-column:1/-1}}
+  @media (max-width:760px){main{grid-template-columns:minmax(0,1fr)}}
+
+  #list{position:sticky;top:1rem;max-height:calc(100vh - 2rem);overflow-y:auto;box-sizing:border-box;
+      border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-s);padding:.4rem}
+  #list select{display:block;width:100%;font:inherit;font-size:.88rem;padding:.35rem .5rem;margin:0 0 .3rem;
+      border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer}
+  .case{display:flex;justify-content:space-between;gap:.5rem;width:100%;text-align:left;font:inherit;font-size:.88rem;
+      border:0;background:none;border-radius:6px;padding:.3rem .5rem;cursor:pointer;color:#1a1a1a}
+  .case:hover{background:#f2f6fa}
+  .case.on{background:var(--accent);color:#fff} .case.on span{color:#fff}
+  .case span{font-size:.8rem}
+
+  #board{width:100%;aspect-ratio:1/1;box-shadow:var(--shadow-s);border-radius:4px}
+  #board .cg-shapes{z-index:3;opacity:1}
+  #board coords.files{text-transform:lowercase}
+  #board coords coord{color:#2b2b2b !important;text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff;font-weight:600}
+  .players{color:#6b6b6b;font-size:.88rem;margin:.6rem 0 0}
+  .players a{color:#6b6b6b} .players a:hover{color:var(--accent)}
+
+  h2{font-size:1.25rem;font-weight:600;margin:0 0 .6rem}
+  h2 .ev{color:#6b6b6b;font-size:.9rem;font-weight:400;margin-left:.6rem}
+  #pv{display:grid;grid-template-columns:auto 1fr;gap:.15rem .7rem;margin:-.2rem 0 1rem;font-size:.88rem;color:#444}
+  #pv .k{color:#8a8a8a}
+  .final{font-weight:600;margin:0 0 1rem}
+
+  .try{border:1px solid var(--line);border-radius:10px;padding:.8rem 1rem;margin:0 0 .8rem;box-shadow:var(--shadow-s)}
+  .try.last{border-left:4px solid var(--accent)}
+  .try .head{display:flex;justify-content:space-between;gap:1rem;font-size:.85rem;color:#6b6b6b;margin:0 0 .3rem}
+  .try .head b{font-weight:600}
+  .try .intent{margin:0 0 .45rem}
+  .try code{display:block;font:var(--mono);background:#f7f7f7;border-radius:6px;padding:.45rem .6rem;
+      overflow-wrap:anywhere;white-space:pre-wrap;margin:0 0 .45rem}
+  .try .rendered{color:#444;margin:0 0 .3rem;font-size:.92rem}
+  .try .why{font-size:.88rem;margin:0 0 .3rem}
+  .try .note{color:#6b6b6b;font-size:.85rem;margin:0 0 .4rem;font-style:italic}
+  details{font-size:.85rem} summary{cursor:pointer;color:#6b6b6b}
+  table{width:100%;border-collapse:collapse;font-size:.85rem;table-layout:fixed;margin-top:.3rem}
+  td{padding:.25rem .5rem .25rem 0;border-top:1px solid #eee;vertical-align:baseline;overflow-wrap:anywhere}
+  td:nth-child(1){width:7.5rem;font:var(--mono)} td:nth-child(2){width:5rem;font-weight:600}
+  .empty{color:#8a8a8a}
+</style>
+</head>
+<body>
+  <header>
+    <h1>Agent run</h1>
+    <span class="sum" id="sum"></span>
+  </header>
+  <main>
+    <nav id="list">
+      <select id="show" aria-label="Show">
+        <option value="">All cases</option>
+        <option value="holds">Holds</option>
+        <option value="unknown">Unknown</option>
+        <option value="failed">Failed</option>
+        <option value="pending">Pending</option>
+      </select>
+      <div id="cases"></div>
+    </nav>
+    <section>
+      <div id="board"></div>
+      <div class="players" id="players"></div>
+    </section>
+    <section id="detail">
+      <h2 id="head">&nbsp;</h2>
+      <div id="pv"></div>
+      <p class="final" id="final"></p>
+      <div id="tries"></div>
+    </section>
+  </main>
+
+<script type="module">
+import { Chess } from './vendor/chess.js';
+import { Chessground } from './vendor/chessground/chessground.min.js';
+
+const $ = id => document.getElementById(id);
+const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+const ground = Chessground($('board'), {coordinates: true, viewOnly: true, drawable: {enabled: false}, animation: {enabled: false}});
+const num = p => `${Math.floor(p / 2) + 1}${p % 2 ? '...' : '.'}`;
+const line = (pv, p) => pv.map((m, i) => (i === 0 || (p + i) % 2 === 0 ? num(p + i) : '') + m).join(' ');
+const evText = e => e.mate === 0 ? '#' : e.mate ? '#' + e.mate : (e.cp > 0 ? '+' : '') + (e.cp / 100).toFixed(1);
+
+let cases = [], tries = {}, cur = null;
+// holds / unknown: the last try worked; failed: 5 tries without; pending: still going.
+const status = c => {
+  const ts = tries[c.id] || [], v = ts.at(-1)?.v;
+  return v === 'holds' || v === 'unknown' ? v : ts.length >= 5 ? 'failed' : 'pending';
+};
+
+async function load(){
+  const r = await (await fetch('/api/review')).json();
+  cases = r.cases; tries = {};
+  for (const a of r.attempts) (tries[a.case] ??= []).push(a);
+  const n = s => cases.filter(c => status(c) === s).length;
+  $('sum').replaceChildren(`${cases.length} moves · `, el('span', {className: 'holds', textContent: `${n('holds')} hold`}),
+    ' · ', el('span', {className: 'unknown', textContent: `${n('unknown')} unknown`}),
+    ' · ', el('span', {className: 'failed', textContent: `${n('failed')} failed`}),
+    n('pending') ? ` · ${n('pending')} pending` : '');
+  drawList();
+  const want = new URLSearchParams(location.search).get('case');
+  show(cases.find(c => c.id === (cur ?? want)) ?? cases[0]);
+}
+
+function drawList(){
+  const f = $('show').value;
+  $('cases').replaceChildren(...cases.filter(c => !f || status(c) === f).map(c => {
+    const s = status(c), b = el('button', {className: 'case' + (c.id === cur ? ' on' : '')},
+      `${num(c.ply)}${c.mov}`, el('span', {className: s, textContent: s === 'pending' ? '' : `${s} · ${(tries[c.id] || []).length}`}));
+    b.dataset.id = c.id;
+    b.onclick = () => show(c);
+    return b;
+  }));
+}
+
+function show(c){
+  if (!c) return;
+  cur = c.id;
+  history.replaceState(null, '', '?case=' + c.id);
+  const m = new Chess(c.fen).move(c.mov, {sloppy: true});
+  ground.set({fen: c.fen, orientation: c.ply % 2 ? 'black' : 'white', lastMove: undefined});
+  ground.setAutoShapes([{orig: m.from, dest: m.to, brush: 'blue'}]);
+  $('players').replaceChildren(`${c.white} (${c.white_elo}) – ${c.black} (${c.black_elo}) · `,
+    el('a', {href: `${c.url}#${c.ply + 1}`, target: '_blank', rel: 'noopener', textContent: 'Lichess'}), ' · ',
+    el('a', {href: `/?id=${c.game}`, textContent: 'Annotator'}));
+  $('head').replaceChildren(num(c.ply) + c.mov, el('span', {className: 'ev', textContent: `${c.kind} · ${evText(c.before)} → ${evText(c.after)}`}));
+  $('pv').replaceChildren(...[['Best', c.before.pv, c.ply], ['Then', c.after.pv, c.ply + 1]].filter(([, pv]) => pv.length)
+    .flatMap(([k, pv, p]) => [el('span', {className: 'k', textContent: k}), el('span', {textContent: line(pv, p)})]));
+  const s = status(c), ts = tries[c.id] || [];
+  $('final').className = 'final ' + s;
+  $('final').textContent = {holds: `Holds on try ${ts.length}`, unknown: `Unknown on try ${ts.length}`,
+    failed: 'Failed after 5 tries', pending: ts.length ? `In progress, ${ts.length} tries` : 'Not tried yet'}[s];
+  $('tries').replaceChildren(...ts.map((t, i) => el('div', {className: 'try' + (i === ts.length - 1 ? ' last' : '')},
+    el('div', {className: 'head'}, el('b', {textContent: `Try ${t.n}`}), el('span', {className: t.v, textContent: t.v})),
+    t.note ? el('p', {className: 'note', textContent: t.note}) : '',
+    el('p', {className: 'intent', textContent: t.english_intent}),
+    el('code', {textContent: t.dsl}),
+    t.rendered ? el('p', {className: 'rendered', textContent: t.rendered}) : '',
+    (t.error || t.why) ? el('p', {className: 'why ' + (t.error ? 'error' : t.v),
+      textContent: t.error ? `Parse error: ${t.error}${t.hint ? ` (${t.hint})` : ''}` : t.why}) : '',
+    t.claims?.length ? el('details', {}, el('summary', {textContent: 'Parts'}),
+      el('table', {}, ...t.claims.map(cl => el('tr', {}, el('td', {textContent: cl.name}),
+        el('td', {className: cl.v, textContent: cl.v}), el('td', {textContent: cl.why}))))) : '')));
+  if (!ts.length) $('tries').append(el('p', {className: 'empty', textContent: 'No tries yet.'}));
+  drawList();
+}
+
+$('show').onchange = drawList;
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'SELECT') return;
+  const shown = [...$('cases').children], i = shown.findIndex(b => b.dataset.id === cur);
+  const next = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? shown[i + 1] : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? shown[i - 1] : null;
+  if (next) { e.preventDefault(); next.click(); next.scrollIntoView({block: 'nearest'}); }
+});
+load();
+</script>
+</body>
+</html>

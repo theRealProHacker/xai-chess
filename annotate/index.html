@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Annotate &middot; xai-chess</title>
+<link rel="stylesheet" href="vendor/chessground/chessground.base.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.brown.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.cburnett.css">
+<style>
+  :root{
+    --shadow-s:
+      inset 0 1px 2px #ffffff30,
+      0 1px 2px #00000030,
+      0 2px 4px #00000015;
+    --shadow-m:
+      inset 0 1px 2px #ffffff50,
+      0 2px 4px #00000030,
+      0 4px 8px #00000015;
+    --shadow-l:
+      inset 0 1px 2px #ffffff70,
+      0 4px 6px #00000030,
+      0 6px 10px #00000015;
+    --accent:#0b5fa5; --line:#e4e4e4;
+    --yes:#0b7a2f; --no:#b00020; --unk:#6b6b6b;
+    --mono:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  body{max-width:1480px;margin:2rem auto 4rem;padding:0 1.5rem;background:#fff;color:#1a1a1a;
+      font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+
+  button{font:inherit;font-size:.9rem;padding:.5rem .9rem;border:1px solid var(--line);border-radius:8px;
+      background:#fff;color:#1a1a1a;cursor:pointer;box-shadow:var(--shadow-s);
+      transition:border-color .12s,background .12s,box-shadow .12s}
+  button:hover:not(:disabled){border-color:var(--accent);background:#fafafa;box-shadow:var(--shadow-m)}
+  button:disabled{opacity:.5;cursor:default;box-shadow:none}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover:not(:disabled){background:#094f8a;border-color:#094f8a}
+
+  header{display:flex;align-items:center;gap:1rem;margin:0 0 1.25rem}
+  header .game{flex:1;min-width:0}
+  header .players{font-size:1.15rem;font-weight:600}
+  header .meta{color:#6b6b6b;font-size:.88rem}
+  header .meta a{color:#6b6b6b} header .meta a:hover{color:var(--accent)}
+
+  main{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr) minmax(0,360px);gap:2rem;align-items:start}
+  @media (max-width:1180px){
+    main{grid-template-columns:minmax(0,420px) minmax(0,1fr)}
+    #options{grid-column:1/-1;position:static;max-height:none}
+  }
+  @media (max-width:820px){main{grid-template-columns:minmax(0,1fr)}}
+
+  #board{width:100%;aspect-ratio:1/1;box-shadow:var(--shadow-s);border-radius:4px}
+  #board .cg-shapes{z-index:3;opacity:1}
+  #board coords.files{text-transform:lowercase}
+  #board coords coord{color:#2b2b2b !important;text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff;font-weight:600}
+  .nav{display:flex;gap:.4rem;margin:.6rem 0}
+  .nav button{padding:.35rem .8rem}
+  .nav .flip{margin-left:auto}
+
+  #moves{display:grid;grid-template-columns:2.6rem 1fr 1fr;max-height:16rem;overflow-y:auto;
+      border:1px solid var(--line);border-radius:8px;font-size:.92rem;padding:.25rem}
+  #moves .n{color:#8a8a8a;padding:.2rem .5rem;text-align:right}
+  #moves .m{display:flex;justify-content:space-between;gap:.4rem;padding:.2rem .5rem;cursor:pointer;
+      color:#444;border-radius:4px}
+  #moves .m:hover{background:#f2f6fa}
+  #moves .m.done{color:var(--accent);font-weight:600}
+  #moves .ev{color:#8a8a8a;font-size:.8rem;font-weight:400;font-variant-numeric:tabular-nums}
+  #moves .m.mistake{background:#fdf0d8} #moves .m.mistake .ev{color:#a05a00}
+  #moves .m.blunder{background:#fbe1e1} #moves .m.blunder .ev{color:var(--no)}
+  #moves .m.on{background:var(--accent);color:#fff} #moves .m.on .ev{color:#fff}
+
+  h2{font-size:1.25rem;font-weight:600;margin:0 0 .6rem}
+  h2 .ev{color:#6b6b6b;font-size:.9rem;font-weight:400;margin-left:.6rem}
+  #pv{display:grid;grid-template-columns:auto 1fr;gap:.15rem .7rem;margin:-.2rem 0 .8rem;font-size:.88rem;color:#444}
+  #pv:empty{display:none}
+  #pv .k{color:#8a8a8a}
+  h3{font-size:1rem;font-weight:600;margin:1.4rem 0 .45rem}
+
+  /* The DSL editor */
+  #dsl .cm-editor{border:1px solid var(--line);border-radius:8px;background:#fff}
+  #dsl .cm-editor.cm-focused{outline:none;border-color:var(--accent)}
+  #dsl.bad .cm-editor{border-color:var(--no)}
+  #dsl .cm-scroller{font:var(--mono)}
+  #dsl .cm-content{min-height:3rem;padding:.5rem 0}
+  #dsl .cm-line{padding:0 .65rem}
+  #dsl .cm-placeholder{color:#9a9a9a}
+  .cm-tooltip{border:1px solid var(--line) !important;border-radius:8px;background:#fff !important;
+      box-shadow:var(--shadow-l)}
+  .cm-tooltip-autocomplete ul{font:var(--mono) !important;max-height:16rem !important}
+  .cm-tooltip-autocomplete ul li{padding:.15rem .6rem !important}
+  .cm-tooltip-autocomplete ul li[aria-selected]{background:var(--accent) !important;color:#fff !important}
+  .cm-completionDetail{color:#8a8a8a;font-style:normal !important;margin-left:.8rem}
+  li[aria-selected] .cm-completionDetail{color:#dbe8f5}
+  .cm-completionInfo{max-width:22rem;padding:.5rem .7rem !important;font-size:.85rem;line-height:1.45}
+  .tip{max-width:24rem;padding:.5rem .7rem;font-size:.85rem;line-height:1.45}
+  .tip code,.cm-completionInfo code{font:var(--mono);display:block;margin-bottom:.25rem;color:#1a1a1a}
+  .tip p,.cm-completionInfo p{margin:0;color:#444}
+
+  .err{color:var(--no);font-size:.85rem;min-width:0}
+  .err.hush{visibility:hidden}
+  .save{display:flex;align-items:center;gap:.8rem;margin:.6rem 0 0}
+  .save .status{color:#6b6b6b;font-size:.85rem}
+
+  .result{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;
+      padding:.85rem 1rem;box-shadow:var(--shadow-m);line-height:1.55}
+  .result.stale{color:#8a8a8a}
+  .verdict{font-weight:600;margin:0 0 .4rem}
+  .verdict.holds{color:var(--yes)} .verdict.fails{color:var(--no)} .verdict.unknown{color:var(--unk)}
+  .verdict.busy{color:#6b6b6b;font-weight:400;font-size:.92rem}
+  table{width:100%;border-collapse:collapse;font-size:.86rem;table-layout:fixed}
+  th{text-align:left;font-weight:400;color:#6b6b6b;font-size:.8rem;padding:0 .5rem .25rem 0}
+  th:nth-child(1){width:7.5rem} th:nth-child(2){width:6.5rem}
+  td{padding:.3rem .5rem .3rem 0;border-top:1px solid #eee;vertical-align:baseline;overflow-wrap:anywhere}
+  td.n{font:var(--mono)}
+  td.v{font-weight:600}
+  td.v.holds{color:var(--yes)} td.v.fails{color:var(--no)} td.v.unknown{color:var(--unk)}
+  td.w{color:#555}
+
+  /* Every option of the DSL, beside the editor */
+  #options{position:sticky;top:1rem;max-height:calc(100vh - 2rem);overflow-y:auto;box-sizing:border-box;
+      border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-s);padding:.75rem}
+  .find{position:sticky;top:-.75rem;z-index:1;background:#fff;margin:-.75rem 0 0;padding:.75rem 0 .25rem}
+  #filter{display:block;width:100%;box-sizing:border-box;font:inherit;font-size:.9rem;padding:.4rem .6rem;
+      border:1px solid var(--line);border-radius:8px}
+  #filter:focus{outline:none;border-color:var(--accent)}
+  #options h3{font-size:.92rem;margin:1rem 0 .3rem}
+  .opt{display:block;width:100%;text-align:left;border:0;box-shadow:none;border-radius:6px;padding:.3rem .45rem;
+      background:none;font-size:.85rem}
+  .opt:hover:not(:disabled){background:#f2f6fa;box-shadow:none}
+  .opt code{font:var(--mono);color:#1a1a1a;overflow-wrap:anywhere}
+  .opt span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+      color:#6b6b6b;font-size:.8rem;line-height:1.35;margin-top:.1rem}
+  .opt.off{opacity:.55}
+  .opt[hidden],.group[hidden]{display:none}
+</style>
+</head>
+<body>
+  <header>
+    <div class="game">
+      <div class="players" id="players">&nbsp;</div>
+      <div class="meta" id="meta">&nbsp;</div>
+    </div>
+    <button id="nextGame">Next game</button>
+  </header>
+
+  <main>
+    <section>
+      <div id="board"></div>
+      <div class="nav">
+        <button id="prev" aria-label="Previous move">&larr;</button>
+        <button id="next" aria-label="Next move">&rarr;</button>
+        <button id="flip" class="flip">Flip</button>
+      </div>
+      <div id="moves"></div>
+    </section>
+
+    <section>
+      <h2 id="moveHead">&nbsp;</h2>
+      <div id="pv"></div>
+      <div id="dsl"></div>
+      <div class="save">
+        <button id="save" class="primary">Save</button>
+        <span class="status" id="status"></span>
+        <span class="err" id="err" aria-live="polite"></span>
+      </div>
+
+      <h3>English</h3>
+      <div class="result" id="out" aria-live="polite">&nbsp;</div>
+
+      <h3>Does it hold?</h3>
+      <div id="check"><p class="verdict busy" id="verdict">Loading the engine&hellip;</p><table id="claims"></table></div>
+    </section>
+
+    <aside id="options">
+      <div class="find"><input id="filter" type="search" placeholder="Filter" aria-label="Filter options"></div>
+      <div id="groups"></div>
+    </aside>
+  </main>
+
+<script type="module">
+import { Chess } from './vendor/chess.js';
+import { Chessground } from './vendor/chessground/chessground.min.js';
+import init, * as dsl from './vendor/dsl/dsl_verifier.js';
+import * as CM from './lib/codemirror.js';
+
+const [, schema] = await Promise.all([init(), fetch('/api/schema').then(r => r.json())]);
+const $ = id => document.getElementById(id);
+
+// Wasm traps on a panic; the panic message says why.
+function call(f, ...a){
+  try { return JSON.parse(f(...a)); }
+  catch(_) { return {error: dsl.last_panic() || 'The renderer crashed on this input.'}; }
+}
+
+// --- the DSL's types (from /api/schema) ---
+const ROLES = ['Pawn', 'Knight', 'Bishop', 'Rook', 'Queen', 'King'];
+const GROUPS = [['Reason', 0, 'Combine'], ['Reason', 1, 'Claims'], ['Region', 0, 'Regions'], ['Pieces', 0, 'Pieces'],
+                ['Annotation', 0, 'Ratings'], ['Level', 0, 'Degrees'], ['Grade', 0, 'Grades']];
+const splitTop = s => { const out = []; let d = 0, cur = '';
+  for (const c of s) { d += '([<'.includes(c) - ')]>'.includes(c); if (c === ',' && !d) { out.push(cur.trim()); cur = ''; } else cur += c; }
+  return cur.trim() ? [...out, cur.trim()] : out; };
+const elemOf = t => t?.startsWith('[') ? t.slice(1, -1) : null;
+const partsOf = t => t?.startsWith('(') ? splitTop(t.slice(1, -1)) : null;
+const variantOf = (type, name) => schema[type]?.find(v => v.name === name);
+const shown = t => t.replace(/Move_/g, 'Move').replace('Option<char>', 'Piece');
+function sig(v){
+  if (!v.args.length) return v.name;
+  if (v.fields) return `${v.name} { ${v.args.map(a => `${a.name}: ${shown(a.type)}`).join(', ')} }`;
+  return `${v.name}(${v.args.map(a => shown(a.type)).join(', ')})`;
+}
+// A snippet: fields to fill, Tab moves between them.
+function hole(type){
+  if (elemOf(type)) return '[${}]';
+  if (partsOf(type)) return '(' + partsOf(type).map(() => '${}').join(', ') + ')';
+  return '${}';
+}
+function template(v){
+  if (!v.args.length) return v.name;
+  if (v.fields) return `${v.name} \\{ ${v.args.map(a => `${a.name}: ${hole(a.type)}`).join(', ')} \\}`;
+  return `${v.name}(${v.args.map(a => hole(a.type)).join(', ')})`;
+}
+function infoNode(v){
+  const d = document.createElement('div');
+  d.append(Object.assign(document.createElement('code'), {textContent: sig(v)}));
+  if (v.doc) d.append(Object.assign(document.createElement('p'), {textContent: v.doc}));
+  return d;
+}
+
+// --- game state ---
+let game, fens = [], evals = null, saved = {}, drafts = {}, ply = 0;
+const ground = Chessground($('board'), {
+  coordinates: true, viewOnly: true, drawable: {enabled:false}, animation: {enabled:false},
+});
+const num = p => `${Math.floor(p / 2) + 1}${p % 2 ? '...' : '.'}`;
+const fenOf = p => fens[p], movOf = p => game.moves[p];
+
+async function loadGame(id){
+  $('players').textContent = 'Loading…'; $('meta').innerHTML = '&nbsp;';
+  const r = await (await fetch('/api/game' + (id ? '?id=' + encodeURIComponent(id) : ''))).json();
+  if (r.error) { $('players').textContent = r.error; return; }
+  game = r.game; evals = r.evals; saved = r.annotations; drafts = {};
+  history.replaceState(null, '', '?id=' + game.id);
+  const c = new Chess();
+  fens = game.moves.map(m => { const f = c.fen(); c.move(m); return f; });
+  fens.push(c.fen());
+  $('players').textContent = `${game.white} (${game.white_elo}) – ${game.black} (${game.black_elo})`;
+  $('meta').replaceChildren(`${game.time_control} · ${game.result} · `,
+    Object.assign(document.createElement('a'), {href: game.url, target: '_blank', rel: 'noopener', textContent: 'Lichess'}));
+  drawMoves();
+  select(0);
+}
+
+// Evals are White's view at each position, {cp} or {mate}; mate 0 = the side to move is mated.
+const evText = e => e.mate === 0 ? '#' : e.mate ? '#' + e.mate : (e.cp > 0 ? '+' : '') + (e.cp / 100).toFixed(1);
+// Winning chances in [-1, 1], as Lichess uses them to grade moves.
+const chances = (e, i) => e.mate === 0 ? (i % 2 ? 1 : -1) : e.mate ? Math.sign(e.mate)
+  : 2 / (1 + Math.exp(-0.00368208 * e.cp)) - 1;
+// A line from ply p in numbered SAN: "12.Nf3 e5 13.d4", "12...e5 13.Nf3".
+const line = (pv, p) => pv.map((m, i) => (i === 0 || (p + i) % 2 === 0 ? num(p + i) : '') + m).join(' ');
+// How much move p lost for the side that played it; Lichess calls 0.2 a mistake, 0.3 a blunder.
+const loss = p => (chances(evals[p], p) - chances(evals[p + 1], p + 1)) * (p % 2 ? -1 : 1);
+
+function drawMoves(){
+  const box = $('moves'); box.replaceChildren();
+  game.moves.forEach((m, p) => {
+    if (p % 2 === 0) box.append(Object.assign(document.createElement('span'), {className: 'n', textContent: p / 2 + 1}));
+    const s = Object.assign(document.createElement('span'), {className: 'm', textContent: m});
+    s.dataset.p = p;
+    if (evals) {
+      s.append(Object.assign(document.createElement('span'), {className: 'ev', textContent: evText(evals[p + 1])}));
+      const l = loss(p);
+      if (l >= 0.3) s.classList.add('blunder'); else if (l >= 0.2) s.classList.add('mistake');
+    }
+    s.onclick = () => select(p);
+    box.append(s);
+  });
+  marks();
+}
+function marks(){
+  for (const s of $('moves').querySelectorAll('.m')) {
+    const p = +s.dataset.p;
+    s.classList.toggle('done', p in saved);
+    s.classList.toggle('on', p === ply);
+  }
+}
+
+function select(p){
+  if (!game || p < 0 || p >= game.moves.length) return;
+  if (text() !== (saved[ply]?.dsl ?? '')) drafts[ply] = text(); else delete drafts[ply];
+  ply = p;
+  const fen = fenOf(p), m = new Chess(fen).move(movOf(p));
+  ground.set({fen, lastMove: undefined});
+  ground.setAutoShapes([{orig: m.from, dest: m.to, brush: 'blue'}]);
+  $('moveHead').textContent = num(p) + movOf(p);
+  if (evals) $('moveHead').append(Object.assign(document.createElement('span'),
+    {className: 'ev', textContent: `${evText(evals[p])} → ${evText(evals[p + 1])}`}));
+  $('pv').replaceChildren(...!evals ? [] : [['Best', evals[p].pv, p], ['Then', evals[p + 1].pv, p + 1]]
+    .filter(([, pv]) => pv?.length).flatMap(([k, pv, q]) => [
+      Object.assign(document.createElement('span'), {className: 'k', textContent: k}),
+      Object.assign(document.createElement('span'), {textContent: line(pv, q)})]));
+  setText(drafts[p] ?? saved[p]?.dsl ?? '');
+  marks();
+  $('moves').querySelector(`[data-p="${p}"]`).scrollIntoView({block: 'nearest'});
+  update();
+}
+
+// --- where the cursor is: the type expected there, and the position the reason is about ---
+// A line's moves start from the side to move; under Threatens, Enables and Options the owner moves first.
+const LINES = new Set(['Threatens', 'After', 'Allows', 'Enables', 'Options']);
+const OWNER_FIRST = new Set(['Threatens', 'Enables', 'Options']);
+const FLIPS = new Set(['Allows', 'Prevents', 'Removes', 'Concedes']);
+const SECOND_IS_OPPONENT = new Set(['Balances', 'Outweighs', 'Faster']);
+const other = s => s === 'w' ? 'b' : 'w';
+const withSide = (fen, side) => { const f = fen.split(' '); if (f[1] !== side) { f[1] = side; f[3] = '-'; } return f.join(' '); };
+function play(fen, san){
+  if (!fen || !san) return null;
+  if (san === '--') return withSide(fen, other(fen.split(' ')[1]));
+  const c = new Chess(fen);
+  return c.move(san, {sloppy: true}) ? c.fen() : null;
+}
+
+/** Walks the text before the cursor: the type expected there ('#field' for a field name), its frame and position. */
+function context(src){
+  const toks = src.match(/[()[\]{},:]|[^\s()[\]{},:]+/g) || [];
+  const root = {kind: 'root', ctx: {fen: fenOf(ply + 1), owner: fenOf(ply).split(' ')[1], before: fenOf(ply)}};
+  const stack = [root];
+  let last = null;   // the atom just read
+  const top = () => stack[stack.length - 1];
+  const expect = f => f.kind === 'root' ? 'Reason' : f.kind === 'call' ? f.v.args[f.i]?.type
+    : f.kind === 'fields' ? (f.key ? f.v.args.find(a => a.name === f.key)?.type : '#field')
+    : f.kind === 'list' ? f.of : f.kind === 'tuple' ? f.types[f.i] : undefined;
+  // The position and owner for what frame f expects next.
+  function childCtx(f){
+    const c = f.ctx;
+    if (f.kind !== 'call' || f.type !== 'Reason') return c;
+    const n = f.v.name, i = f.i;
+    let fen = c.fen;
+    if (LINES.has(n) && i === 1) fen = f.lineEnd ?? null;
+    if (n === 'Instead' && i === 1) fen = play(c.before, f.alt);
+    const flip = FLIPS.has(n) || (SECOND_IS_OPPONENT.has(n) && i === 1);
+    return {fen, owner: flip ? other(c.owner) : c.owner, before: null};
+  }
+  for (const t of toks) {
+    const f = top();
+    if (t === '(' || t === '{') {
+      const v = last && variantOf(last.type, last.text);
+      if (v) stack.push({kind: t === '(' ? 'call' : 'fields', v, type: last.type, i: 0, key: null, used: new Set(), ctx: last.ctx});
+      else if (t === '(' && partsOf(expect(f))) stack.push({kind: 'tuple', types: partsOf(expect(f)), i: 0, ctx: childCtx(f)});
+      else stack.push({kind: 'junk', ctx: f.ctx});
+      last = null; continue;
+    }
+    if (t === '[') {
+      const of = elemOf(expect(f)), ctx = childCtx(f);
+      const fr = {kind: of ? 'list' : 'junk', of, ctx};
+      if (of === 'Move_' && ctx.fen)
+        fr.pos = withSide(ctx.fen, f.kind === 'call' && OWNER_FIRST.has(f.v.name) ? ctx.owner : ctx.fen.split(' ')[1]);
+      stack.push(fr); last = null; continue;
+    }
+    if (t === ')' || t === ']' || t === '}') {
+      const done = stack.length > 1 ? stack.pop() : null;
+      if (done?.kind === 'list' && done.of === 'Move_') {
+        if (last) done.pos = play(done.pos, last.text);
+        if (top().kind === 'call') top().lineEnd = done.pos;
+      }
+      last = null; continue;
+    }
+    if (t === ',') {
+      if (f.kind === 'call') { if (f.v.name === 'Instead' && f.i === 0 && last) f.alt = last.text; f.i++; }
+      else if (f.kind === 'tuple') f.i++;
+      else if (f.kind === 'fields') f.key = null;
+      else if (f.kind === 'list' && f.of === 'Move_' && last) f.pos = play(f.pos, last.text);
+      last = null; continue;
+    }
+    if (t === ':') { if (f.kind === 'fields' && last) { f.key = last.text; f.used.add(last.text); } last = null; continue; }
+    last = {text: t, type: expect(f), ctx: childCtx(f)};
+  }
+  const f = top();
+  return {type: expect(f), frame: f, ctx: childCtx(f)};
+}
+
+// --- completions ---
+const NAMES = {p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king'};
+function variantOptions(type){
+  return (schema[type] || []).map(v => CM.snippetCompletion(template(v), {
+    label: v.name, detail: v.args.length ? sig(v).slice(v.name.length) : '', info: () => infoNode(v),
+    type: type === 'Reason' && v.group === 0 ? 'keyword' : 'class'}));
+}
+function squareOptions(fen){
+  const c = fen && new Chess(fen), out = [];
+  for (const file of 'abcdefgh') for (const rank of '12345678') {
+    const sq = file + rank, p = c?.get(sq);
+    out.push({label: sq, detail: p ? `${p.color === 'w' ? 'white' : 'black'} ${NAMES[p.type]}` : '', type: 'variable', boost: p ? 1 : 0});
+  }
+  return out;
+}
+function options({type, frame, ctx}){
+  if (type === '#field') return frame.v.args.filter(a => !frame.used.has(a.name))
+    .map(a => CM.snippetCompletion(`${a.name}: ${hole(a.type)}`, {label: a.name, detail: shown(a.type), type: 'property'}));
+  if (!type) return [];
+  const t = elemOf(type) ?? type;
+  if (schema[t]) return variantOptions(t);
+  if (t === 'Sq') return squareOptions(ctx.fen);
+  if (t === 'Role') return ROLES.map(label => ({label, type: 'class'}));
+  if (t === 'bool') return ['true', 'false'].map(label => ({label, type: 'keyword'}));
+  if (t === 'Option<char>') return [{label: 'None', detail: 'empty', type: 'keyword'},
+    ...[...'PNBRQKpnbrqk'].map(l => ({label: l, detail: `${l < 'a' ? 'white' : 'black'} ${NAMES[l.toLowerCase()]}`, type: 'variable'}))];
+  if (t === 'Move_') {
+    const pos = frame.kind === 'list' ? frame.pos : frame.kind === 'call' && frame.v.name === 'Instead' ? frame.ctx.before : null;
+    if (!pos) return [];
+    return [...new Chess(pos).moves().map(label => ({label, type: 'function'})),
+            ...(frame.kind === 'list' ? [{label: '--', detail: 'pass', type: 'keyword'}] : [])];
+  }
+  return [];
+}
+function complete(cx){
+  const word = cx.matchBefore(/[\w+#=-]*/);
+  const before = cx.state.doc.sliceString(0, word.from);
+  if (!cx.explicit && word.from === word.to && !/(^|[([{,:])\s*$/.test(before)) return null;
+  const opts = options(context(before));
+  return opts.length ? {from: word.from, options: opts, validFor: /^[\w+#=-]*$/} : null;
+}
+// Hover: the signature and doc of the name under the mouse.
+const hover = CM.hoverTooltip((view, pos) => {
+  const line = view.state.doc.lineAt(pos), rel = pos - line.from;
+  let a = rel, b = rel;
+  while (a > 0 && /\w/.test(line.text[a - 1])) a--;
+  while (b < line.text.length && /\w/.test(line.text[b])) b++;
+  const vs = Object.values(schema).flat().filter(v => v.name === line.text.slice(a, b));
+  if (!vs.length) return null;
+  return {pos: line.from + a, end: line.from + b, above: true, create(){
+    const d = document.createElement('div'); d.className = 'tip';
+    vs.forEach(v => d.append(infoNode(v)));
+    return {dom: d};
+  }};
+});
+
+// --- the editor ---
+let setting = false, timer = null;
+const editor = new CM.EditorView({
+  parent: $('dsl'),
+  state: CM.EditorState.create({extensions: [
+    CM.Prec.highest(CM.keymap.of([{key: 'Mod-Enter', run: () => { flush(); save(); return true; }}])),
+    CM.history(), CM.drawSelection(), CM.bracketMatching(), CM.closeBrackets(),
+    CM.autocompletion({override: [complete], icons: false}),
+    // Tab accepts an option, or moves to the next field and offers what it takes.
+    CM.Prec.highest(CM.keymap.of([
+      {key: 'Tab', run: v => CM.acceptCompletion(v) || (CM.nextSnippetField(v) && (CM.startCompletion(v), true))},
+      {key: 'Shift-Tab', run: v => CM.prevSnippetField(v) && (CM.startCompletion(v), true)},
+    ])),
+    CM.keymap.of([...CM.closeBracketsKeymap, ...CM.defaultKeymap, ...CM.historyKeymap, ...CM.completionKeymap, CM.indentWithTab]),
+    CM.EditorView.lineWrapping, hover,
+    CM.placeholder('Ctrl+Space for options'),
+    CM.EditorView.contentAttributes.of({'aria-label': 'Reason in the DSL', spellcheck: 'false'}),
+    CM.EditorView.updateListener.of(u => {
+      if (u.docChanged && !setting) {
+        status(); clearTimeout(timer); timer = setTimeout(() => { timer = null; update(); }, 250);
+        // After inserting a constructor, offer what its first field takes.
+        const h = u.state.selection.main.head;
+        if (u.transactions.some(t => t.isUserEvent('input.complete')) && /[([{,:]\s*$/.test(u.state.doc.sliceString(Math.max(0, h - 3), h)))
+          setTimeout(() => CM.startCompletion(editor));
+      }
+      if (u.docChanged || u.selectionSet) dimOptions();
+      $('err').classList.toggle('hush', CM.completionStatus(u.state) !== null);
+    }),
+  ]}),
+});
+const text = () => editor.state.doc.toString();
+function setText(s){
+  setting = true;
+  editor.dispatch({changes: {from: 0, to: editor.state.doc.length, insert: s}, selection: {anchor: s.length}});
+  setting = false;
+}
+
+// --- the options panel: every constructor; a click inserts it at the cursor ---
+const items = [];
+function drawOptions(){
+  for (const [type, g, title] of GROUPS) {
+    const sec = Object.assign(document.createElement('div'), {className: 'group'});
+    sec.append(Object.assign(document.createElement('h3'), {textContent: title}));
+    for (const v of schema[type].filter(v => v.group === g)) {
+      const b = Object.assign(document.createElement('button'), {className: 'opt', title: v.doc});
+      b.append(Object.assign(document.createElement('code'), {textContent: sig(v)}));
+      if (v.doc) b.append(Object.assign(document.createElement('span'), {textContent: v.doc}));
+      b.onmousedown = e => e.preventDefault();   // keep the editor's cursor
+      b.onclick = () => {
+        const {from, to} = editor.state.selection.main;
+        CM.snippet(template(v))(editor, null, from, to);
+        editor.focus();
+        CM.startCompletion(editor);
+      };
+      items.push({b, type, key: (v.name + ' ' + v.doc).toLowerCase()});
+      sec.append(b);
+    }
+    $('groups').append(sec);
+  }
+}
+function filterOptions(){
+  const q = $('filter').value.trim().toLowerCase();
+  for (const it of items) it.b.hidden = !!q && !it.key.includes(q);
+  for (const sec of $('groups').children) sec.hidden = ![...sec.querySelectorAll('.opt')].some(b => !b.hidden);
+}
+// Options that cannot go at the cursor are dimmed, and the panel scrolls to the first that can.
+let wanted = null;
+function dimOptions(){
+  if (!game) return;
+  const t = context(editor.state.doc.sliceString(0, editor.state.selection.main.head)).type;
+  const want = schema[t && (elemOf(t) ?? t)] ? elemOf(t) ?? t : null;
+  for (const it of items) it.b.classList.toggle('off', !!want && it.type !== want);
+  if (want && want !== wanted && !$('filter').value) {
+    const first = items.find(it => it.type === want && !it.b.hidden);
+    if (first && !(want === 'Reason' && wanted === null)) $('options').scrollTo({top: first.b.closest('.group').offsetTop - 8, behavior: 'smooth'});
+  }
+  wanted = want;
+}
+drawOptions();
+$('filter').addEventListener('input', filterOptions);
+
+// --- render, then check with the engine ---
+let gen = 0, parses = false, result = null;
+function update(){
+  result = null;
+  const src = text().trim();
+  dimOptions();
+  if (!src) {
+    parses = false;
+    $('err').textContent = ''; $('dsl').classList.remove('bad');
+    $('out').classList.add('stale'); $('out').textContent = 'No reason yet.';
+    show('busy', '');
+    gen++; return status();
+  }
+  const r = call(dsl.render, fenOf(ply), movOf(ply), text());
+  const msg = r.error && hint(r.error.replace(/`/g, ''), text());
+  parses = !msg;
+  $('err').textContent = msg || '';
+  $('dsl').classList.toggle('bad', !!msg);
+  $('out').classList.toggle('stale', !!msg);
+  $('out').textContent = msg ? 'No English until the DSL parses.' : r.text;
+  status();
+  evaluate(++gen, msg);
+}
+
+// The parser's terse errors, said as what to write instead.
+function hint(e, src){
+  if (/"/.test(src)) return 'Write moves and squares without quotes: Qxf2+, not "Qxf2+"';
+  if (e === 'unexpected end') {
+    const open = [];
+    for (const c of src) { if ('([{'.includes(c)) open.push(c); else if (')]}'.includes(c)) open.pop(); }
+    const close = open.reverse().map(c => ({'(': ')', '[': ']', '{': '}'})[c]).join('');
+    return close ? `Missing ${close} at the end` : 'The reason is not finished';
+  }
+  const m = e.match(/^invalid type: string "(.*)"$/);
+  if (m) return `${m[1]} goes in a list here: [${m[1]}]`;
+  return e;
+}
+
+// The save button: Save while the reason parses, Delete when a saved reason is emptied.
+function status(){
+  const empty = !text().trim(), had = ply in saved, same = text() === (saved[ply]?.dsl ?? '');
+  $('save').textContent = empty && had ? 'Delete' : 'Save';
+  $('save').disabled = same || (empty ? !had : !parses);
+  $('status').textContent = had && same ? 'Saved' : !same && !empty ? 'Unsaved' : '';
+}
+
+async function save(){
+  if ($('save').disabled) return;
+  const p = ply, src = text().trim() ? text() : '';
+  const rec = {game: game.id, ply: p, fen: fenOf(p), mov: movOf(p), dsl: src,
+               english: src ? $('out').textContent : '',
+               verdict: result?.v ?? null, why: result?.why ?? null, claims: result?.claims ?? null};
+  $('save').disabled = true;
+  const r = await fetch('/api/annotation', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                            body: JSON.stringify(rec)});
+  if (!r.ok) { status(); $('status').textContent = 'Save failed'; return; }
+  if (src) saved[p] = rec; else delete saved[p];
+  delete drafts[p];
+  marks(); status();
+  if (src && p + 1 < game.moves.length) select(p + 1);
+}
+
+const flush = () => { if (timer !== null) { clearTimeout(timer); timer = null; update(); } };
+addEventListener('keydown', e => {
+  if (e.defaultPrevented) return;
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); flush(); save(); return; }
+  if (e.target.closest?.('.cm-editor, input')) return;
+  if (e.key === 'ArrowLeft') select(ply - 1);
+  if (e.key === 'ArrowRight') select(ply + 1);
+});
+$('save').onclick = () => { flush(); save(); };
+$('prev').onclick = () => select(ply - 1);
+$('next').onclick = () => select(ply + 1);
+$('flip').onclick = () => ground.toggleOrientation();
+$('nextGame').onclick = () => loadGame();
+
+// --- engine: Stockfish 18 lite in a worker. The evaluator asks for one search at a time. ---
+const engine = new Worker('vendor/stockfish/stockfish-18-lite-single.js');
+const lineOf = e => typeof e.data === 'string' ? e.data : (e.data && e.data.data) || '';
+let onLine = () => {};
+engine.onmessage = e => onLine(lineOf(e));
+const until = (tag, lines) => new Promise(res => {
+  onLine = l => { lines?.push(l); if (l.startsWith(tag)) res(lines); };
+});
+async function ready(){ engine.postMessage('isready'); await until('readyok'); }
+const booted = (async () => {
+  engine.postMessage('uci'); await until('uciok');
+  engine.postMessage('setoption name Threads value 1'); await ready();
+})();
+
+// One search at a time; a newer evaluation waits for the current search to stop.
+let queue = Promise.resolve();
+function search(key, g){
+  const run = async () => {
+    if (g !== gen) return null;
+    const i = key.lastIndexOf(' ');
+    engine.postMessage('ucinewgame'); await ready();
+    engine.postMessage('position fen ' + key.slice(0, i));
+    const done = until('bestmove', []);
+    engine.postMessage('go nodes ' + key.slice(i + 1));
+    const poll = setInterval(() => { if (g !== gen) engine.postMessage('stop'); }, 100);
+    const lines = await done;
+    clearInterval(poll);
+    return g === gen ? lines.join('\n') : null;
+  };
+  return queue = queue.then(run);
+}
+
+const WORD = {holds:'Holds', fails:'Fails', unknown:'Not decided'};
+function show(cls, msg, claims = []){
+  $('verdict').className = 'verdict ' + cls;
+  $('verdict').textContent = msg;
+  const t = $('claims'); t.replaceChildren();
+  // One claim repeats the headline; claims come children first, so later duplicate rows only pass a reason up.
+  const seen = new Set();
+  claims = claims.filter(c => !c.why || !seen.has(c.why) && seen.add(c.why));
+  if (claims.length < 2) return;
+  const why = claims.some(c => c.why);
+  {
+    const h = t.createTHead().insertRow();
+    for (const x of why ? ['Part', 'Result', 'Why'] : ['Part', 'Result']) h.append(Object.assign(document.createElement('th'), {textContent: x}));
+  }
+  for (const c of claims) {
+    const tr = t.insertRow();
+    tr.insertCell().className = 'n'; tr.cells[0].textContent = c.name;
+    tr.insertCell().className = 'v ' + c.v; tr.cells[1].textContent = WORD[c.v];
+    if (why) { tr.insertCell().className = 'w'; tr.cells[2].textContent = c.why; }
+  }
+}
+
+async function evaluate(g, error){
+  if (error) return show('busy', 'Fix the reason to check it.');
+  await booted;
+  let n = 0;
+  while (g === gen) {
+    const r = call(dsl.evaluate, fenOf(ply), movOf(ply), text());
+    if (r.error) return show('unknown', r.error);
+    if (!r.need) {
+      result = r;
+      return show(r.v, WORD[r.v] + (r.why ? ': ' + r.why : ''), r.claims);
+    }
+    show('busy', `Searching with Stockfish (${++n})…`);
+    const lines = await search(r.need, g);
+    if (lines === null) return;
+    dsl.searched(r.need, lines);
+  }
+}
+
+loadGame(new URLSearchParams(location.search).get('id'));
+</script>
+</body>
+</html>

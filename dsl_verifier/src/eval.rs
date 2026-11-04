@@ -153,6 +153,17 @@ fn attackers(p: &Chess, s: Square, c: Color) -> Bitboard { p.board().attacks_to(
 fn pawns(p: &Chess, c: Color) -> Bitboard { p.board().pawns() & p.board().by_color(c) }
 fn fen(p: &Chess) -> String { Fen::from_position(p, EnPassantMode::Legal).to_string() }
 
+/// The king whose zone or wing `r` is: it does not count among the defenders of its own surroundings.
+fn zone_king(r: &Region, p: &Chess, owner: Color) -> Bitboard {
+    match r {
+        Region::KingZone { opponent } | Region::KingWing { opponent } => {
+            let c = if *opponent { !owner } else { owner };
+            p.board().kings() & p.board().by_color(c)
+        }
+        _ => Bitboard::EMPTY,
+    }
+}
+
 /// Pass if `c` is not to move. None when that side is in check.
 fn as_mover(p: &Chess, c: Color) -> Option<Chess> {
     if p.turn() == c { Some(p.clone()) } else { p.clone().swap_turn().ok() }
@@ -245,6 +256,7 @@ fn region(r: &Region, p: &Chess, owner: Color) -> Result<Vec<Square>, String> {
     let box_ = |lo: u32, hi: u32| Bitboard::FULL.into_iter().filter(|s| (lo..=hi).contains(&(s.file() as u32)) && (lo..=hi).contains(&(s.rank() as u32))).collect();
     let side = |opponent: bool| if opponent { !owner } else { owner };
     Ok(match r {
+        Region::Squares(ss) if ss.is_empty() => return Err("no squares".into()),
         Region::Squares(ss) => ss.iter().map(|s| sq(s)).collect(),
         Region::Kingside => files(5..=7),
         Region::Queenside => files(0..=2),
@@ -479,6 +491,7 @@ impl Ev {
         let theirs = |s: Square| b.color_at(s) == Some(!owner);
         match r {
             // ---------------------------------------------------------------- combinators
+            And(rs) if rs.is_empty() => fail("nothing to hold"),
             And(rs) => all(rs.iter().map(|r| self.eval(r, cx)).collect::<Vec<_>>()),
             // Each alternative alone is not claimed, so they are not recorded as claims.
             Either(rs) => self.quietly(|ev| any(rs.iter().map(|r| ev.eval(r, cx)).collect(), "none holds")),
@@ -559,6 +572,7 @@ impl Ev {
                 Err(e) => fail(e),
                 Ok(q) => self.eval(r, &Cx { p: q, prev: cx.prev.clone(), owner }),
             },
+            Sacrifice(roles, _) if roles.is_empty() => fail("no material named"),
             Sacrifice(roles, r) => {
                 let need: i32 = roles.iter().map(|r| val(*r)).sum();
                 let lost = material(&cx.prev, owner) - material(p, owner);
@@ -640,6 +654,7 @@ impl Ev {
                 let d = material(p, owner) - material(p, !owner);
                 check(d == *n as i32, format!("material {d:+}"))
             }
+            WinMaterial(roles) if roles.is_empty() => fail("no material named"),
             WinMaterial(roles) => {
                 let before = cx.prev.clone();
                 let taken = roles.iter().all(|r| count(p, !owner, *r) < count(&before, !owner, *r));
@@ -648,6 +663,7 @@ impl Ev {
                 let net = diff(&settled) - diff(&before);
                 check(taken && net > 0, format!("taken {taken}, net {net:+} once the exchanges settle"))
             }
+            Trade { give, get } if give.is_empty() || get.is_empty() => fail("a side of the trade is empty"),
             Trade { give, get } => {
                 let root = self.root.clone();
                 let gone = |s: &Sq, c: Color| {
@@ -665,6 +681,7 @@ impl Ev {
             }
             Attack { by, targets } => {
                 if !mine(sq(by)) { return fail(format!("{by} is not the owner's")); }
+                if targets.is_empty() { return fail("no targets"); }
                 all(targets.iter().map(|t| {
                     if !theirs(sq(t)) { fail(format!("no opponent piece on {t}")) }
                     else { check(b.attacks_from(sq(by)).contains(sq(t)), format!("{by} does not attack {t}")) }
@@ -700,6 +717,7 @@ impl Ev {
             }).collect::<Vec<_>>()),
             Pressure(r) => {
                 let ss = match region(r, p, owner) { Err(e) => return fail(e), Ok(ss) => ss };
+                let attackers = |p: &Chess, s: Square, c: Color| attackers(p, s, c) & !zone_king(r, p, owner);
                 if !matches!(r, Region::Squares(_)) {
                     let aimed = |c: Color| ss.iter().filter(|s| attackers(p, **s, c).any()).count();
                     return check(aimed(owner) > aimed(!owner), format!("aims at {} squares, opponent at {}", aimed(owner), aimed(!owner)));
@@ -708,7 +726,7 @@ impl Ev {
             }
             Outnumber(r) => {
                 let ss = match region(r, p, owner) { Err(e) => return fail(e), Ok(ss) => ss };
-                let n = |c: Color, s: Square| attackers(p, s, c).count();
+                let n = |c: Color, s: Square| (attackers(p, s, c) & !zone_king(r, p, owner)).count();
                 if !matches!(r, Region::Squares(_)) {
                     let (own, opp) = (ss.iter().filter(|s| n(owner, **s) > n(!owner, **s)).count(), ss.iter().filter(|s| n(!owner, **s) > n(owner, **s)).count());
                     return check(own > opp, format!("outnumbers on {own} squares, outnumbered on {opp}"));
@@ -717,6 +735,7 @@ impl Ev {
             }
             Bound { piece, duties } => {
                 if !theirs(sq(piece)) { return fail(format!("{piece} is not the opponent's")); }
+                if duties.is_empty() { return fail("no duties"); }
                 all(duties.iter().map(|d| {
                     let (own, opp) = (attackers(p, sq(d), owner).count(), attackers(p, sq(d), !owner).count());
                     check(b.attacks_from(sq(piece)).contains(sq(d)) && own >= opp, format!("{piece} not tied to {d}: {own} vs {opp}"))
@@ -774,8 +793,11 @@ impl Ev {
                 let can = as_mover(p, owner).is_some_and(|q| q.legal_moves().iter().any(|m| m.from() == Some(s) && m.promotion().is_some()));
                 check(mine(s) && rank(s, owner) == Rank::Seventh as u32 && can, format!("{s} cannot promote"))
             }
+            Enables(line) if line.is_empty() => fail("no moves"),
             Enables(line) => self.enables(p, owner, line),
+            Options(ms) if ms.len() < 2 => fail("fewer than two options"),
             Options(ms) => all(ms.iter().map(|m| self.enables(p, owner, &[m])).collect::<Vec<_>>()),
+            SameColour(ss) if ss.len() < 2 => fail("fewer than two squares"),
             SameColour(ss) => check(ss.iter().all(|s| sq(s).is_light() == sq(ss[0]).is_light()), "mixed colours"),
 
             // ---------------------------------------------------------------- tier 2: engine
@@ -814,6 +836,7 @@ impl Ev {
                     .map(test).collect();
                 if named { any(vs, "none in the region") } else { all(vs) }
             }
+            Better { pieces, than } if pieces.is_empty() || than.is_empty() => fail("a side of the comparison is empty"),
             Better { pieces, than } => {
                 let worth = |ss: &Vec<Sq>| ss.iter().filter_map(|s| b.role_at(sq(s))).map(cp).sum::<i32>();
                 let mob = |ss: &Vec<Sq>| ss.iter().map(|s| safe_mobility(p, sq(s))).sum::<usize>();
@@ -825,6 +848,7 @@ impl Ev {
                 if a != z { check(a > z, format!("{a} vs {z} cp")) } else { check(mob(pieces) > mob(than), format!("mobility {} vs {}", mob(pieces), mob(than))) }
             }
             Quality(s, g) => self.quality(p, sq(s), g),
+            Coordinate(ss) if ss.len() < 2 => fail("fewer than two pieces"),
             Coordinate(ss) => {
                 let s: Vec<Square> = ss.iter().map(|s| sq(s)).collect();
                 if !s.iter().all(|x| mine(*x)) { return fail("not all the owner's"); }
@@ -1062,5 +1086,31 @@ pub fn report() {
     names.sort();
     for (n, c) in names {
         println!("{n:<12} {:>6} {:>6} {:>8}", c[0], c[1], c[2]);
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+/// JSON lines `{fen, mov, dsl}` on stdin → `{english, v, why, claims}` or `{error}` per line, as the browser shows them.
+pub fn check_lines() {
+    use serde_json::{Value, json};
+    let mut ev = Ev::new(engine());
+    let mark = |v: V| match v { V::Holds => "holds", V::Fails => "fails", V::Unknown => "unknown" };
+    for line in std::io::stdin().lock().lines() {
+        let Ok(line) = line else { break };
+        if line.trim().is_empty() { continue; }
+        let out = (|| -> Result<Value, String> {
+            let q: Value = serde_json::from_str(&line).map_err(|e| format!("input: {e}"))?;
+            let (fen, mov, dsl) = (q["fen"].as_str().unwrap_or(""), q["mov"].as_str().unwrap_or(""), q["dsl"].as_str().unwrap_or(""));
+            let root: Chess = Fen::from_ascii(fen.trim().as_bytes()).map_err(|e| format!("FEN: {e}"))?
+                .into_position(CastlingMode::Standard).map_err(|e| format!("FEN: {e}"))?;
+            let m: Move_ = Box::leak(mov.trim().to_string().into_boxed_str());
+            let mv = san(&root, m).map_err(|_| format!("{mov} is not legal here"))?;
+            let reason = crate::text::parse(dsl)?;
+            let english = crate::render::render_reason(&root, m, &reason);
+            let v = ev.run(&root, &mv, &reason);
+            let claims: Vec<Value> = ev.claims.iter().map(|(n, c)| json!({ "name": n, "v": mark(c.v), "why": c.why })).collect();
+            Ok(json!({ "english": english, "v": mark(v.v), "why": v.why, "claims": claims }))
+        })().unwrap_or_else(|e| json!({ "error": e }));
+        println!("{out}");
     }
 }
