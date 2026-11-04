@@ -135,9 +135,9 @@
   <div data-view="zugzwang" hidden>
     <p class="intro">Would the side to move rather pass?</p>
     <details class="how"><summary>How it works</summary>
-      <p>The <em>tempo operator</em> (nullzug) compares Stockfish&rsquo;s evaluation after the best move
-      with its evaluation after a <em>null move</em>, where the side to move passes. If passing would be
-      better, the position is zugzwang.</p></details>
+      <p>Compares Stockfish&rsquo;s evaluation after the best move with two ways of passing: once, or at
+      every turn. Passing at every turn holds a draw if the opponent, moving alone, can never check,
+      capture or promote. If passing would be better, the position is zugzwang.</p></details>
   </div>
   <div data-view="prophylaxis" hidden>
     <p class="intro">Play one move. Did it remove a forced mate?</p>
@@ -360,7 +360,7 @@ const SETUP = {zugzwang: setupZugzwang, prophylaxis: setupProphylaxis, pin: setu
 // =============================================================================
 function setupZugzwang(ground){
 const el = elFor('z-');
-const DEMO_FEN = '8/4k3/8/4K3/4P3/8/8/8 b - - 0 1'; // Black to move loses the opposition
+const DEMO_FEN = '8/8/1p1k1p2/pP3Pp1/P2K2Pp/7P/6B1/8 b - - 0 1'; // Black to move must give way; White has bishop tempi
 const NODES    = 300000;           // fixed node count — deterministic given the cold-hash handshake below
 const EPS      = 0.05;              // win-prob threshold for a decisive tempo verdict
 
@@ -521,6 +521,34 @@ function uciToSan(fen, uci){
 }
 const pct = x => (x * 100).toFixed(1) + '%';
 
+// Can the side to move hold by passing at every turn? It passes, the opponent moves, it passes
+// again, for ever. Its pieces never move, so the opponent gets anywhere only by a check (the
+// passer must then move), a capture or a promotion. Search every position the opponent reaches
+// moving alone: if none of its moves is one of those, it can only shuffle and passing holds the
+// draw. Returns true (holds), false (the opponent gets through) or null (too many positions).
+const FREEZE_CAP = 50000;
+function passForeverHolds(fen){
+  const f = fen.split(' ');
+  const opp = f[1] === 'w' ? 'b' : 'w';
+  const key = (board, castling) => board + ' ' + opp + ' ' + castling + ' - 0 1';
+  const start = key(f[0], f[2]);
+  const seen = new Set([start]), queue = [start];
+  const g = new Chess();
+  while(queue.length){
+    if(seen.size > FREEZE_CAP) return null;
+    g.load(queue.pop());
+    for(const m of g.moves({verbose: true})){
+      if(m.captured || m.promotion || /[+#]/.test(m.san)) return false;
+      g.move(m);
+      const [board, , castling] = g.fen().split(' ');
+      g.undo();
+      const k = key(board, castling);
+      if(!seen.has(k)){ seen.add(k); queue.push(k); }
+    }
+  }
+  return true;
+}
+
 async function detect(){
   if(chess.game_over()){
     showResult({cls: 'na', title: 'Not applicable',
@@ -567,13 +595,16 @@ async function detect(){
       return;
     }
 
-    const eff = wpPass - wpBest;              // >0: would rather pass -> zugzwang
+    // Passing at every turn is worth a draw when the opponent cannot get through alone.
+    const forever = wpPass < 0.5 && passForeverHolds(fen);
+    const wpPassBest = forever ? 0.5 : wpPass;
+    const eff = wpPassBest - wpBest;          // >0: would rather pass -> zugzwang
     const dpct = (Math.abs(eff) * 100).toFixed(1) + '%';
     let cls, title, detail;
     if(eff > EPS){
       cls = 'zug'; title = 'Zugzwang';
-      detail = `${sideName} is in zugzwang: passing would be worth ${pct(wpPass)}, `
-             + `but the best legal move (${bestSan}) only reaches ${pct(wpBest)} — `
+      detail = `${sideName} is in zugzwang: passing ${forever ? 'at every turn' : 'once'} would be worth `
+             + `${pct(wpPassBest)}, but the best legal move (${bestSan}) only reaches ${pct(wpBest)} — `
              + `being forced to move costs ${dpct}.`;
     } else if(eff < -EPS){
       cls = 'asset'; title = 'Not zugzwang — tempo is an asset';
