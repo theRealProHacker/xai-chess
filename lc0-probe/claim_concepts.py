@@ -4,14 +4,18 @@ summed over the claim's concept bits, signed for the side named; with / without 
 Builds the real boards and their counterfactuals, runs square_attribution.py --fens on them (cached), scores.
 "Approx 0" = |x| at or below the 25th percentile of |the same concept| over the 300 corpus game positions.
 
-  python lc0-probe/claim_concepts.py
+  python lc0-probe/claim_concepts.py [--attr FILE --tag NAME]   (score another attribution file of the same boards)
 """
-import json, subprocess, sys
+import argparse, json, subprocess, sys
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT / ".pylibs")]
 import chess, numpy as np
 
+ap = argparse.ArgumentParser()
+ap.add_argument("--attr", help="attribution file of the claim boards (square_attribution.py format) instead of the default run")
+ap.add_argument("--tag", default="", help="results_claim_concepts{_tag}.json")
+args = ap.parse_args()
 L = lambda f: json.loads(Path(f).read_text().split("=", 1)[1].rstrip().rstrip(";"))
 TB = L(ROOT / "lc0-probe/square_shap_textbook.js")["positions"]
 W, B = chess.WHITE, chess.BLACK
@@ -171,9 +175,9 @@ for key in list(WW) + list(DESC):
 fens = list(dict.fromkeys(fens))
 FF = ROOT / "lc0-probe/data/claim_concepts.fens"
 FF.write_text("\n".join(fens) + "\n")
-OUT = ROOT / "lc0-probe/square_attribution_n100000_encoder0_ln2_ig_claim_concepts.js"
-if not OUT.exists() or json.loads(OUT.read_text().split("=", 1)[1].rstrip().rstrip(";"))["source"] != str(FF) \
-        or len(L(OUT)["positions"]) != len(fens):
+OUT = Path(args.attr) if args.attr else ROOT / "lc0-probe/square_attribution_n100000_encoder0_ln2_ig_claim_concepts.js"
+if not args.attr and (not OUT.exists() or json.loads(OUT.read_text().split("=", 1)[1].rstrip().rstrip(";"))["source"] != str(FF)
+                     or len(L(OUT)["positions"]) != len(fens)):
     subprocess.run([sys.executable, ROOT / "lc0-probe/square_attribution.py", "--n", "100000", "--tap", "/encoder0/ln2",
                     "--ig", "256", "--fens", FF, "--positions", str(len(fens)), "--threads", "4"], check=True)
 A = L(OUT)
@@ -237,8 +241,8 @@ for key in list(WW) + list(DESC):
 
 n = sum(r["verdict"] == "supported" for r in res)
 print(f"{n} of {len(res)} games supported")
-out = {"tap": "/encoder0/ln2", "method": A["method"], "spec": (ROOT / "lc0-probe/claim_concepts.md").read_text(),
+out = {"tap": A.get("tap", "/encoder0/ln2"), "method": A["method"], "spec": (ROOT / "lc0-probe/claim_concepts.md").read_text(),
        "norms": {k: {"n": len(x), "q25": float(np.percentile(x, 25)), "median": float(np.median(x))} for k, x in norm.items()},
        "games": res}
-json.dump(out, open(ROOT / "lc0-probe/results_claim_concepts.json", "w"), indent=1)
-(ROOT / "lc0-probe/claim_concepts.js").write_text("window.CONCEPTS = " + json.dumps(out, separators=(",", ":")) + ";\n")
+json.dump(out, open(ROOT / f"lc0-probe/results_claim_concepts{'_' + args.tag if args.tag else ''}.json", "w"), indent=1)
+if not args.attr: (ROOT / "lc0-probe/claim_concepts.js").write_text("window.CONCEPTS = " + json.dumps(out, separators=(",", ":")) + ";\n")

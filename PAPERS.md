@@ -2,7 +2,7 @@
 
 IEEE references for every work touched by this project — the original research-proposal citations, the office-hours/landscape corpus, and the completeness-verifier additions. **Titles are clickable** (canonical URL). Sorted by relevance to the benchmark (Core → Supporting → Peripheral); within a tier, by centrality.
 
-*128 works · 39 core / 72 supporting / 17 peripheral · compiled 2026-06-27, extended 2026-08-01, 2026-09-03, 2026-10-06, 2026-10-26 and 2026-10-27.*
+*138 works · 41 core / 79 supporting / 18 peripheral · compiled 2026-06-27, extended 2026-08-01, 2026-09-03, 2026-10-06, 2026-10-26, 2026-10-27 and 2026-10-28.*
 
 References [1]–[64] are the original corpus and their numbers are fixed, because the survey and the summaries both cite them as stable tags. The move-explanation and dataset sweep of 2026-08-01 appended [65]–[87], and the activation-oracle / symbolic-learning / circuits sweep of 2026-09-03 appended [88]–[116], rather than renumbering. [118], added 2026-10-26, leads the Core tier: it is the strongest move-explaining system to date and the one the benchmark most directly grades. [119]–[128], added 2026-10-27 ([122]–[127] from the reference lists of [119]–[121]), sit at the end of their tiers.
 
@@ -318,3 +318,36 @@ References [1]–[64] are the original corpus and their numbers are fixed, becau
 ### Supporting (1)
 
 [117] A. Nieto Juscafresa, "[An Introduction to Explainable Artificial Intelligence with LIME and SHAP](https://diposit.ub.edu/server/api/core/bitstreams/ecc97b2d-832e-4952-afdb-9933d645c002/content)," Bachelor's thesis (Treball final de grau, Mathematics), Universitat de Barcelona, 2022. Supervised by A. Clapés and S. Escalera. Formal derivation of LIME and SHAP; background for `lime/`.
+
+
+## Additions — multi-layer feature attribution (2026-10-28)
+
+*10 works: 2 core, 7 supporting, 1 peripheral. Novelty check for the hybrid decoder: rule-based per-square features decoded into several lc0 layers in reverse order (L5, then L2 and L0 on the residual), run through the real network tail and attributed to the value with IG and Shapley, to test annotators' claims.*
+
+**Verdict.** The full combination was not found in the literature. The closest lc0 work is [6], which uses learned replacement-layer features, targets the policy head and fits its layers jointly. The closest work on the decoding step is [129] and [130]. Attribution through the real network to SAE features at every layer is [102], and decoders that read and write several layers at once are [99], [131] and [132], all with learned features fitted jointly. Probing named concepts out of AlphaZero or lc0 is [1], [2] and [4]. Fitting the deepest layer first and the earlier layers on the residual has no name in interpretability work. It is sequential residual fitting, and its order dependence is the textbook point behind sequential sums of squares and backfitting [137]. Variance partitioning [138] is the alternative that does not pick an order. Open: [6] and [129] were checked from their abstracts only, and 2026 proceedings may not be fully indexed yet.
+
+### Core (2)
+
+[129] G. Shen, M. Bentum, T. O. Lentz, A. Alishahi, and G. Chrupała, "[Beyond Decodability: Reconstructing Language Model Representations with an Encoding Probe](https://arxiv.org/abs/2605.00607)," in Proc. Conf. Empirical Methods in Natural Language Processing (EMNLP), 2026. arXiv:2605.00607. Rebuilds representations from interpretable feature sets with a regression that controls for correlated features. The nearest match for the decoding step; one layer, no pass through the rest of the network.
+
+[130] A. Makelov, G. Lange, and N. Nanda, "[Towards Principled Evaluations of Sparse Autoencoders for Interpretability and Control](https://arxiv.org/abs/2405.08366)," arXiv:2405.08366, 2024. Supervised dictionaries of known attributes on GPT-2's IOI task, put back into the model to edit it: known features into activations, with an effect downstream.
+
+### Supporting (7)
+
+[131] J. Lindsey, A. Templeton, J. Marcus, T. Conerly, J. Batson, and C. Olah, "[Sparse Crosscoders for Cross-Layer Features and Model Diffing](https://transformer-circuits.pub/2024/crosscoders/index.html)," Transformer Circuits Thread, 2024. One learned dictionary that reads and writes several layers.
+
+[132] T. Lawson, L. Farnik, C. Houghton, and L. Aitchison, "[Residual Stream Analysis with Multi-Layer SAEs](https://arxiv.org/abs/2409.04185)," in Int. Conf. Learning Representations (ICLR), 2025. arXiv:2409.04185.
+
+[133] M. Yuksekgonul, M. Wang, and J. Zou, "[Post-hoc Concept Bottleneck Models](https://arxiv.org/abs/2205.15480)," in Int. Conf. Learning Representations (ICLR), 2023. arXiv:2205.15480. Concepts plus a residual predictor (PCBM-h), at one layer.
+
+[134] C.-K. Yeh, B. Kim, S. Arik, C.-L. Li, T. Pfister, and P. Ravikumar, "[On Completeness-aware Concept-Based Explanations in Deep Neural Networks](https://arxiv.org/abs/1910.07969)" (ConceptSHAP), in Advances in Neural Information Processing Systems (NeurIPS), 2020. Its completeness score is the counterpart of the decoder's explained variance.
+
+[135] B. Zhou, Y. Sun, D. Bau, and A. Torralba, "[Interpretable Basis Decomposition for Visual Explanation](https://doi.org/10.1007/978-3-030-01237-3_8)," in Proc. European Conf. Computer Vision (ECCV), 2018. Splits a prediction into labelled concept vectors at one layer.
+
+[136] S. A. Hebbar, P. Sheng, S. Oh, and P. Viswanath, "[Hallucinations on the Board: Tool-Augmented Evaluation of LLM Chess Commentary](https://arxiv.org/abs/2608.04240)," arXiv:2608.04240, 2026. Checks commentary claims with engine and board tools, not against the network's internals.
+
+[137] A. Buja, T. Hastie, and R. Tibshirani, "[Linear Smoothers and Additive Models](https://projecteuclid.org/euclid.aos/1176347115)," *The Annals of Statistics*, vol. 17, no. 2, pp. 453–510, 1989. Backfitting; why the order of sequential fits matters.
+
+### Peripheral (1)
+
+[138] W. A. de Heer, A. G. Huth, T. L. Griffiths, J. L. Gallant, and F. E. Theunissen, "[The Hierarchical Cortical Organization of Human Speech Processing](https://www.jneurosci.org/content/37/27/6539)," *Journal of Neuroscience*, vol. 37, no. 27, pp. 6539–6557, 2017. Variance partitioning across feature sets: unique and shared variance instead of one fitting order.

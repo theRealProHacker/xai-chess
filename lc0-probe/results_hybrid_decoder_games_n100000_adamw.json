@@ -1,0 +1,52 @@
+{
+ "n": 100000,
+ "taps": [
+  "/encoder0/ln2",
+  "/encoder2/ln2",
+  "/encoder5/ln2"
+ ],
+ "hidden": [
+  2048,
+  1024,
+  1024
+ ],
+ "folds": 5,
+ "combine": 0,
+ "inv": 0.0,
+ "opt": "adamw",
+ "lr": 0.001,
+ "wd": 0.01,
+ "/encoder0/ln2": {
+  "val MSE": 0.025786013633478433,
+  "target sd": 0.47951561212539673
+ },
+ "/encoder2/ln2": {
+  "val MSE": 0.91476646438241,
+  "target sd": 0.062163107097148895
+ },
+ "/encoder5/ln2": {
+  "val MSE": 0.9230032563209534,
+  "target sd": 0.046866945922374725
+ },
+ "D0": {
+  "r": 0.9965791251977814,
+  "median |dy|": 0.008542835712432861,
+  "r Black to move": 0.9964829335918466,
+  "median |dy| Black to move": 0.008734822273254395,
+  "colour gap median": 0.004230141639709473
+ },
+ "D0 + D2": {
+  "r": 0.996843595192137,
+  "median |dy|": 0.008257389068603516,
+  "r Black to move": 0.9967411327554373,
+  "median |dy| Black to move": 0.008391737937927246,
+  "colour gap median": 0.0038613080978393555
+ },
+ "D0 + D2 + D5": {
+  "r": 0.9969264193970302,
+  "median |dy|": 0.008056163787841797,
+  "r Black to move": 0.9968362196450302,
+  "median |dy| Black to move": 0.008120954036712646,
+  "colour gap median": 0.003873690962791443
+ }
+}

@@ -12,10 +12,12 @@ output in the next stage comes from the model that did not see its fold. Splits,
 checkpoint format are hybrid_decoder.py's, so its readers (square_shap.py --hybrid) load the result unchanged.
 
 --stages 1 fits only the final D5 and reports its curve: the optimizer sweep.
+--d0-from CK skips stages 1-2: D5 and D2 are CK's final models (no cross-fitting: on train boards their output is
+in-sample), and only D0 is fitted, with --lr0 / --patience0.
 
   python lc0-probe/hybrid_reverse.py --n 20000 --opt adam --lr 1e-3
 """
-import argparse, json, shutil, sys, time, types
+import argparse, json, sys, time, types
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT / ".pylibs"), str(ROOT / "lc0-probe")]
@@ -40,6 +42,9 @@ ap.add_argument("--batch", type=int, default=256, help="boards per batch")
 ap.add_argument("--opt", default="adam", help="adam, adamw, nadam, radam, adamax, adagrad, rmsprop, lion, adabound")
 ap.add_argument("--lr", type=float, default=1e-3)
 ap.add_argument("--wd", type=float, default=0.0)
+ap.add_argument("--d0-from", help="a finished run's decoders checkpoint: refit only D0 on its final D5 and D2")
+ap.add_argument("--lr0", type=float, help="D0's learning rate (default --lr)")
+ap.add_argument("--patience0", type=int, help="D0's patience (default --patience)")
 ap.add_argument("--min", type=int, default=20, help="positive train tokens needed to use a bit (in either colouring)")
 ap.add_argument("--tag", default="", help="suffix for the run's files")
 ap.add_argument("--device", default="cpu")
@@ -160,13 +165,14 @@ if not nk.exists():
 mu5, sd5 = torch.load(nk); mu5 = mu5.to(dev)
 log(f"target L5 - c: sd {sd5:.4f}")
 
-def fit(h, P_tr, pred, label, zero=False):
+def fit(h, P_tr, pred, label, zero=False, lr=None, patience=None):
     """Train one decoder D on positions P_tr (both colourings): pred(D, E) is the model's L5 minus c for boards E,
     in stage 1's scale. Early stopping on E_va; checkpointed every epoch."""
     D = MLP(h).to(dev)
     if zero: torch.nn.init.zeros_(D.out.weight); torch.nn.init.zeros_(D.out.bias)
     loss_of = lambda E: mse(pred(D, E), (y5c(E) - mu5) / sd5)
-    opt = optim_extra.make(a.opt, D.parameters(), a.lr, a.wd)
+    lr, patience = lr or a.lr, patience or a.patience
+    opt = optim_extra.make(a.opt, D.parameters(), lr, a.wd)
     def val():
         with torch.no_grad():
             return float(np.mean([float(loss_of(E_va[s:s + 256])) for s in range(0, len(E_va), 256)]))
@@ -194,8 +200,8 @@ def fit(h, P_tr, pred, label, zero=False):
         log(f"{label} epoch {ep + 1}  val MSE {v:.4f}  ({time.time() - t0:.0f}s)")
         if v < best: best, bad, state = v, 0, {q: p.clone() for q, p in D.state_dict().items()}
         else: bad += 1
-        save(ep + 1, bad >= a.patience or ep + 1 == a.epochs)
-        if bad >= a.patience: break
+        save(ep + 1, bad >= patience or ep + 1 == a.epochs)
+        if bad >= patience: break
     D.load_state_dict(state)
     for p in D.parameters(): p.requires_grad_(False)
     res["curves"][label] = curve
@@ -231,7 +237,31 @@ norm = lambda X: (X - mu5) / sd5
 
 # --- stage 1: D5 from the features alone
 pred1 = lambda D, E: D(*bags(E))
-if a.stages == 1:
+def stage3(g5, g2):                                                         # D0 through layers 1-5, onto frozen D5 and D2
+    pred3 = lambda D, E: norm(g5(E) + s35(g2(E) + s12(raw0(D, E))) - tile(C, len(E)))
+    D0, best = fit(HID[0], P_all, pred3, "D0 final", zero=True, lr=a.lr0, patience=a.patience0)
+    res["D0"] = {"val MSE": best}
+    return D0
+
+if a.d0_from:
+    ck = torch.load(a.d0_from, weights_only=False)
+    assert np.array_equal(ck["keep"], keep), "the checkpoint was trained on other input bits"
+    D2, D5 = MLP(HID[1]).to(dev), MLP(HID[2]).to(dev)
+    for D, d in ((D2, ck["decoders"][1]), (D5, ck["decoders"][2])):
+        D.load_state_dict(d["state"])
+        for p in D.parameters(): p.requires_grad_(False)
+    Gs = []
+    for name, D, raw in (("G5", D5, raw5), ("G2", D2, raw2)):              # each board's output, computed once
+        if not (MM / f"{name}.done").exists():
+            G_ = big(MM, name, 2 * N)
+            with torch.no_grad():
+                for s in range(0, 2 * N, 512):
+                    E = np.arange(s, min(s + 512, 2 * N))
+                    G_[E] = raw(D, E).reshape(-1, 64, 256).half().cpu().numpy()
+            G_.flush(); (MM / f"{name}.done").touch()
+        Gs.append(big(MM, name, 2 * N, "r"))
+    D0 = stage3(lambda E: g(Gs[0], E), lambda E: g(Gs[1], E))
+elif a.stages == 1:
     D5, best = fit(HID[2], P_all, pred1, "D5 final")
     res["D5"] = {"val MSE": best}
 else:
@@ -242,13 +272,12 @@ else:
         D2, best = fit(HID[1], P_all, pred2, "D2 final", zero=True); res["D2"] = {"val MSE": best}
     else:
         D2, G2 = crossfit(HID[1], pred2, raw2, "G2", "D2")
-        # --- stage 3: D0 through layers 1-5, onto the frozen D5 and D2 (final model only, as the forward run's last stage)
-        pred3 = lambda D, E: norm(g(G5, E) + s35(g(G2, E) + s12(raw0(D, E))) - tile(C, len(E)))
-        D0, best = fit(HID[0], P_all, pred3, "D0 final", zero=True)
-        res["D0"] = {"val MSE": best}
+        # --- stage 3 (final model only, as the forward run's last stage)
+        D0 = stage3(lambda E: g(G5, E), lambda E: g(G2, E))
 
 # --- held-out value, both colourings: D5 alone, D5 + D2, D5 + D2 + D0 (each with the others at zero)
 dec = {"D5": D5} | ({"D2": D2} if a.stages >= 2 else {}) | ({"D0": D0} if a.stages >= 3 else {})
+res |= {"d0 from": a.d0_from, "lr0": a.lr0, "patience0": a.patience0}
 with torch.no_grad():
     for upto in range(1, len(dec) + 1):
         on = list(dec)[:upto]
@@ -278,4 +307,4 @@ if a.stages == 3:                                                          # hyb
                              z(D2, np.zeros(256, np.float32), sd2, HID[1], TAPS[1]),
                              z(D5, mu5.cpu().numpy(), sd5, HID[2], TAPS[2])]},
                ROOT / f"lc0-probe/data/hybrid_reverse{G}_n{N}{a.tag}.pt")
-shutil.rmtree(MM)
+# MM is kept: its fold outputs are what a later D0 refit needs

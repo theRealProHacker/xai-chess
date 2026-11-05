@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Layer order</title>
+<link rel="stylesheet" href="../docs/vendor/chessground/chessground.base.css">
+<link rel="stylesheet" href="../docs/vendor/chessground/chessground.brown.css">
+<link rel="stylesheet" href="../docs/vendor/chessground/chessground.cburnett.css">
+<style>
+  :root{
+    --shadow-s:
+      inset 0 1px 2px #ffffff30,
+      0 1px 2px #00000030,
+      0 2px 4px #00000015;
+    --shadow-m:
+      inset 0 1px 2px #ffffff50,
+      0 2px 4px #00000030,
+      0 4px 8px #00000015;
+    --pos:#2e8b57; --neg:#c0392b; --ink:#1a1a1a; --muted:#6b6b6b; --line:#e4e4e4; --accent:#0b5fa5;
+  }
+  *{box-sizing:border-box}
+  body{margin:0 auto;max-width:1100px;padding:24px 16px 48px;background:#fff;color:var(--ink);
+       font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+  h1{font-size:1.25rem;font-weight:600;margin:0 0 1rem}
+  details{color:var(--muted);font-size:.9rem;margin:0 0 1.2rem;max-width:68ch}
+  summary{cursor:pointer}
+  button{font:inherit;font-size:.9rem;padding:.5rem .9rem;border:1px solid var(--line);border-radius:8px;
+      background:#fff;color:var(--ink);cursor:pointer;box-shadow:var(--shadow-s);transition:border-color .12s,background .12s,box-shadow .12s}
+  button:hover{border-color:var(--accent);background:#fafafa;box-shadow:var(--shadow-m)}
+  .nav{display:flex;align-items:center;gap:.6rem;margin:0 0 1.2rem}
+  .nav span{color:var(--muted);font-variant-numeric:tabular-nums;min-width:3.5rem;text-align:center}
+  .main{display:grid;grid-template-columns:minmax(0,19rem) minmax(0,1fr);gap:2rem;align-items:start}
+  @media (max-width:760px){.main{grid-template-columns:minmax(0,1fr)}}
+  .y{color:var(--muted);font-size:.9rem;margin:.6rem 0 0;font-variant-numeric:tabular-nums}
+  .board{display:grid;grid-template-columns:repeat(8,1fr);width:100%;aspect-ratio:1;border-radius:3px;overflow:hidden;box-shadow:var(--shadow-m)}
+  .sq{position:relative}
+  .sq{background:#f0d9b5} .sq.dk{background:#b58863}
+  .sq.big::after{content:"";position:absolute;inset:2px;border:2px solid #1a1a1a;border-radius:2px;z-index:1}
+  .bwrap{display:grid;grid-template-columns:.9rem 1fr;grid-template-rows:1fr .9rem;column-gap:.3rem}
+  .ranks,.files{display:grid;color:#444;font-size:.78rem;line-height:1}
+  .ranks{grid-template-rows:repeat(8,1fr);align-items:center;text-align:right}
+  .files{grid-column:2;grid-template-columns:repeat(8,1fr);text-align:center;padding-top:.2rem}
+  .sq piece{position:absolute;inset:0;width:auto;height:auto;z-index:auto;pointer-events:none;will-change:auto;background-size:cover}
+  .sq.hi::after{content:"";position:absolute;inset:2px;border:2px solid var(--accent);border-radius:2px;z-index:2}
+  table{border-collapse:collapse;font-variant-numeric:tabular-nums;width:auto;font-size:.9rem}
+  th{font-weight:600;font-size:.9rem;text-align:right;color:var(--muted);padding:.25rem .5rem;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child,th:nth-child(2){text-align:left}
+  td{text-align:right;padding:.25rem .5rem;white-space:nowrap}
+  td.f{text-align:left;white-space:normal;word-break:break-word;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem}
+  td.f .off{color:var(--muted);font-family:inherit}
+  tr.big td{font-weight:600}
+  .tkey{color:var(--muted);font-size:.85rem;margin:1rem 0 0}
+  .tw{overflow-x:auto}
+  .hm{display:none}
+  td .fm{display:none}
+  th{white-space:nowrap}
+  @media (max-width:600px){th:nth-child(2),td.f,th .hw{display:none} .hm{display:inline!important} td .fm{display:block;font-weight:inherit;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.78rem;color:var(--muted)}
+    table{width:100%} th,td{padding:.25rem .15rem} th{font-size:.75rem} td .fm{white-space:normal;font-size:.7rem} table{font-size:.78rem} th+th{padding-left:.4rem}}
+  tbody tr:hover{background:#f6f6f6}
+  td.p,.pc{color:var(--pos)} td.n,.nc{color:var(--neg)}
+  .none{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="nav"><button id="prev">Previous</button><span id="count"></span><button id="next">Next</button></div>
+<h1>Held-out game, White to move</h1>
+<details><summary>How it is computed</summary>
+Integrated gradients of Leela&rsquo;s win &minus; loss, from each square&rsquo;s average features (over all boards, or over boards where it is empty when it is empty here) to the real ones,
+through each decoder stack, kept per feature. L0 + L2 + L5 fits the layer-0 decoder first and adds the later decoders in
+Leela&rsquo;s stream; L5 + L2 + L0 fits the layer-5 decoder first, then corrections from the layer-2 and layer-0 decoders run
+through Leela; &ldquo;with prediction&rdquo; also feeds those corrections what the stack already predicts. Ten random positions from held-out games, shown with White to move. &ldquo;(absent)&rdquo; marks a feature that is absent here but present on the average board. Positive helps White.
+Bold: the three stacks disagree most.</details>
+<div class="main">
+  <section><div class="bwrap"><div class="ranks"></div><div class="board cg-wrap" id="b"></div><div class="files"></div></div>
+    <p class="y" id="y"></p>
+    <p class="tkey"><span id="kbig">Bold, outlined: the stacks disagree.<br></span>(absent): not here, but on the average board.</p></section>
+  <section id="feats"></section>
+</div>
+<script src="hybrid_ig_demo.js"></script>
+<script>
+const P = window.HYB, $ = id => document.getElementById(id);
+const ROLE = {p: "pawn", n: "knight", b: "bishop", r: "rook", q: "queen", k: "king"};
+const SQ = s => "abcdefgh"[s % 8] + (1 + (s >> 3));
+const fmt = v => Math.abs(v) < .005 ? "0.00" : (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2);
+const parse = fen => {
+  const m = {};
+  fen.split(" ")[0].split("/").forEach((row, r) => {
+    let f = 0;
+    for (const c of row) { if (c >= "1" && c <= "8") f += +c; else m[(7 - r) * 8 + f++] = c; }
+  });
+  return m;
+};
+let cur = 0;
+const td = v => `<td class="${Math.abs(v) < .005 ? "" : v >= 0 ? "p" : "n"}">${fmt(v)}</td>`;
+const draw = () => {
+  const p = P[cur], on = parse(p.fen), F = p.feat.slice(0, 20);
+  const max = Math.max(...F.flatMap(r => [Math.abs(r.fwd), Math.abs(r.deep), Math.abs(r.pred)]), 1e-9);
+  const spread = r => Math.max(r.fwd, r.deep, r.pred) - Math.min(r.fwd, r.deep, r.pred);
+  const isBig = r => spread(r) >= .25 * max, big = new Set(F.filter(isBig).map(r => r.sq));
+  let html = "";
+  for (let r = 7; r >= 0; r--) for (let f = 0; f < 8; f++) {
+    const s = r * 8 + f, c = on[s];
+    html += `<div class="sq${(r + f) % 2 ? "" : " dk"}${big.has(s) ? " big" : ""}" data-s="${s}">${c ? `<piece class="${c === c.toUpperCase() ? "white" : "black"} ${ROLE[c.toLowerCase()]}"></piece>` : ""}</div>`;
+  }
+  $("b").innerHTML = html;
+  $("y").innerHTML = `White&rsquo;s win &minus; loss<br>Leela <span class="${p.y >= 0 ? "pc" : "nc"}">${fmt(p.y)}</span><br>L0 + L2 + L5 <span class="${p.fwd.y >= 0 ? "pc" : "nc"}">${fmt(p.fwd.y)}</span><br>L5 + L2 + L0 <span class="${p.deep.y >= 0 ? "pc" : "nc"}">${fmt(p.deep.y)}</span><br>L5 + L2 + L0 with prediction <span class="${p.pred.y >= 0 ? "pc" : "nc"}">${fmt(p.pred.y)}</span>`;
+  $("feats").innerHTML = `<div class="tw"><table><thead><tr><th>Square<span class="hm">, feature</span></th><th>Feature</th><th><span class="hw">L0 + L2 + L5</span><span class="hm">L0+L2+L5</span></th><th><span class="hw">L5 + L2 + L0</span><span class="hm">L5+L2+L0</span></th><th><span class="hw">L5 + L2 + L0<br>with prediction</span><span class="hm">L5+L2+L0<br>+pred.</span></th></tr></thead><tbody>` +
+    F.map(r => `<tr data-s="${r.sq}"${isBig(r) ? ' class="big"' : ""}><td>${SQ(r.sq)}<span class="fm">${r.f.replace(/\./g, ".<wbr>")}${r.on ? "" : "<br>(absent)"}</span></td>` +
+      `<td class="f">${r.f.replace(/\./g, ".<wbr>")}${r.on ? "" : ' <span class="off">(absent)</span>'}</td>${td(r.fwd)}${td(r.deep)}${td(r.pred)}</tr>`).join("") +
+    `</tbody></table></div>`;
+  $("kbig").style.display = big.size ? "" : "none";
+  $("count").textContent = `${cur + 1} / ${P.length}`;
+};
+document.querySelectorAll(".ranks").forEach(e => e.innerHTML = [8, 7, 6, 5, 4, 3, 2, 1].map(n => `<span>${n}</span>`).join(""));
+document.querySelectorAll(".files").forEach(e => e.innerHTML = [..."abcdefgh"].map(c => `<span>${c}</span>`).join(""));
+const step = d => { cur = (cur + P.length + d) % P.length; draw(); };
+$("prev").onclick = () => step(-1); $("next").onclick = () => step(1);
+addEventListener("keydown", e => { if (e.key === "ArrowLeft") step(-1); if (e.key === "ArrowRight") step(1); });
+$("feats").onmouseover = $("feats").onmouseout = e => {
+  const r = e.type === "mouseover" && e.target.closest("tr[data-s]");
+  document.querySelectorAll(".board .sq").forEach(d => d.classList.toggle("hi", !!r && d.dataset.s === r.dataset.s));
+};
+draw();
+</script>
+</body>
+</html>

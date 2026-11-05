@@ -1,0 +1,26 @@
+{
+ "n": 100000,
+ "taps": [
+  "/encoder2/ln2"
+ ],
+ "hidden": [
+  1024
+ ],
+ "folds": 5,
+ "combine": 0,
+ "inv": 0.0,
+ "opt": "adamw",
+ "lr": 0.001,
+ "wd": 0.01,
+ "/encoder2/ln2": {
+  "val MSE": 0.11029483703896403,
+  "target sd": 0.47739630937576294
+ },
+ "D2": {
+  "r": 0.8991775906520652,
+  "median |dy|": 0.07950079441070557,
+  "r Black to move": 0.8922591323079203,
+  "median |dy| Black to move": 0.08696210384368896,
+  "colour gap median": 0.02136269211769104
+ }
+}
