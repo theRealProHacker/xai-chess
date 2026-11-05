@@ -28,7 +28,7 @@ Supervised tasks (tasks.py, rows from build_tasks.py): --tasks T1 .. Tn trains o
 draws a sample from T1 .. Tn-1 instead; "eval" is the WDL question above. Val/test score every listed task.
 oracle/curriculum.sh chains the stages. --sched cosine: cosine decay from --lr to 0, after --warmup N linear steps (default none).
 """
-import argparse, contextlib, json, math, os, sys, time
+import argparse, contextlib, json, math, os, queue, sys, threading, time
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "oracle"))
@@ -319,11 +319,19 @@ elif (a.init_ckpt or a.init_proj) and not a.eval_only:
     print(f"{'projector + LoRA' if a.init_ckpt else 'projector'} from {a.init_ckpt or a.init_proj}", flush=True)
 
 
+def raw(i, j, sq):
+    """Position i's stored layer-j tokens at squares sq (in prompt order) and the squares, on the CPU."""
+    return torch.from_numpy(np.asarray(raws[j][i][np.asarray(sq)], dtype=np.float32)), torch.as_tensor(sq)
+
+
+def project(j, x, t):
+    m, s = norms[j]
+    return proj(((x - m) / s).to(dev), t.to(dev))
+
+
 def soft(i, j, sq):
     """Projected vectors of position i's layer-j tokens at squares sq (in prompt order): (len(sq), d)."""
-    t = torch.as_tensor(sq); m, s = norms[j]
-    x = torch.from_numpy(np.asarray(raws[j][i][np.asarray(sq)], dtype=np.float32))
-    return proj(((x - m) / s).to(dev), t.to(dev))
+    return project(j, *raw(i, j, sq))
 
 
 def embed(ids_list, softs, poss):
@@ -366,15 +374,40 @@ def sample_row(i, rng):
     return i, r["question"], r["answer"]
 
 
-def batch(idx, rng):
-    ids, labels, softs, poss = [], [], [], []
+def prep(idx, rng):
+    """The CPU half of a training batch: questions, token ids, labels and the stored vectors."""
+    rows = []
     for i in idx:
         i, qt, at = sample_row(i, rng)
         j, sq = draw(rng)
         p, pos = prompt_ids(qt, i, j, sq); y = tok(at + END, add_special_tokens=False)["input_ids"]
-        ids.append(p + y); labels.append([-100] * len(p) + y); poss.append(pos)
-        softs.append(soft(i, j, sq_list(i, sq)))
-    x, mask = embed(ids, softs, poss)
+        rows.append((p + y, [-100] * len(p) + y, pos, j, raw(i, j, sq_list(i, sq))))
+    return rows
+
+
+PREP_LOCK = threading.Lock()                        # evaluate() and prep() both tokenize; never at once
+
+
+def prefetch(order, first, rng):
+    """Yields (prep rows, rng state after them) for steps first.. of the epoch; a thread builds them ahead."""
+    q = queue.Queue(maxsize=2)
+    def work():
+        try:
+            for s in range(first, steps_per_epoch):
+                with PREP_LOCK: rows = prep(order[s * a.batch:(s + 1) * a.batch], rng)
+                q.put((rows, rng.bit_generator.state))
+        except BaseException as e:
+            q.put(e)
+    threading.Thread(target=work, daemon=True).start()
+    for _ in range(first, steps_per_epoch):
+        it = q.get()
+        if isinstance(it, BaseException): raise it
+        yield it
+
+
+def batch(rows):
+    ids, labels, poss = [r[0] for r in rows], [r[1] for r in rows], [r[2] for r in rows]
+    x, mask = embed(ids, [project(r[3], *r[4]) for r in rows], poss)
     lab = torch.full(mask.shape, -100, dtype=torch.long)
     for k, l in enumerate(labels): lab[k, :len(l)] = torch.tensor(l)
     # logits only where some row predicts an answer token: the 248k-wide output layer dominates memory
@@ -475,9 +508,9 @@ def save(ck, path):
     torch.save(ck, path.with_suffix(".tmp")); os.replace(path.with_suffix(".tmp"), path)
 
 
-def ckpt(ep, step, rng):
+def ckpt(ep, step, rng_st):
     return dict(proj=proj.state_dict(), opt=opt.state_dict(), sched=sched.state_dict(), epoch=ep, step=step,
-                rng=rng.bit_generator.state, trng=torch.get_rng_state(), mu=mu, sd=sd, model=a.model, P=P, args=vars(a),
+                rng=rng_st, trng=torch.get_rng_state(), mu=mu, sd=sd, model=a.model, P=P, args=vars(a),
                 lora=lcfg, lora_sd=get_peft_model_state_dict(llm) if lcfg else None)
 
 
@@ -543,6 +576,10 @@ def evaluate_tasks(ep, step, t0, report, sets=None, name="val"):
 
 
 def evaluate(ep, step, t0, report, rows=None, name="val"):
+    with PREP_LOCK: return evaluate_(ep, step, t0, report, rows, name)
+
+
+def evaluate_(ep, step, t0, report, rows=None, name="val"):
     if a.tasks: return evaluate_tasks(ep, step, t0, report, rows, name)
     rows = rows or val; idx = [r["i"] for r in rows]
     t1 = time.time()
@@ -590,11 +627,11 @@ for ep in range(start, a.epochs):
     order = rng.permutation(tr)
     first = s0 if ep == start else 0
     if first and rng_state: rng.bit_generator.state = rng_state                       # question draws continue mid-epoch
-    t0, run, n = time.time(), 0.0, 0
-    for s in range(first, steps_per_epoch):
+    t0, run, n, st = time.time(), 0.0, 0, rng.bit_generator.state
+    for s, (rows, st) in enumerate(prefetch(order, first, rng), first):
         if s == first and s and a.eval_every and s % a.eval_every == 0 and not reported(ep, s, out / "report.jsonl"):
             evaluate(ep, s, None, out / "report.jsonl")                                # killed during this eval
-        loss = loss_fn(*batch(order[s * a.batch:(s + 1) * a.batch], rng))
+        loss = loss_fn(*batch(rows))
         opt.zero_grad(set_to_none=True); loss.backward()
         torch.nn.utils.clip_grad_norm_([p for g in groups for p in g["params"]], 1.0)
         opt.step(); sched.step()
@@ -605,11 +642,11 @@ for ep in range(start, a.epochs):
                   f"{el / (s + 1 - first):.2f}s/step eta {el / (s + 1 - first) * (steps_per_epoch - s - 1) / 60:.1f}min", flush=True)
             run, n = 0.0, 0
         if s + 1 < steps_per_epoch and a.eval_every and (s + 1) % a.eval_every == 0:
-            save(ckpt(ep, s + 1, rng), out / "last.pt"); evaluate(ep, s + 1, t0, out / "report.jsonl")
+            save(ckpt(ep, s + 1, st), out / "last.pt"); evaluate(ep, s + 1, t0, out / "report.jsonl")
         elif s + 1 < steps_per_epoch and a.save_every and (s + 1) % a.save_every == 0:
-            save(ckpt(ep, s + 1, rng), out / "last.pt")
+            save(ckpt(ep, s + 1, st), out / "last.pt")
     if first < steps_per_epoch:
-        ck = ckpt(ep, steps_per_epoch, rng)
+        ck = ckpt(ep, steps_per_epoch, st)
         save(ck, out / f"epoch{ep}.pt"); save(ck, out / "last.pt")
     # a kill during eval resumes at this epoch's end and re-evaluates; the report check keeps it to one line
     if not reported(ep, steps_per_epoch, out / "report.jsonl"):
