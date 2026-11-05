@@ -3,9 +3,10 @@
   python3 annotate/attempt.py show CASE
   python3 annotate/attempt.py try CASE --english "what you mean, in words" --dsl 'Because(...)'
 
-A case is done when a try holds or is unknown, or after 5 tries.
+A case is done when a try holds or is unknown, or after 5 tries, per round. ROUND (env, default 1)
+is the run: round 2 re-annotates the cases whose final try fails under a newer verifier.
 """
-import argparse, json, re, subprocess, sys, time
+import argparse, json, os, re, subprocess, sys, time
 from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / ".pylibs"))
@@ -15,6 +16,7 @@ CASES = HERE / "data/cases.jsonl"
 ATTEMPTS = HERE / "data/attempts.jsonl"
 VERIFIER = HERE.parent / "dsl_verifier/target/release/dsl_verifier"
 TRIES = 5
+ROUND = int(os.environ.get("ROUND", 1))
 
 
 def case(cid):
@@ -24,8 +26,12 @@ def case(cid):
     sys.exit(f"no case {cid}")
 
 
-def tries(cid):
-    return [a for a in map(json.loads, ATTEMPTS.open()) if a["case"] == cid] if ATTEMPTS.exists() else []
+def tries(cid, rnd=ROUND):
+    """This case's tries in round `rnd`, or in every round with rnd=None."""
+    if not ATTEMPTS.exists():
+        return []
+    return [a for a in map(json.loads, ATTEMPTS.open())
+            if a["case"] == cid and (rnd is None or a.get("round", 1) == rnd)]
 
 
 def num(ply):
@@ -69,11 +75,16 @@ def show(c):
     rows = str(b).split("\n")
     print("\n".join(f"{8 - i} {r}" for i, r in enumerate(rows)) + "\n  a b c d e f g h  (uppercase White)")
     print(f"FEN {c['fen']}")
-    print(f"{side} to move plays {num(c['ply'])}{c['mov']}: a {c['kind'].lower()} (Lichess grading; "
+    print(f"{side} to move plays {num(c['ply'])}{c['mov']}: {'an' if c['kind'][0] in 'AEIOU' else 'a'} {c['kind'].lower()} (Lichess grading; "
           f"loses {c['loss']:.2f} winning chances).")
     print(f"Eval (White's view) before {ev(c['before'])}, after {ev(c['after'])}")
     print(f"Best  {line(c['before']['pv'], c['ply'])}")
     print(f"Then  {line(c['after']['pv'], c['ply'] + 1)}")
+    for t in tries(c["id"], None):
+        if t.get("round", 1) < ROUND:
+            by = "the current verifier" if t.get("rechecked") else "an older verifier"
+            print(f"\nRound {t.get('round', 1)}, try {t['n']} (checked by {by}): {t['dsl']}\n"
+                  f"  -> then {t['v']}: {t.get('why') or t.get('error') or ''}")
     ts = tries(c["id"])
     for t in ts:
         print(f"\nTry {t['n']}: {t['dsl']}\n  -> {t['v']}: {t.get('why') or t.get('error') or ''}")
@@ -90,7 +101,7 @@ def attempt(c, english, dsl, note):
     r = subprocess.run([str(VERIFIER), "check"], input=json.dumps({"fen": c["fen"], "mov": c["mov"], "dsl": dsl}),
                        capture_output=True, text=True, timeout=600)
     out = json.loads(r.stdout.strip().splitlines()[-1]) if r.stdout.strip() else {"error": r.stderr.strip()[-500:]}
-    rec = {"case": c["id"], "n": len(ts) + 1, "english_intent": english, "dsl": dsl, "note": note,
+    rec = {"case": c["id"], "round": ROUND, "n": len(ts) + 1, "english_intent": english, "dsl": dsl, "note": note,
            "rendered": out.get("english"), "v": out.get("v", "error"), "why": out.get("why"),
            "claims": out.get("claims"), "error": out.get("error"),
            "hint": hint(out["error"], dsl) if "error" in out else None,

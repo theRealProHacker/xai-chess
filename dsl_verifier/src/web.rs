@@ -21,8 +21,10 @@ thread_local! {
     static PANIC: RefCell<String> = const { RefCell::new(String::new()) };
 }
 
+/// Once: setting the hook again after a trap panics, which would hide the first panic's message.
 fn hook() {
-    std::panic::set_hook(Box::new(|i| PANIC.with(|p| *p.borrow_mut() = i.to_string())));
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| std::panic::set_hook(Box::new(|i| PANIC.with(|p| *p.borrow_mut() = i.to_string()))));
 }
 
 /// The message of the panic that trapped the last call.

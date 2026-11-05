@@ -248,16 +248,26 @@ fn line_name(a: Sq, b: Sq) -> String {
 
 /// The line as text, and the position and the last move's square after it (None if it does not replay).
 /// Numbered from `p` when `numbered` and there is no pass; otherwise segments between passes are listed.
+/// With passes, a segment played by the other side than the first mover (`owner`, or the side to move)
+/// names its side, and passes before the first move or after the last are said.
 fn line(p: Option<&Chess>, owner: Option<Color>, moves: &[Move_], numbered: bool) -> (String, Option<Chess>, Option<Square>) {
     let mut q = p.and_then(|p| if owner.is_some_and(|c| c != p.turn()) { p.clone().swap_turn().ok() } else { Some(p.clone()) });
     let numbered = numbered && !moves.contains(&"--");
+    let first_side = owner.or(p.map(|p| p.turn()));
+    // Side to move by parity when the position is unknown or stops replaying.
+    let mut side = first_side;
     let (mut segs, mut cur, mut first, mut last) = (vec![], vec![], true, None);
+    let mut seg_side = side;
+    let (mut lead, mut trail) = (0, 0);
     for m in moves {
         if *m == "--" {
-            if !cur.is_empty() { segs.push(std::mem::take(&mut cur).join(" ")) }
+            if !cur.is_empty() { segs.push(named(std::mem::take(&mut cur).join(" "), seg_side, first_side)) }
+            if segs.is_empty() { lead += 1 } else { trail += 1 }
             q = q.and_then(|q| q.swap_turn().ok());
+            side = side.map(|c| !c);
             continue;
         }
+        if cur.is_empty() { seg_side = side; trail = 0; }
         cur.push(match &q {
             Some(q) if numbered => match (q.turn(), first) {
                 (Color::White, _) => format!("{}.{m}", q.fullmoves()),
@@ -267,6 +277,7 @@ fn line(p: Option<&Chess>, owner: Option<Color>, moves: &[Move_], numbered: bool
             _ => m.to_string(),
         });
         first = false;
+        side = side.map(|c| !c);
         q = q.and_then(|q| {
             let mv = san(&q, m).ok()?;
             last = Some(match mv { Move::Castle { king, rook } => if rook > king { king.offset(2)? } else { king.offset(-2)? }, _ => mv.to() });
@@ -274,8 +285,28 @@ fn line(p: Option<&Chess>, owner: Option<Color>, moves: &[Move_], numbered: bool
         });
         if q.is_none() { last = None }
     }
-    if !cur.is_empty() { segs.push(cur.join(" ")) }
-    (list(&segs, "and"), q, last)
+    if !cur.is_empty() { segs.push(named(cur.join(" "), seg_side, first_side)) }
+    let passes = |n: usize, by: Option<Color>| match (n, by) {
+        (0, _) => None,
+        (1, Some(c)) => Some(format!("{} passes", side_name(c))),
+        (1, None) => Some("a pass".to_string()),
+        _ => Some("both sides pass".to_string()),
+    };
+    let mut items: Vec<String> = vec![];
+    items.extend(passes(lead, first_side));
+    items.extend(segs);
+    if trail > 0 && !items.is_empty() { items.extend(passes(trail, side.map(|c| if trail % 2 == 1 { !c } else { c }))) }
+    (list(&items, "and"), q, last)
+}
+
+fn side_name(c: Color) -> &'static str { side(c) }
+
+/// A segment of a line with passes, with its side named when that is not the line's first mover.
+fn named(seg: String, by: Option<Color>, first: Option<Color>) -> String {
+    match (by, first) {
+        (Some(b), Some(f)) if b != f => format!("{}'s {seg}", side(b)),
+        _ => seg,
+    }
 }
 
 // --------------------------------------------------------------------------- context
@@ -537,7 +568,7 @@ fn render(r: &Reason, rx: &Rx) -> Vec<Part> {
             let names = |ss: &[Sq]| list(&ss.iter().map(origin).collect::<Vec<_>>(), "and");
             vec![rx.side_c(act("trade", format!("{} for {}", names(give), names(get))))]
         }
-        Simplify => vec![clause(Subj::Np("trading pieces".into(), false, None), vp("favour", side(owner)))],
+        Simplify => vec![clause(Subj::Np("the position".into(), false, None), vp("simplify", ""))],
         Attack { by, targets } => {
             let verb = if targets.len() > 1 { "fork" } else { "attack" };
             vec![clause(rx.the(by), act(verb, rx.pieces(targets)))]
@@ -620,8 +651,11 @@ fn render(r: &Reason, rx: &Rx) -> Vec<Part> {
         Draw => vec![clause(Subj::Np("the position".into(), false, None), vp("be", "a draw"))],
         Win => vec![rx.side_c(vp("be", "winning"))],
         SameColour(ss) => {
-            let shade = if square(ss[0]).is_light() { "light" } else { "dark" };
-            vec![clause(rx.np(ss), vp("stand", format!("on {shade} squares")))]
+            let on = match ss.first() {
+                Some(s) => format!("on {} squares", if square(s).is_light() { "light" } else { "dark" }),
+                None => "on one colour".into(),
+            };
+            vec![clause(rx.np(ss), vp("stand", on))]
         }
     }
 }

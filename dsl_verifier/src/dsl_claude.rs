@@ -51,7 +51,11 @@ pub(crate) enum Region {
     Line(Sq, Sq),
 }
 
-/// How good a move is, on the annotation scale (?? ? ?! !? ! !!).
+/// How good a move is, on the annotation scale (?? ? ?! !? ! !!). Blunder, Mistake and Dubious
+/// (inaccuracy) as Lichess grades them, by the winning chances lost from the eval before the move to the
+/// eval after it: 0.3 or more, 0.2-0.3, 0.1-0.2; Good less than 0.1. Neighbouring grades overlap by 0.04
+/// on each side of a boundary (search noise): 0.27 lost is both a mistake and a blunder.
+/// Brilliant as on chess.com: the best move, a piece sacrifice, not already winning, not bad after.
 #[derive(Debug, Deserialize)]
 #[serde(bound(deserialize = "'de: 'static"))]
 pub(crate) enum Annotation {
@@ -111,8 +115,9 @@ pub(crate) enum Reason {
     /// The owner plays `line` unopposed, then the reason holds. Also multi-move plans.
     Threatens(Vec<Move_>, Box<Reason>),
     /// After this continuation the reason holds (forced replies, traps, "if ... then").
+    /// Every move of the line must be (nearly) its mover's best: within 0.1 winning chances.
     After(Vec<Move_>, Box<Reason>),
-    /// After `line` (empty: at once) the opponent has the reason.
+    /// After `line` (empty: at once) the opponent has the reason. The line is checked as in `After`.
     Allows(Vec<Move_>, Box<Reason>),
     /// Before the move the opponent could get the reason with its next move; now it cannot (prophylaxis).
     Prevents(Box<Reason>),
@@ -150,7 +155,7 @@ pub(crate) enum Reason {
     More(Box<Reason>),
     /// How strongly the reason holds: "a slight weakness", "much more space", "a decisive attack".
     Degree(Level, Box<Reason>),
-    /// The owner achieves the first reason before the opponent achieves the second.
+    /// The owner achieves the first reason before the opponent achieves the second, along the engine's line.
     Faster(Box<Reason>, Box<Reason>),
     /// The reason would hold with these squares changed (FEN letter, or `None` for empty).
     Suppose(Vec<(Sq, Option<char>)>, Box<Reason>),
@@ -166,7 +171,8 @@ pub(crate) enum Reason {
     Material(i8),
     /// Pieces named by their squares before the move.
     Trade { give: Vec<Sq>, get: Vec<Sq> },
-    /// Trading pieces in general favours the owner.
+    /// Material comes off: within a few plies of the engine's line a piece, or a pawn of each side,
+    /// leaves the board (trades, giving material back, liquidating). Says nothing about whether it is good.
     Simplify,
     /// One target is an attack, several a fork; `by` need not be the moved piece (discovery).
     Attack { by: Sq, targets: Vec<Sq> },
@@ -211,7 +217,8 @@ pub(crate) enum Reason {
     /// The pieces work together.
     Coordinate(Vec<Sq>),
     Castle,
-    /// The owner is this many tempi ahead (negative: behind). `Loses(Tempo(1))` wastes one.
+    /// The owner is this many tempi ahead (negative: behind). `Loses(Tempo(1))` wastes one: the move is
+    /// worth no more than passing (measured against the owner passing once, twice, ...).
     Tempo(i8),
     /// The owner makes the forcing moves and the opponent keeps answering.
     Initiative,
@@ -230,6 +237,7 @@ pub(crate) enum Reason {
     Enables(Vec<Move_>),
     /// The owner keeps the choice between these moves open (waiting, flexibility, tension).
     Options(Vec<Move_>),
+    /// The side to move would be better off passing, once or at every turn.
     Zugzwang,
     Draw,
     Win,
@@ -237,6 +245,56 @@ pub(crate) enum Reason {
     Practical,
     /// The pieces or squares stand on one square colour (bad bishop; `Not` for opposite-coloured bishops).
     SameColour(Vec<Sq>),
+}
+
+/// What the parser cannot check by type: every square is a board square ("e4"), every `Suppose` piece a FEN
+/// letter. The evaluator relies on both.
+pub(crate) fn check_names(r: &Reason) -> Result<(), String> {
+    fn sq(s: Sq) -> Result<(), String> {
+        s.parse::<shakmaty::Square>().map(|_| ()).map_err(|_| format!("{s} is not a square"))
+    }
+    fn sqs(ss: &[Sq]) -> Result<(), String> { ss.iter().try_for_each(|s| sq(s)) }
+    fn region(g: &Region) -> Result<(), String> {
+        match g {
+            Region::Squares(ss) => sqs(ss),
+            Region::Line(a, b) => { sq(a)?; sq(b) }
+            Region::Kingside | Region::Queenside | Region::Centre | Region::GreaterCentre
+            | Region::Half { .. } | Region::KingWing { .. } | Region::KingZone { .. } => Ok(()),
+        }
+    }
+    match r {
+        And(rs) | Either(rs) => rs.iter().try_for_each(check_names),
+        Threatens(_, r) | After(_, r) | Allows(_, r) | Prevents(r) | Removes(r) | Loses(r) | Gains(r) | Concedes(r)
+        | Only(r) | NoMove(r) | Instead(_, r) | Sacrifice(_, r) | Not(r) | Permanent(r) | Eventually(r) | More(r)
+        | Degree(_, r) => check_names(r),
+        Because(a, b) | But(a, b) | Outweighs(a, b) | Balances(a, b) | Faster(a, b) => { check_names(a)?; check_names(b) }
+        Suppose(edits, r) => {
+            for (s, c) in edits {
+                sq(s)?;
+                if let Some(c) = c { shakmaty::Piece::from_char(*c).ok_or(format!("{c} is not a piece letter"))?; }
+            }
+            check_names(r)
+        }
+        Trade { give, get } => { sqs(give)?; sqs(get) }
+        Attack { by, targets } => { sq(by)?; sqs(targets) }
+        Pin { by, front, behind } => sqs(&[by, front, behind]),
+        XRay { by, through, target } => sqs(&[by, through, target]),
+        Defend { by, target } => sqs(&[by, target]),
+        Bound { piece, duties } => { sq(piece)?; sqs(duties) }
+        Decoy { from, to } => sqs(&[from, to]),
+        Block { line: (a, b), by } => sqs(&[a, b, by]),
+        Open((a, b)) => sqs(&[a, b]),
+        Control(g) | Pressure(g) | Outnumber(g) | Isolated(g) | Doubled(g) | Backward(g) | Hole(g) | Weakened(g)
+        | Hanging(g) | Majority(g) => region(g),
+        Develop(Pieces::At(s)) | Quality(s, _) | Passer(s) | Promote(s) => sq(s),
+        Develop(Pieces::On(g)) => region(g),
+        Develop(Pieces::All | Pieces::Every(_)) => Ok(()),
+        Better { pieces, than } => { sqs(pieces)?; sqs(than) }
+        Coordinate(ss) | SameColour(ss) => sqs(ss),
+        Rated(_) | Check | Mate | WinMaterial(_) | Material(_) | Simplify | Castle | Tempo(_)
+        | Initiative | Space | Imbalance | Closed | BishopPair | Enables(_) | Options(_) | Zugzwang | Draw | Win
+        | Practical => Ok(()),
+    }
 }
 
 /// A reason given for `mov` in the position `fen`.

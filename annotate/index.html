@@ -65,6 +65,7 @@
   #moves .m:hover{background:#f2f6fa}
   #moves .m.done{color:var(--accent);font-weight:600}
   #moves .ev{color:#8a8a8a;font-size:.8rem;font-weight:400;font-variant-numeric:tabular-nums}
+  #moves .m.inaccuracy{background:#eef4fb} #moves .m.inaccuracy .ev{color:#3a6ea5}
   #moves .m.mistake{background:#fdf0d8} #moves .m.mistake .ev{color:#a05a00}
   #moves .m.blunder{background:#fbe1e1} #moves .m.blunder .ev{color:var(--no)}
   #moves .m.on{background:var(--accent);color:#fff} #moves .m.on .ev{color:#fff}
@@ -180,16 +181,26 @@
 <script type="module">
 import { Chess } from './vendor/chess.js';
 import { Chessground } from './vendor/chessground/chessground.min.js';
-import init, * as dsl from './vendor/dsl/dsl_verifier.js';
 import * as CM from './lib/codemirror.js';
 
-const [, schema] = await Promise.all([init(), fetch('/api/schema').then(r => r.json())]);
+// A trapped wasm instance is unusable, so a spare one stands by to take its place.
+let dslGen = 0, spare = null;
+const loadDsl = async () => { const m = await import('./vendor/dsl/dsl_verifier.js?' + dslGen++); await m.default(); return m; };
+const prepare = () => loadDsl().then(m => { spare = m; });
+let dsl = await loadDsl();
+prepare();
+const schema = await fetch('/api/schema').then(r => r.json());
 const $ = id => document.getElementById(id);
 
-// Wasm traps on a panic; the panic message says why.
+// Wasm traps on a panic; the panic message says why. The spare instance then takes over.
 function call(f, ...a){
   try { return JSON.parse(f(...a)); }
-  catch(_) { return {error: dsl.last_panic() || 'The renderer crashed on this input.'}; }
+  catch(_) {
+    let msg = 'The verifier crashed on this input.';
+    try { msg = dsl.last_panic() || msg; } catch(_) {}
+    if (spare) { dsl = spare; spare = null; prepare(); seed(); }
+    return {error: msg};
+  }
 }
 
 // --- the DSL's types (from /api/schema) ---
@@ -243,6 +254,7 @@ async function loadGame(id){
   const c = new Chess();
   fens = game.moves.map(m => { const f = c.fen(); c.move(m); return f; });
   fens.push(c.fen());
+  if (evals) booted.then(seed);
   $('players').textContent = `${game.white} (${game.white_elo}) – ${game.black} (${game.black_elo})`;
   $('meta').replaceChildren(`${game.time_control} · ${game.result} · `,
     Object.assign(document.createElement('a'), {href: game.url, target: '_blank', rel: 'noopener', textContent: 'Lichess'}));
@@ -257,7 +269,7 @@ const chances = (e, i) => e.mate === 0 ? (i % 2 ? 1 : -1) : e.mate ? Math.sign(e
   : 2 / (1 + Math.exp(-0.00368208 * e.cp)) - 1;
 // A line from ply p in numbered SAN: "12.Nf3 e5 13.d4", "12...e5 13.Nf3".
 const line = (pv, p) => pv.map((m, i) => (i === 0 || (p + i) % 2 === 0 ? num(p + i) : '') + m).join(' ');
-// How much move p lost for the side that played it; Lichess calls 0.2 a mistake, 0.3 a blunder.
+// How much move p lost for the side that played it; Lichess calls 0.1 an inaccuracy, 0.2 a mistake, 0.3 a blunder.
 const loss = p => (chances(evals[p], p) - chances(evals[p + 1], p + 1)) * (p % 2 ? -1 : 1);
 
 function drawMoves(){
@@ -269,7 +281,7 @@ function drawMoves(){
     if (evals) {
       s.append(Object.assign(document.createElement('span'), {className: 'ev', textContent: evText(evals[p + 1])}));
       const l = loss(p);
-      if (l >= 0.3) s.classList.add('blunder'); else if (l >= 0.2) s.classList.add('mistake');
+      if (l >= 0.3) s.classList.add('blunder'); else if (l >= 0.2) s.classList.add('mistake'); else if (l >= 0.1) s.classList.add('inaccuracy');
     }
     s.onclick = () => select(p);
     box.append(s);
@@ -643,6 +655,24 @@ function show(cls, msg, claims = []){
     tr.insertCell().className = 'v ' + c.v; tr.cells[1].textContent = WORD[c.v];
     if (why) { tr.insertCell().className = 'w'; tr.cells[2].textContent = c.why; }
   }
+}
+
+// The server searched every position of the game the way the native verifier does. Handing those
+// searches to the in-page verifier makes its Rated grade the same numbers the move list shows.
+const NODES = 300000;
+function seed(){
+  evals.forEach((e, p) => {
+    if (!e.pv?.length || e.mate === 0) return;
+    const c = new Chess(fens[p]), white = c.turn() === 'w';
+    // The verifier writes the en passant square only when a capture there is legal.
+    const [board, turn, castle, ep, ...clocks] = fens[p].split(' ');
+    const epOk = ep !== '-' && c.moves({verbose: true}).some(m => m.flags.includes('e'));
+    const key = [board, turn, castle, epOk ? ep : '-', ...clocks].join(' ') + ' ' + NODES;
+    const uci = [];
+    for (const san of e.pv) { const m = c.move(san); if (!m) break; uci.push(m.from + m.to + (m.promotion || '')); }
+    const score = e.mate != null ? `mate ${white ? e.mate : -e.mate}` : `cp ${white ? e.cp : -e.cp}`;
+    dsl.searched(key, `info depth 1 score ${score} pv ${uci.join(' ')}`);
+  });
 }
 
 async function evaluate(g, error){

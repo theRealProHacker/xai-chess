@@ -4,12 +4,17 @@
 //! binary). Tier 3: heuristics ported from commentary_gen/board_tools.py and positional.py.
 //!
 //! Caveats:
-//! - `Because(a, b)` holds when `a` and `b` both hold. That `b` causes `a` is not checked.
+//! - `Because(a, b)` holds when `a` and `b` both hold. Under `Rated(Dubious/Mistake/Blunder)` `b` must also
+//!   not hold after the engine's best move, and the material it names must explain half the loss (`explains`).
+//!   Otherwise that `b` causes `a` is not checked.
 //! - `Outweighs(a, b)` holds when both hold. The weighing is not checked.
-//! - `Quality` is the eval drop from removing the piece, minus the median drop for its kind (`baseline.tsv`); `Better` compares that drop.
+//! - `Quality` is the eval minus the median eval with the piece on its other safe squares (`relocated`); `Better` compares that.
 //! - `Eventually(r)` holds when `r` fails now and holds after the engine's line, `EVENTUALLY_PLIES` ahead.
 //! - `Only(r)` and `NoMove(r)` ignore moves that achieve `r` but score `ONLY_MARGIN` or more below the played move.
 //! - `WinMaterial` follows the engine's line (`SETTLE_NODES`) until the exchanges settle. `Sacrifice` uses static exchange evaluation.
+//! - `But(a, b)`: a and b point opposite ways for the owner (`polarity`).
+//! - `Zugzwang`, `Loses(Tempo(n))` and `Faster` are measured by passing (`zugzwang`, `tempo_cost`, `faster`).
+//! - Lines in `After` and `Allows` must be best play: each move within `LINE_MARGIN` of its mover's best.
 //! - `Prevents`, `Loses`, `Gains` and `Concedes` compare with the position before the enclosing move or line.
 
 #![cfg_attr(target_arch = "wasm32", allow(unused_imports, dead_code))]
@@ -40,11 +45,40 @@ const DRAW: i32 = 100;
 const THREAT_MARGIN: i32 = 50;
 /// `Rated(Best)`: the engine's move, or this close to it.
 const BEST_MARGIN: i32 = 10;
-/// `Rated`: Good within this of the best move; Dubious, Mistake and Blunder more than this below it.
-const RATED_BAD: i32 = 50;
+/// `Rated`, Lichess's grading: the winning chances lost against the best move make the move an
+/// inaccuracy (Dubious), a mistake or a blunder from these up. Good loses less than an inaccuracy.
+const INACCURACY: f64 = 0.1;
+const MISTAKE: f64 = 0.2;
+const BLUNDER: f64 = 0.3;
+/// Neighbouring grades overlap by this much on each side of a boundary: the loss moves by up to ~0.04
+/// winning chances between searches of 200k, 300k and 450k nodes (all 120 annotate cases).
+const GRADE_MARGIN: f64 = 0.04;
+/// `Rated(Brilliant)`, chess.com's rule: a best move that sacrifices a piece, not already completely
+/// winning without it (owner's winning chances after the best other move below this), and not bad after it (above minus this).
+const BRILLIANT_WINNING: f64 = 0.8;
+const BRILLIANT_BAD: f64 = 0.2;
+/// Each move of a line in `After` and `Allows` may lose at most this many winning chances against its mover's best move.
+const LINE_MARGIN: f64 = INACCURACY;
+
+/// `Because(Rated(..), b)`: the material `b` names must explain at least this share of the winning chances lost.
+
+/// `Quality` and `Better`: search size per relocation, and the fewest other squares that give a median.
+const RELOC_NODES: u64 = 50_000;
+const RELOC_MIN: usize = 5;
 
 /// Search size for settling exchanges in `WinMaterial`.
 const SETTLE_NODES: u64 = 1_000_000;
+
+/// `Loses(Tempo(n))`: at most this many rungs on the free-move ladder; a first pass costing more than
+/// `TEMPO_GUARD` winning chances loses material rather than time.
+const TEMPO_RUNGS: usize = 4;
+const TEMPO_GUARD: f64 = 0.5;
+
+/// `Simplify`: how far along the engine's line the material may come off.
+const SIMPLIFY_PLIES: usize = 4;
+
+/// `Zugzwang`: the most positions the opponent's moves-alone search visits.
+const SHUFFLE_LIMIT: usize = 50_000;
 
 /// How far ahead `Eventually` looks along the engine's line.
 const EVENTUALLY_PLIES: usize = 16;
@@ -169,6 +203,28 @@ fn as_mover(p: &Chess, c: Color) -> Option<Chess> {
     if p.turn() == c { Some(p.clone()) } else { p.clone().swap_turn().ok() }
 }
 
+/// The positions in which `c` moves next: `p`, `p` after a pass, or, when the other side is in check
+/// and cannot pass, `p` after each of its legal replies. "`c` could do X" must then hold after every
+/// reply. Empty when the other side is mated.
+fn movers(p: &Chess, c: Color) -> Vec<Chess> {
+    match as_mover(p, c) {
+        Some(q) => vec![q],
+        None => p.legal_moves().into_iter().map(|m| p.clone().play(m).unwrap()).collect(),
+    }
+}
+
+/// The reply that leads from `p` to `q`, in SAN.
+fn reply(p: &Chess, q: &Chess) -> String {
+    p.legal_moves().into_iter().find(|m| p.clone().play(m.clone()).unwrap().board() == q.board())
+        .map_or("?".into(), |m| San::from_move(p, m).to_string())
+}
+
+/// `f` holds in every position in which `c` moves next (see `movers`), and there is one.
+fn every_mover(p: &Chess, c: Color, f: impl Fn(&Chess) -> bool) -> bool {
+    let ms = movers(p, c);
+    !ms.is_empty() && ms.iter().all(f)
+}
+
 pub(crate) fn san(p: &Chess, m: Move_) -> Result<Move, String> {
     San::from_ascii(m.as_bytes()).map_err(|_| format!("bad SAN {m}"))?.to_move(p).map_err(|_| format!("illegal {m}"))
 }
@@ -184,6 +240,30 @@ fn play(p: &Chess, owner: Option<Color>, line: &[Move_]) -> Result<Chess, String
         p = if *m == "--" { pass(p)? } else { let mv = san(&p, m)?; p.play(mv).map_err(|_| format!("illegal {m}"))? };
     }
     Ok(p)
+}
+
+/// Lichess's winning chances in [-1, 1] for a score in centipawns.
+fn chances(cp: i32) -> f64 { 2.0 / (1.0 + (-0.00368208 * cp as f64).exp()) - 1.0 }
+
+/// The side to move in `p` moves alone while the other side passes at every turn. Some(true): no
+/// position it can reach this way offers it a check, capture or promotion, so it can only shuffle.
+/// Some(false): it can get through. None: more than `SHUFFLE_LIMIT` positions.
+fn shuffles(p: &Chess) -> Option<bool> {
+    let mut seen = std::collections::HashSet::new();
+    let mut todo = vec![p.clone()];
+    while let Some(q) = todo.pop() {
+        // The board and the side to move; the move counters would make every position new.
+        if !seen.insert((q.board().clone(), q.turn())) { continue; }
+        if seen.len() > SHUFFLE_LIMIT { return None; }
+        for m in q.legal_moves() {
+            if m.is_capture() || m.is_promotion() { return Some(false); }
+            let next = q.clone().play(m).unwrap();
+            if next.is_check() { return Some(false); }
+            // The other side passes: the mover is to move again.
+            if let Ok(back) = next.swap_turn() { todo.push(back); }
+        }
+    }
+    Some(true)
 }
 
 fn gain(m: &Move) -> i32 { m.capture().map_or(0, val) + m.promotion().map_or(0, |r| val(r) - 1) }
@@ -202,7 +282,7 @@ fn see(p: &Chess, m: &Move) -> i32 { gain(m) - see_square(&p.clone().play(m.clon
 /// Can the other side win material by capturing on `s`?
 fn would_hang(p: &Chess, s: Square) -> bool {
     let Some(c) = p.board().color_at(s) else { return false };
-    as_mover(p, !c).is_some_and(|b| see_square(&b, s) > 0)
+    every_mover(p, !c, |b| b.board().color_at(s) == Some(c) && see_square(b, s) > 0)
 }
 
 /// Best net gain for the side to move from any capture.
@@ -210,7 +290,7 @@ fn best_capture(p: &Chess) -> i32 { p.capture_moves().iter().map(|m| see(p, m)).
 
 fn safe_mobility(p: &Chess, s: Square) -> usize {
     let Some(c) = p.board().color_at(s) else { return 0 };
-    as_mover(p, c).map_or(0, |b| b.legal_moves().iter().filter(|m| m.from() == Some(s) && see(&b, m) >= 0).count())
+    movers(p, c).iter().map(|b| b.legal_moves().iter().filter(|m| m.from() == Some(s) && see(b, m) >= 0).count()).min().unwrap_or(0)
 }
 
 fn rank(s: Square, c: Color) -> u32 { c.relative_rank(s.rank()) as u32 }
@@ -310,8 +390,9 @@ pub(crate) fn parse_search(lines: &[String]) -> (i32, Vec<String>) {
         let t: Vec<&str> = l.split_whitespace().collect();
         let Some(i) = t.iter().position(|x| *x == "score") else { continue };
         if t.contains(&"upperbound") || t.contains(&"lowerbound") { continue; }
-        let n: i32 = t[i + 2].parse().unwrap_or(0);
-        score = if t[i + 1] == "mate" { if n > 0 { 10000 } else { -10000 } } else { n };
+        let (Some(kind), Some(n)) = (t.get(i + 1), t.get(i + 2)) else { continue };
+        let n: i32 = n.parse().unwrap_or(0);
+        score = if *kind == "mate" { if n > 0 { 10000 } else { -10000 } } else { n };
         if let Some(j) = t.iter().position(|x| *x == "pv") { pv = t[j + 1..].iter().map(|s| s.to_string()).collect(); }
     }
     (score, pv)
@@ -430,29 +511,52 @@ pub struct Ev {
     /// Nodes that the comment claims hold, with their verdicts. Nodes under `Not`, `Prevents` and the like are not claims.
     pub claims: Vec<(String, Verdict)>,
     quiet: usize,
-/// Median `worth` per role over corpus positions (see `baseline`), indexed by `Role as usize`.
-    typical: [i32; 7],
+}
+
+/// Whether `r` is for (+1) or against (-1) its owner, or neither (0). Claims are owner assets unless a
+/// connective hands them to the opponent (`Allows`, `Concedes`) or negates them (`Loses`, `Not`).
+/// `Quality` is about whoever owns the piece: `mine(s)` says whether that is the owner.
+fn polarity(r: &Reason, mine: &dyn Fn(Sq) -> Option<bool>) -> i32 {
+    let polarity = |r: &Reason| polarity(r, mine);
+    use crate::dsl_claude::Annotation as A;
+    let same = |rs: &[Reason]| {
+        let ps: Vec<i32> = rs.iter().map(|r| polarity(r)).collect();
+        if ps.iter().all(|x| *x > 0) { 1 } else if ps.iter().all(|x| *x < 0) { -1 } else { 0 }
+    };
+    match r {
+        And(rs) | Either(rs) => if rs.is_empty() { 0 } else { same(rs) },
+        Allows(_, r) | Concedes(r) | Loses(r) | Not(r) => -polarity(r),
+        Threatens(_, r) | After(_, r) | Prevents(r) | Removes(r) | Gains(r) | Only(r) | Instead(_, r)
+        | Permanent(r) | Eventually(r) | More(r) | Degree(_, r) | Suppose(_, r) => polarity(r),
+        Because(a, _) => polarity(a),
+        Outweighs(..) | Faster(..) => 1,
+        But(..) | Balances(..) | NoMove(_) => 0,
+        Sacrifice(..) => -1,
+        Rated(a) => match a {
+            A::Good | A::Best | A::Brilliant | A::Stronger => 1,
+            A::Dubious | A::Mistake | A::Blunder | A::Weaker => -1,
+            A::Interesting => 0,
+        },
+        Material(n) => n.signum() as i32,
+        Quality(s, g) => {
+            let good = if matches!(g, Grade::Good) { 1 } else { -1 };
+            match mine(s) { Some(true) => good, Some(false) => -good, None => 0 }
+        }
+        Trade { .. } | Check | Imbalance | Closed | Options(_) | Draw | SameColour(_) => 0,
+        _ => 1,
+    }
+}
+
+/// `r` uses the claim `kind` somewhere inside.
+fn mentions(r: &Reason, kind: &str) -> bool {
+    format!("{r:?}").split(|c: char| !c.is_alphanumeric()).any(|w| w == kind)
 }
 
 fn name(r: &Reason) -> String { format!("{r:?}").split(['(', ' ', '{']).next().unwrap().to_string() }
 
 impl Ev {
     pub fn new(eng: Option<Engine>) -> Ev {
-        let mut typical = [0; 7];
-        for r in Role::ALL { typical[r as usize] = cp(r); }
-        #[cfg(not(target_arch = "wasm32"))]
-        let t = std::fs::read_to_string(BASELINE);
-        #[cfg(target_arch = "wasm32")]
-        let t: Result<&str, ()> = Ok(include_str!("../baseline.tsv"));
-        if let Ok(t) = t {
-            for l in t.lines() {
-                let f: Vec<&str> = l.split('\t').collect();
-                if let (Some(r), Some(Ok(m))) = (f.first().and_then(|c| c.chars().next()).and_then(Role::from_char), f.get(1).map(|m| m.parse())) {
-                    typical[r as usize] = m;
-                }
-            }
-        }
-        Ev { eng, root: Chess::default(), played: Chess::default(), claims: vec![], quiet: 0, typical }
+        Ev { eng, root: Chess::default(), played: Chess::default(), claims: vec![], quiet: 0 }
     }
 
     /// Evaluate `reason` for the side that plays `mov` in `root`.
@@ -485,6 +589,7 @@ impl Ev {
     }
 
     fn node(&mut self, r: &Reason, cx: &Cx) -> Verdict {
+        let node = r;
         let (p, owner) = (&cx.p, cx.owner);
         let b = p.board();
         let mine = |s: Square| b.color_at(s) == Some(owner);
@@ -495,20 +600,31 @@ impl Ev {
             And(rs) => all(rs.iter().map(|r| self.eval(r, cx)).collect::<Vec<_>>()),
             // Each alternative alone is not claimed, so they are not recorded as claims.
             Either(rs) => self.quietly(|ev| any(rs.iter().map(|r| ev.eval(r, cx)).collect(), "none holds")),
-            Threatens(line, r) => match play(p, Some(owner), line) {
+            Threatens(line, r) => {
+                // After a check the threat must stand whatever the reply; the check makes it real.
+                if as_mover(p, owner).is_none() {
+                    let starts = movers(p, owner);
+                    if starts.is_empty() { return fail("mated"); }
+                    return self.quietly(|ev| all(starts.iter().map(|q| match play(q, None, line) {
+                        Err(e) => fail(format!("after {}: {e}", reply(p, q))),
+                        Ok(z) => ev.eval(r, &cx.at(z, owner)),
+                    }).collect::<Vec<_>>()));
+                }
+                match play(p, Some(owner), line) {
+                    Err(e) => fail(e),
+                    Ok(q) => {
+                        let v = self.eval(r, &cx.at(q, owner));
+                        if v.v == V::Holds { self.threat_is_real(p, owner, line).unwrap_or(v) } else { v }
+                    }
+                }
+            }
+            After(line, r) | Allows(line, r) => match play(p, None, line) {
                 Err(e) => fail(e),
                 Ok(q) => {
-                    let v = self.eval(r, &cx.at(q, owner));
-                    if v.v == V::Holds { self.threat_is_real(p, owner, line).unwrap_or(v) } else { v }
+                    let who = if matches!(node, After(..)) { owner } else { !owner };
+                    let v = self.eval(r, &cx.at(q, who));
+                    if v.v == V::Holds { self.line_is_played(p, line).unwrap_or(v) } else { v }
                 }
-            },
-            After(line, r) => match play(p, None, line) {
-                Err(e) => fail(e),
-                Ok(q) => self.eval(r, &cx.at(q, owner)),
-            },
-            Allows(line, r) => match play(p, None, line) {
-                Err(e) => fail(e),
-                Ok(q) => self.eval(r, &cx.at(q, !owner)),
             },
             Removes(r) => self.quietly(|ev| ev.before_after(r, cx, !owner, false)),
             Prevents(r) => self.quietly(|ev| {
@@ -521,6 +637,7 @@ impl Ev {
                     _ => unknown(format!("{} / {}", before.why, now.why)),
                 }
             }),
+            Loses(r) if matches!(&**r, Tempo(_)) => { let Tempo(n) = &**r else { unreachable!() }; self.tempo_cost(cx, *n) }
             Loses(r) => self.quietly(|ev| ev.before_after(r, cx, owner, false)),
             Gains(r) => self.quietly(|ev| ev.before_after(r, cx, owner, true)),
             Concedes(r) => self.quietly(|ev| ev.before_after(r, cx, !owner, true)),
@@ -580,16 +697,24 @@ impl Ev {
                 let s = check(lost + hang >= need, format!("gives up {} of {need}", lost + hang));
                 all([s, self.eval(r, cx)])
             }
-            // Simplify is accepted until simplicity is checked, negated too.
-            Not(r) if matches!(&**r, Simplify) => Verdict { v: V::Holds, why: "simpler unchecked".into() },
             Not(r) => not(self.quietly(|ev| ev.eval(r, cx))),
             Because(a, b) => {
                 let v = all([self.eval(a, cx), self.eval(b, cx)]);
-                if v.v == V::Holds { Verdict { v: V::Holds, why: "both hold; cause unchecked".into() } } else { v }
+                if v.v != V::Holds { return v; }
+                if !matches!(&**a, Rated(Annotation::Dubious | Annotation::Mistake | Annotation::Blunder)) {
+                    return Verdict { v: V::Holds, why: "both hold; cause unchecked".into() };
+                }
+                self.quietly(|ev| ev.explains(b, cx))
             }
             But(a, b) => {
                 let v = all([self.eval(a, cx), self.eval(b, cx)]);
-                if v.v == V::Holds { Verdict { v: V::Holds, why: "both hold; contrast unchecked".into() } } else { v }
+                if v.v != V::Holds { return v; }
+                let mine = |s: Sq| cx.p.board().color_at(sq(s)).map(|c| c == owner);
+                match (polarity(a, &mine), polarity(b, &mine)) {
+                    (x, y) if x * y < 0 => ok(),
+                    (0, _) | (_, 0) => unknown("no contrast: a part is neither for nor against the owner"),
+                    _ => fail("no contrast: both parts point the same way"),
+                }
             }
             Outweighs(a, b2) => {
                 let vb = self.eval(b2, &Cx { owner: !owner, ..cx.clone() });
@@ -632,7 +757,7 @@ impl Ev {
                 TRACK.with(|t| *t.borrow_mut() = outer);
                 if gone { fail("the piece is captured along the line") } else { v }
             }
-            Faster(..) => unknown("race not modelled"),
+            Faster(a, b) => self.quietly(|ev| ev.faster(a, b, cx)),
             Suppose(edits, r) => {
                 let mut setup = p.to_setup(EnPassantMode::Legal);
                 for (s, c) in edits {
@@ -742,7 +867,7 @@ impl Ev {
                 }).collect::<Vec<_>>())
             }
             Decoy { from, to } => {
-                let lured = as_mover(p, !owner).is_some_and(|q| q.legal_moves().iter().any(|m| m.from() == Some(sq(from)) && m.to() == sq(to)));
+                let lured = every_mover(p, !owner, |q| q.legal_moves().iter().any(|m| m.from() == Some(sq(from)) && m.to() == sq(to)));
                 check(theirs(sq(from)) && mine(sq(to)) && lured, format!("{from} cannot be lured to {to}"))
             }
             Develop(ps) => {
@@ -766,7 +891,7 @@ impl Ev {
             Castle => {
                 let k = b.king_of(owner).unwrap();
                 let castled = rank(k, owner) == 0 && matches!(k.file() as u32, 1 | 2 | 6);
-                let can = as_mover(p, owner).is_some_and(|q| q.legal_moves().iter().any(|m| matches!(m, Move::Castle { .. })));
+                let can = every_mover(p, owner, |q| q.legal_moves().iter().any(|m| matches!(m, Move::Castle { .. })));
                 check(castled || can, "cannot castle")
             }
             BishopPair => {
@@ -790,7 +915,7 @@ impl Ev {
             }
             Promote(s) => {
                 let s = sq(s);
-                let can = as_mover(p, owner).is_some_and(|q| q.legal_moves().iter().any(|m| m.from() == Some(s) && m.promotion().is_some()));
+                let can = every_mover(p, owner, |q| q.legal_moves().iter().any(|m| m.from() == Some(s) && m.promotion().is_some()));
                 check(mine(s) && rank(s, owner) == Rank::Seventh as u32 && can, format!("{s} cannot promote"))
             }
             Enables(line) if line.is_empty() => fail("no moves"),
@@ -810,9 +935,10 @@ impl Ev {
                 Some(s) => check(s.abs() <= DRAW, format!("eval {s:+}")),
             },
             // Needs the stuck side to pass repeatedly, not once.
-            Zugzwang => unknown("repeated passing not modelled"),
-            Simplify => Verdict { v: V::Holds, why: "simpler unchecked".into() },
+            Zugzwang => self.zugzwang(p),
+            Simplify => self.simplify(cx),
             Initiative => self.initiative(p, owner),
+            // Only `Loses(Tempo(n))`, a move's cost, is measured (`tempo_cost`).
             Tempo(_) => unknown("tempo count not modelled"),
 
             // ---------------------------------------------------------------- tier 3: heuristics
@@ -840,9 +966,9 @@ impl Ev {
             Better { pieces, than } => {
                 let worth = |ss: &Vec<Sq>| ss.iter().filter_map(|s| b.role_at(sq(s))).map(cp).sum::<i32>();
                 let mob = |ss: &Vec<Sq>| ss.iter().map(|s| safe_mobility(p, sq(s))).sum::<usize>();
-                let sum = |ev: &mut Ev, ss: &Vec<Sq>| ss.iter().map(|s| ev.worth(p, sq(s))).sum::<Option<i32>>();
+                let sum = |ev: &mut Ev, ss: &Vec<Sq>| ss.iter().map(|s| ev.relocated(p, sq(s))).sum::<Option<i32>>();
                 if let (Some(a), Some(z)) = (sum(self, pieces), sum(self, than)) {
-                    return check(a > z, format!("worth {a} vs {z} cp"));
+                    return check(a > z, format!("{a:+} vs {z:+} cp against their other safe squares"));
                 }
                 let (a, z) = (worth(pieces), worth(than));
                 if a != z { check(a > z, format!("{a} vs {z} cp")) } else { check(mob(pieces) > mob(than), format!("mobility {} vs {}", mob(pieces), mob(than))) }
@@ -878,6 +1004,80 @@ impl Ev {
         }
     }
 
+    /// `Simplify`: from `cx.prev`, through `cx.p` and `SIMPLIFY_PLIES` of the engine's line on, a piece
+    /// (not a pawn or king) or a pawn of each side comes off the board. Whether that is good is not asked.
+    fn simplify(&mut self, cx: &Cx) -> Verdict {
+        let Some(end) = self.pv_end(&cx.p, SIMPLIFY_PLIES) else { return unknown("no engine") };
+        let pieces = |q: &Chess| (q.board().occupied() & !q.board().pawns() & !q.board().kings()).count() as i64;
+        let pawns = |q: &Chess, c: Color| pawns(q, c).count();
+        let off = pieces(&cx.prev) - pieces(&end);
+        let both = pawns(&end, Color::White) < pawns(&cx.prev, Color::White) && pawns(&end, Color::Black) < pawns(&cx.prev, Color::Black);
+        check(off > 0 || both, format!("{off} pieces off within {SIMPLIFY_PLIES} plies of the engine's line"))
+    }
+
+    /// `Loses(Tempo(n))`: the move from `cx.prev` to `cx.p` costs at least n − ½ tempi on the free-move
+    /// ladder. Rung 0 is the owner's best move; rung i is the owner passing i times while the opponent plays
+    /// the engine's moves. The move's value falls between two rungs; its cost is where, interpolated.
+    fn tempo_cost(&mut self, cx: &Cx, n: i8) -> Verdict {
+        let owner = cx.owner;
+        if cx.prev.turn() != owner || cx.p.turn() == owner { return unknown("not a move of the owner"); }
+        let k = (n.max(1) as usize + 1).min(TEMPO_RUNGS);
+        let Some(v) = self.owner_score(&cx.p, owner).map(chances) else { return unknown("no engine") };
+        let Some(r0) = self.owner_score(&cx.prev, owner).map(chances) else { return unknown("no engine") };
+        let mut rungs = vec![r0];
+        let mut q = cx.prev.clone();
+        for _ in 0..k {
+            let Ok(passed) = q.clone().swap_turn() else { return unknown("cannot pass in check") };
+            let Some((s, pv)) = self.eng.as_mut().map(|e| e.analyse(&passed)) else { return unknown("no engine") };
+            rungs.push(chances(-s));
+            let Some(m) = pv.first().and_then(|u| u.parse::<UciMove>().ok()).and_then(|u| u.to_move(&passed).ok()) else { break };
+            q = passed.play(m).unwrap();
+        }
+        if rungs.len() > 1 && rungs[0] - rungs[1] > TEMPO_GUARD { return unknown("a pass loses material: the ladder measures the threat, not time"); }
+        let mut cost = (rungs.len() - 1) as f64;
+        for i in 0..rungs.len() - 1 {
+            if v >= rungs[i] { cost = i as f64; break; }
+            if v >= rungs[i + 1] { cost = i as f64 + (rungs[i] - v) / (rungs[i] - rungs[i + 1]).max(1e-9); break; }
+        }
+        check(cost >= n as f64 - 0.5, format!("costs {cost:.2} tempi (ladder {})",
+            rungs.iter().map(|r| format!("{r:+.2}")).collect::<Vec<_>>().join(", ")))
+    }
+
+    /// `Faster(a, b)`: along the engine's line from `cx.p`, `a` holds for the owner before `b` holds
+    /// for the opponent. Neither within `EVENTUALLY_PLIES`: unknown.
+    fn faster(&mut self, a: &Reason, b: &Reason, cx: &Cx) -> Verdict {
+        let Some((_, pv)) = self.eng.as_mut().map(|e| e.analyse(&cx.p)) else { return unknown("no engine") };
+        let (mut q, mut prev) = (cx.p.clone(), cx.prev.clone());
+        for ply in 0..=EVENTUALLY_PLIES {
+            let mine = self.eval(a, &Cx { p: q.clone(), prev: prev.clone(), owner: cx.owner }).v == V::Holds;
+            let theirs = self.eval(b, &Cx { p: q.clone(), prev: prev.clone(), owner: !cx.owner }).v == V::Holds;
+            match (mine, theirs) {
+                (true, false) => return Verdict { v: V::Holds, why: format!("first, after {ply} plies") },
+                (false, true) => return fail(format!("the opponent's comes first, after {ply} plies")),
+                (true, true) => return fail(format!("both at once, after {ply} plies")),
+                _ => {}
+            }
+            let Some(m) = pv.get(ply).and_then(|u| u.parse::<UciMove>().ok()).and_then(|u| u.to_move(&q).ok()) else { break };
+            prev = q.clone();
+            q = q.play(m).unwrap();
+        }
+        unknown("neither along the engine's line")
+    }
+
+    /// The side to move is in zugzwang: passing, once or at every turn, is worth `INACCURACY` more
+    /// winning chances than its best move. Passing at every turn holds (a draw) when the opponent,
+    /// moving alone, can reach no check, capture or promotion: it can only shuffle (`shuffles`).
+    fn zugzwang(&mut self, p: &Chess) -> Verdict {
+        let s = p.turn();
+        let Some(best) = self.owner_score(p, s).map(chances) else { return unknown("no engine") };
+        let Ok(passed) = p.clone().swap_turn() else { return fail("in check: cannot pass") };
+        let Some(once) = self.owner_score(&passed, s).map(chances) else { return unknown("no engine") };
+        let forever = if once < 0.0 { match shuffles(&passed) { Some(true) => 0.0, _ => once } } else { once };
+        let pass = once.max(forever);
+        let why = format!("passing {} {pass:+.2}, best move {best:+.2}", if forever > once { "at every turn" } else { "once" });
+        check(pass - best > INACCURACY, why)
+    }
+
     /// For `who`, the reason held before and does not hold now, or with `gained` the other way round.
     fn before_after(&mut self, r: &Reason, cx: &Cx, who: Color, gained: bool) -> Verdict {
         let before = self.eval(r, &Cx { p: cx.prev.clone(), prev: cx.prev.clone(), owner: who });
@@ -894,39 +1094,63 @@ impl Ev {
     /// `r` holds for `who` in `p`, or after some move of `who` from `p` (a pass first if `who` is not to move).
     fn reachable(&mut self, r: &Reason, p: &Chess, who: Color) -> Verdict {
         if self.eval(r, &Cx { p: p.clone(), prev: p.clone(), owner: who }).v == V::Holds { return ok(); }
-        let Some(q) = as_mover(p, who) else { return fail("cannot pass in check") };
-        let mut undecided = false;
-        for m in q.legal_moves() {
-            let next = q.clone().play(m.clone()).unwrap();
-            match self.eval(r, &Cx { p: next, prev: q.clone(), owner: who }).v {
-                V::Holds => return Verdict { v: V::Holds, why: format!("{}", San::from_move(&q, m)) },
-                V::Unknown => undecided = true,
-                V::Fails => {}
+        let starts = movers(p, who);
+        if starts.is_empty() { return fail("mated"); }
+        // After a check: some move gets it whatever the reply.
+        all(starts.iter().map(|q| {
+            let mut undecided = false;
+            for m in q.legal_moves() {
+                let next = q.clone().play(m.clone()).unwrap();
+                match self.eval(r, &Cx { p: next, prev: q.clone(), owner: who }).v {
+                    V::Holds => return Verdict { v: V::Holds, why: format!("{}", San::from_move(q, m)) },
+                    V::Unknown => undecided = true,
+                    V::Fails => {}
+                }
             }
+            if undecided { unknown("some moves undecided") } else { fail("no move gets it") }
+        }).collect::<Vec<_>>())
+    }
+
+    /// What the piece on `s` adds where it stands: the eval for its owner minus the median eval with
+    /// the same piece on each other empty square where it is safe (bishops keep their colour, pawns stay
+    /// off the back ranks), searched at `RELOC_NODES`. Nothing is removed. None without an engine, for a
+    /// king, or with fewer than `RELOC_MIN` such squares.
+    fn relocated(&mut self, p: &Chess, s: Square) -> Option<i32> {
+        let (c, role) = (p.board().color_at(s)?, p.board().role_at(s)?);
+        if role == Role::King { return None; }
+        let score = |ev: &mut Ev, q: &Chess| {
+            let (x, _) = ev.eng.as_mut()?.analyse_nodes(q, RELOC_NODES);
+            Some(if q.turn() == c { x } else { -x })
+        };
+        let base = score(self, p)?;
+        let mut vs = vec![];
+        for t in !p.board().occupied() {
+            if role == Role::Bishop && t.is_light() != s.is_light() { continue; }
+            if role == Role::Pawn && matches!(t.rank(), Rank::First | Rank::Eighth) { continue; }
+            let mut setup = p.to_setup(EnPassantMode::Legal);
+            let piece = setup.board.remove_piece_at(s)?;
+            setup.board.set_piece_at(t, piece);
+            setup.ep_square = None;
+            let Ok(q) = setup.position::<Chess>(CastlingMode::Standard).or_else(|e| e.ignore_invalid_castling_rights()) else { continue };
+            if q.is_check() { continue; }
+            // Safe: not attacked by a cheaper piece, and defended if attacked at all.
+            let (att, def) = (attackers(&q, t, !c), attackers(&q, t, c));
+            if att.into_iter().any(|a| val(q.board().role_at(a).unwrap()) < val(role)) || (att.any() && def.is_empty()) { continue; }
+            vs.push(score(self, &q)?);
         }
-        if undecided { unknown("some moves undecided") } else { fail("no move gets it") }
+        if vs.len() < RELOC_MIN { return None; }
+        vs.sort();
+        Some(base - vs[vs.len() / 2])
     }
 
-    /// How much worse the position gets for the piece's owner without the piece.
-    /// None without an engine, for a king, or when the board without it is illegal.
-    fn worth(&mut self, p: &Chess, s: Square) -> Option<i32> {
-        let c = p.board().color_at(s)?;
-        if p.board().role_at(s)? == Role::King { return None; }
-        let with = self.owner_score(p, c)?;
-        let mut setup = p.to_setup(EnPassantMode::Legal);
-        setup.board.discard_piece_at(s);
-        let q = setup.position::<Chess>(CastlingMode::Standard).or_else(|e| e.ignore_invalid_castling_rights()).ok()?;
-        Some(with - self.owner_score(&q, c)?)
-    }
-
-    /// Good: the piece is worth more than a typical piece of its kind. Bad: less.
+    /// Good: the piece does more where it stands than on its other safe squares. Bad: less.
     fn quality(&mut self, p: &Chess, s: Square, g: &Grade) -> Verdict {
         let Some(role) = p.board().role_at(s) else { return fail(format!("{s} empty")) };
-        let Some(w) = self.worth(p, s) else { return unknown("no engine, or illegal without the piece") };
-        let q = w - self.typical[role as usize];
+        let Some(w) = self.relocated(p, s) else { return unknown("no engine, a king, or too few other squares") };
+        let why = format!("{s}: {w:+} cp vs the {role:?} on its other safe squares");
         match g {
-            Grade::Good => check(q > 0, format!("{s}: {q:+} cp vs a typical {role:?}")),
-            Grade::Bad => check(q < 0, format!("{s}: {q:+} cp vs a typical {role:?}")),
+            Grade::Good => check(w > 0, why),
+            Grade::Bad => check(w < 0, why),
         }
     }
 
@@ -945,13 +1169,65 @@ impl Ev {
 
     /// The owner can legally play `line` next.
     fn enables(&mut self, p: &Chess, owner: Color, line: &[Move_]) -> Verdict {
-        let Some(mut q) = as_mover(p, owner) else { return fail("owner in check, cannot pass") };
-        for m in line {
-            if *m == "--" { q = match q.swap_turn() { Ok(x) => x, Err(_) => return fail("cannot pass") }; continue; }
-            let mv = match san(&q, m) { Ok(x) => x, Err(e) => return fail(e) };
-            q = q.play(mv).unwrap();
+        let starts = movers(p, owner);
+        if starts.is_empty() { return fail("mated"); }
+        // After a check: playable whatever the reply.
+        all(starts.into_iter().map(|q| match play(&q, None, line) { Ok(_) => ok(), Err(e) => fail(e) }).collect::<Vec<_>>())
+    }
+
+    /// `b` explains why the move from `cx.prev` to `cx.p` was bad: the material `b` names must net the mover a loss.
+    fn explains(&mut self, b: &Reason, cx: &Cx) -> Verdict {
+        let owner = cx.owner;
+        let parts: Vec<&Reason> = match b { And(rs) => rs.iter().collect(), r => vec![r] };
+
+        // Sign: the net material the parts name, for the owner (pawns), against the loss.
+        let (mut v, mut material_named, mut other) = (0, false, false);
+        for part in &parts {
+            match part {
+                Not(_) | Rated(_) => {}
+                Allows(line, r) if mentions(r, "Mate") => { let _ = line; return ok(); }
+                Allows(line, r) if mentions(r, "WinMaterial") => {
+                    let Ok(end) = play(&cx.p, None, line) else { continue };
+                    let Some(n) = self.net(&cx.p, &end, !owner) else { return unknown("no engine") };
+                    v -= n;
+                    material_named = true;
+                }
+                Instead(m, inner) if mentions(inner, "WinMaterial") => {
+                    let (line, who): (&[Move_], Color) = match &**inner {
+                        After(l, _) => (l, owner),
+                        Allows(l, _) => (l, !owner),
+                        _ => (&[], owner),
+                    };
+                    let Ok(start) = play(&cx.prev, None, &[m]) else { continue };
+                    let Ok(end) = play(&start, None, line) else { continue };
+                    let Some(n) = self.net(&start, &end, who) else { return unknown("no engine") };
+                    // The owner missed what it would have won, or would have lost only this.
+                    if who == owner { v -= n } else { v += n }
+                    material_named = true;
+                }
+                _ => other = true,
+            }
         }
-        ok()
+        if !material_named { return ok(); }
+        let why = format!("the material it names nets the mover {v:+} pawns, not a loss");
+        if v < 0 { ok() } else if other { unknown(why) } else { fail(why) }
+    }
+
+    /// The position after the first `n` moves of the engine's line from `p`.
+    fn pv_end(&mut self, p: &Chess, n: usize) -> Option<Chess> {
+        let (_, pv) = self.eng.as_mut()?.analyse(p);
+        let mut q = p.clone();
+        for u in pv.iter().take(n) {
+            let Some(m) = u.parse::<UciMove>().ok().and_then(|u| u.to_move(&q).ok()) else { break };
+            q = q.play(m).unwrap();
+        }
+        Some(q)
+    }
+
+    /// Net material `side` wins from `start` to `end` once the exchanges at `end` settle, in pawns.
+    fn net(&mut self, start: &Chess, end: &Chess, side: Color) -> Option<i32> {
+        let diff = |q: &Chess| material(q, side) - material(q, !side);
+        Some(diff(&self.settle(end)?) - diff(start))
     }
 
     /// Fails when the threat's first move scores more than `THREAT_MARGIN` below the position as it stands.
@@ -965,27 +1241,94 @@ impl Ev {
         (after < now - THREAT_MARGIN).then(|| fail(format!("{first} gains {:+} cp, no threat", after - now)))
     }
 
+    /// Fails at the first move of `line` that loses more than `LINE_MARGIN` winning chances against
+    /// its mover's best move: a line must be (nearly) the best play for both sides. Passes are skipped.
+    fn line_is_played(&mut self, p: &Chess, line: &[Move_]) -> Option<Verdict> {
+        let mut q = p.clone();
+        for m in line {
+            if *m == "--" { q = q.swap_turn().ok()?; continue; }
+            let next = q.clone().play(san(&q, m).ok()?).ok()?;
+            let (lost, top) = self.loss(&q, &next)?;
+            let top = top.map_or("?".to_string(), |b| San::from_move(&q, b).to_string());
+            if lost > LINE_MARGIN {
+                return Some(fail(format!("{m} is not the best play: {top} is {lost:.3} winning chances better")));
+            }
+            q = next;
+        }
+        None
+    }
+
+    /// Winning chances the move from `prev` to `next` loses against the engine's best move there, and
+    /// that move. Both positions after a move are searched alike, so the best move itself loses 0.
+    fn loss(&mut self, prev: &Chess, next: &Chess) -> Option<(f64, Option<Move>)> {
+        let (_, pv) = self.eng.as_mut()?.analyse(prev);
+        let Some(top) = pv.first().and_then(|u| u.parse::<UciMove>().ok()).and_then(|u| u.to_move(prev).ok()) else {
+            return Some((0.0, None));
+        };
+        let best = prev.clone().play(top.clone()).ok()?;
+        if best.board() == next.board() && best.turn() == next.turn() { return Some((0.0, Some(top))); }
+        let b = -self.eng.as_mut()?.analyse(&best).0;
+        let n = -self.eng.as_mut()?.analyse(next).0;
+        Some(((chances(b) - chances(n)).max(0.0), Some(top)))
+    }
+
+    /// The owner's best score in `prev` over the moves that do not lead to `not`.
+    fn best_other(&mut self, prev: &Chess, not: &Chess, owner: Color) -> Option<i32> {
+        let mut best = None;
+        for m in prev.legal_moves() {
+            let q = prev.clone().play(m).unwrap();
+            if q.board() == not.board() && q.turn() == not.turn() { continue; }
+            let s = self.owner_score(&q, owner)?;
+            best = Some(best.map_or(s, |b: i32| b.max(s)));
+        }
+        best
+    }
+
     /// The move from `cx.prev` to `cx.p` against the engine's best there; `Stronger` and `Weaker` against the played move.
     fn rated(&mut self, a: &Annotation, cx: &Cx) -> Verdict {
-        let Some(eng) = self.eng.as_mut() else { return unknown("no engine") };
-        let (best, pv) = eng.analyse(&cx.prev);
-        let best = if cx.prev.turn() == cx.owner { best } else { -best };
-        let top = pv.first().and_then(|u| u.parse::<UciMove>().ok()).and_then(|u| u.to_move(&cx.prev).ok())
-            .is_some_and(|m| cx.prev.clone().play(m).unwrap().board() == cx.p.board());
-        let Some(now) = self.owner_score(&cx.p, cx.owner) else { return unknown("no engine") };
+        if self.eng.is_none() { return unknown("no engine"); }
+        // Lichess's grading: the eval before the move against the eval after it. The annotator
+        // (annotate/server.py) searches the same way, so both give the same grade.
+        let Some((_, pv)) = self.eng.as_mut().map(|e| e.analyse(&cx.prev)) else { return unknown("no engine") };
+        let top_move = pv.first().and_then(|u| u.parse::<UciMove>().ok()).and_then(|u| u.to_move(&cx.prev).ok());
+        let top = top_move.as_ref().is_some_and(|m| cx.prev.clone().play(m.clone()).unwrap().board() == cx.p.board());
+        let (Some(best), Some(now)) = (self.owner_score(&cx.prev, cx.owner), self.owner_score(&cx.p, cx.owner)) else { return unknown("no engine") };
         let gap = best - now;
-        let why = format!("{gap} cp below best");
+        let lost = chances(best) - chances(now);
+        let name = top_move.map_or("?".to_string(), |m| San::from_move(&cx.prev, m).to_string());
+        let why = format!("{:+.2} → {:+.2}, {lost:.3} winning chances lost (best {name})", best as f64 / 100.0, now as f64 / 100.0);
         match a {
             Annotation::Best => check(top || gap <= BEST_MARGIN, why),
-            Annotation::Good => check(gap <= RATED_BAD, why),
-            Annotation::Dubious | Annotation::Mistake | Annotation::Blunder => check(gap > RATED_BAD, why),
+            Annotation::Good | Annotation::Dubious | Annotation::Mistake | Annotation::Blunder => {
+                let (lo, hi, name) = match a {
+                    Annotation::Good => (f64::NEG_INFINITY, INACCURACY, "a good move loses less than"),
+                    Annotation::Dubious => (INACCURACY, MISTAKE, "an inaccuracy loses"),
+                    Annotation::Mistake => (MISTAKE, BLUNDER, "a mistake loses"),
+                    _ => (BLUNDER, f64::INFINITY, "a blunder loses"),
+                };
+                let (lo, hi) = (lo - GRADE_MARGIN, hi + GRADE_MARGIN);
+                let range = if lo.is_infinite() { format!("{hi:.2}") } else if hi.is_infinite() { format!("{lo:.2} or more") } else { format!("{lo:.2}-{hi:.2}") };
+                check(lo <= lost && lost < hi, format!("{why}; {name} {range}"))
+            }
+            Annotation::Brilliant => {
+                // One of the owner's pieces (not a pawn or the king) hangs that did not hang there before the move.
+                let loose = |q: &Chess| (q.board().by_color(cx.owner) & !q.board().pawns() & !q.board().kings())
+                    .into_iter().filter(|s| would_hang(q, *s)).collect::<Bitboard>();
+                let sac = (loose(&cx.p) & !loose(&cx.prev)).any();
+                if !(top || gap <= BEST_MARGIN) { fail(format!("not the best move: {why}")) }
+                else if !sac { fail("sacrifices no piece") }
+                else if let Some(alt) = self.best_other(&cx.prev, &cx.p, cx.owner)
+                    && chances(alt) >= BRILLIANT_WINNING { fail(format!("already winning without it ({alt:+} cp)")) }
+                else if chances(now) < -BRILLIANT_BAD { fail(format!("bad after it ({now:+} cp)")) }
+                else { ok() }
+            }
             Annotation::Stronger | Annotation::Weaker => {
                 let played = self.played.clone();
                 let Some(z) = self.owner_score(&played, cx.owner) else { return unknown("no engine") };
                 let d = now - z;
                 check(if matches!(a, Annotation::Stronger) { d > 0 } else { d < 0 }, format!("{d:+} cp vs the played move"))
             }
-            Annotation::Interesting | Annotation::Brilliant => unknown("judgement not checked"),
+            Annotation::Interesting => unknown("judgement not checked"),
         }
     }
 
@@ -1025,32 +1368,7 @@ fn engine() -> Option<Engine> {
     Engine::start(&path, nodes)
 }
 
-const BASELINE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/baseline.tsv");
 
-#[cfg(not(target_arch = "wasm32"))]
-/// Median `worth` per role over every 8th position of the commentary training set, written to `baseline.tsv`.
-pub fn baseline() {
-    let data = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../commentary_gen/data/train.jsonl")).unwrap();
-    let mut ev = Ev::new(Some(engine().expect("baseline needs the engine")));
-    let mut worths: HashMap<Role, Vec<i32>> = HashMap::new();
-    for l in data.lines().step_by(8) {
-        let Some(f) = l.split("\"fen\": \"").nth(1).and_then(|r| r.split('"').next()) else { continue };
-        let Ok(p) = Fen::from_ascii(f.as_bytes()).map_err(|_| ()).and_then(|f| f.into_position::<Chess>(CastlingMode::Standard).map_err(|_| ())) else { continue };
-        if p.is_check() || p.is_game_over() { continue; }
-        for s in p.board().occupied() {
-            let Some(w) = ev.worth(&p, s) else { continue };
-            if w.abs() < 5000 { worths.entry(p.board().role_at(s).unwrap()).or_default().push(w); }
-        }
-    }
-    let mut out = String::new();
-    for r in Role::ALL {
-        let Some(ws) = worths.get_mut(&r) else { continue };
-        ws.sort();
-        out += &format!("{}\t{}\t{}\n", r.char(), ws[ws.len() / 2], ws.len());
-    }
-    std::fs::write(BASELINE, &out).unwrap();
-    print!("{out}");
-}
 
 fn mark(v: V) -> &'static str { match v { V::Holds => "holds", V::Fails => "FAILS", V::Unknown => "unknown" } }
 

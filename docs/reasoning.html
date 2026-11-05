@@ -118,9 +118,13 @@
 <script type="module">
 import { Chess } from './vendor/chess.js';
 import { Chessground } from './vendor/chessground/chessground.min.js';
-import init, * as dsl from './vendor/dsl/dsl_verifier.js';
 
-await init();
+// A trapped wasm instance is unusable, so a spare one stands by to take its place.
+let dslGen = 0, spare = null;
+const loadDsl = async () => { const m = await import('./vendor/dsl/dsl_verifier.js?' + dslGen++); await m.default(); return m; };
+const prepare = () => loadDsl().then(m => { spare = m; });
+let dsl = await loadDsl();
+prepare();
 const EXAMPLES = JSON.parse(dsl.examples());
 const $ = id => document.getElementById(id);
 const fenIn = $('fen'), movIn = $('mov'), dslIn = $('dsl'), sel = $('ex');
@@ -133,10 +137,15 @@ EXAMPLES.forEach((e, i) => {
   sel.append(o);
 });
 
-// Wasm traps on a panic; the panic message says why.
+// Wasm traps on a panic; the panic message says why. The spare instance then takes over.
 function call(f, ...a){
   try { return JSON.parse(f(...a)); }
-  catch(_) { return {error: dsl.last_panic() || 'The renderer crashed on this input.'}; }
+  catch(_) {
+    let msg = 'The verifier crashed on this input.';
+    try { msg = dsl.last_panic() || msg; } catch(_) {}
+    if (spare) { dsl = spare; spare = null; prepare(); }
+    return {error: msg};
+  }
 }
 
 // --- board ---

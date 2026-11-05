@@ -2095,9 +2095,69 @@ Now the trick to using SHAP efficiently is doing it only after we have the integ
 Basically, the idea is to decode several layers at the same time. 
 
 If we decode e.g. L0, then L2 and then L5, L0 catches most of the accuracy and the additional decoding on L2 and L5 don't add that much. 
-For that reason, we have to do it the other way round. I did some experimentation and then came up with this result:
+For that reason, we have to do it the other way round. I did some experimentation and then came up with this architecture:
 
 ![Multi-layer feature attribution](./image/journey/Multi-Layer%20Feature%20Attribution.png)
+
+### Results
+
+We achieved our goal, but didn't achieve the accuracy of just our L0 decoder passed forward. 
+
+    ┌─────────────────────────────────────┬────────┬─────────┬───────────┬─────────────────────────┐
+    │              Decoders               │ L5 FVU │ WDL FVU │ value FVU │ adds (L5 / WDL / value) │
+    ├─────────────────────────────────────┼────────┼─────────┼───────────┼─────────────────────────┤
+    │ Deepest first (end MLPs)            │        │         │           │                         │
+    ├─────────────────────────────────────┼────────┼─────────┼───────────┼─────────────────────────┤
+    │ L5                                  │ 0.329  │ 0.533   │ 0.360     │ L5: 67.1 / 46.7 / 64.0  │
+    ├─────────────────────────────────────┼────────┼─────────┼───────────┼─────────────────────────┤
+    │ L5 + L2                             │ 0.137  │ 0.071   │ 0.050     │ L2: 19.3 / 46.2 / 31.0  │
+    ├─────────────────────────────────────┼────────┼─────────┼───────────┼─────────────────────────┤
+    │ L5 + L2 + L0                        │ 0.093  │ 0.044   │ 0.031     │ L0: 4.4 / 2.7 / 1.9     │
+    ├─────────────────────────────────────┼────────┼─────────┼───────────┼─────────────────────────┤
+    │ Old forward order                   │        │         │           │                         │
+    ├─────────────────────────────────────┼────────┼─────────┼───────────┼─────────────────────────┤
+    │ L0                                  │ 0.020  │ 0.010   │ 0.007     │ L0: 98.0 / 99.0 / 99.3  │
+    ├─────────────────────────────────────┼────────┼─────────┼───────────┼─────────────────────────┤
+    │ L0 + L2                             │ 0.018  │ 0.009   │ 0.006     │ L2: 0.1 / 0.1 / 0.1     │
+    ├─────────────────────────────────────┼────────┼─────────┼───────────┼─────────────────────────┤
+    │ L0 + L2 + L5                        │ 0.018  │ 0.009   │ 0.006     │ L5: 0.0 / 0.0 / 0.0     │
+    ├─────────────────────────────────────┼────────┼─────────┼───────────┼─────────────────────────┤
+    │ Raw forward pass, one decoder alone │        │         │           │                         │
+    ├─────────────────────────────────────┼────────┼─────────┼───────────┼─────────────────────────┤
+    │ L0                                  │ 0.020  │ 0.010   │ 0.007     │ L0: 98.0 / 99.0 / 99.3  │
+    ├─────────────────────────────────────┼────────┼─────────┼───────────┼─────────────────────────┤
+    │ L2                                  │ 0.187  │ 0.266   │ 0.203     │ L2: 81.3 / 73.4 / 79.7  │
+    └─────────────────────────────────────┴────────┴─────────┴───────────┴─────────────────────────┘
+
+Looking at the resulting attributions of L5 + L2 + L0, they are also much cleaner just from my gut feeling. **This actually made a difference**
+
+## V2
+
+![Multi-layer feature attribution version 2](./image/journey/Multi-Layer%20Feature%20Attribution%20v2.png)
+
+This works as well giving us supreme performance with better explanations:
+
+    ┌──────────────────────────┬────────┬─────────┬───────────┐
+    │                          │ L5 FVU │ WDL FVU │ value FVU │
+    ├──────────────────────────┼────────┼─────────┼───────────┤
+    │ Just L5                  │        │         │           │
+    ├──────────────────────────┼────────┼─────────┼───────────┤
+    │ both runs                │ 0.329  │ 0.533   │ 0.360     │
+    ├──────────────────────────┼────────┼─────────┼───────────┤
+    │ L5 + L2                  │        │         │           │
+    ├──────────────────────────┼────────┼─────────┼───────────┤
+    │ without prediction input │ 0.137  │ 0.071   │ 0.050     │
+    ├──────────────────────────┼────────┼─────────┼───────────┤
+    │ with prediction input    │ 0.108  │ 0.068   │ 0.048     │
+    ├──────────────────────────┼────────┼─────────┼───────────┤
+    │ L5 + L2 + L0             │        │         │           │
+    ├──────────────────────────┼────────┼─────────┼───────────┤
+    │ without prediction input │ 0.093  │ 0.044   │ 0.031     │
+    ├──────────────────────────┼────────┼─────────┼───────────┤
+    │ with prediction input    │ 0.018  │ 0.008   │ 0.006     │
+    └──────────────────────────┴────────┴─────────┴───────────┘
+
+However, this really just throws away L5 + L2 and just uses L0. 
 
 ## Notes
 
@@ -2214,3 +2274,312 @@ Table 7 of [Language Models that Play Chess and Explain Their Moves](https://arx
 Still thinking about the following idea to train a teacher: The teacher writes a move description or reason and the student has to say the move. 
 The teacher is trained on decriibing the move as shortly as possible without actually encoding the move (i.e. cheating)
 
+1. Using the **vision** models: It's just slower and takes longer to train on the eval extraction
+2. **Thinking** is simply not necessary or interesting or Qwen just never stops thinking in the limit
+3. Activation Oracle approach
+4. New tasks
+
+## Taking the Activation Oracle approach
+
+Instead of injecting 64 tokens by simply inserting them, we add the injection scaled down to the attended token.
+
+This adds small 
+
+## New tasks
+
+I had tried some tasks but they weren't really good 
+- Five stages: best → principal variation → control → attacks → phase. Each stage starts from the previous stage's checkpoint, and stage 1 starts from the g50k-sft model.
+- I also tried `multipv` as a separate run that also started from g50k-sft (epoch 4), with the same settings.
+- Per stage: 2 epochs at batch size 16, with the learning rate decaying along a cosine to zero.
+- Replay: each training sample has a 20% chance of coming from an earlier task. Otherwise it comes from the new one.
+- Evaluation: validation scores every task trained so far on 300 questions each. Test scores 1,000 per task.
+- SFT puts the projected Leela tokens in place of the 64 placeholder token embeddings. AO adds them to the residual stream after decoder layer 1, scaled to the size of the hidden state there. Everything else is the same, including the earlier training (q08b → q08b_lora → g50k_sft).
+
+### Tasks
+
+- `best`: best move (SAN)
+  - Q: "What is the best move?" / "What should the side to move play?" / "Find the strongest move."
+  - A: "Bd2" or "The best move is Bd2."
+  - Labels: Stockfish 18, depth 18. 28,086 training positions.
+- `pv`: first 6 half-moves of the main line
+  - Q: "What is the main line?" / "Give the principal variation." / "How should play continue?"
+  - A: "Bd2 Be6 Bxe6 Qxe6 c3 O-O" or "13. Bd2 Be6 14. Bxe6 Qxe6 15. c3 O-O"
+  - Labels: as `best`.
+- `control`: squares a given piece controls
+  - Q: "Which squares does the bishop on c4 control?" / "What does the bishop on c4 control?"
+  - A: "f1, a2, e2, b3, d3, b5, d5, a6, e6, f7" or "The bishop on c4 controls f1, a2, … and f7."
+  - Counts squares that are defended. Also counts x-rays through own sliders on the same line, and one square past an own pawn on a diagonal. 48,000 positions.
+- `attacks`: enemy pieces a given piece attacks
+  - Q: "Which pieces does the rook on e8 attack?" / "What is the rook on e8 attacking?"
+  - A: "the pawn on c2 and the knight on f3." / "c2, Nf3" / "c2, f3", or "Nothing."
+  - X-rays don't count; the king counts. 48,000 positions; 44% of test answers are "Nothing."
+- `phase`: opening, middlegame or endgame
+  - Q: "What stage of the game is this?" / "Is this the opening, middlegame or endgame?"
+  - A: "Middlegame" or "This is the middlegame."
+  - Labels: Lichess's phase rule on the position alone. 48,000 positions; test 58% middlegame, 27% endgame, 14% opening.
+- `multipv`: top 3 lines with evaluations
+  - Q: "What are the three best lines and their evaluations?" / "Give the top three lines with evaluations."
+  - A: "Bd2 Be6 Bxe6 Qxe6 c3 O-O (-0.93); Qd2 cxb4 axb4 O-O Ra5 Nd7 (-3.40); b3 cxb4 axb4 Qxb4+ Qd2 Qe7 (-3.55)"
+  - Labels: as `best`. Evals are in pawns for the side to move; mates are written "#3". 28,086 positions.
+
+### Results
+
+Test set after the attacks stage (phase: after the phase stage; multipv: separate run).
+
+    ┌──────────────────────────────────────┬────────────┬───────────┬───────┬───────────┬───────────┬───────┐
+    │                 Task                 │ SFT parsed │ SFT own   │ SFT   │ AO parsed │ AO own    │ AO    │
+    │                                      │            │ stage     │ final │           │ stage     │ final │
+    ├──────────────────────────────────────┼────────────┼───────────┼───────┼───────────┼───────────┼───────┤
+    │ Best move: exact                     │ 51%        │ 13.6%     │ 23.1% │ 50%       │ 13.1%     │ 24.1% │
+    ├──────────────────────────────────────┼────────────┼───────────┼───────┼───────────┼───────────┼───────┤
+    │ Best move: in top 5¹                 │            │ 71%       │ 80%   │           │ 69%       │ 80%   │
+    ├──────────────────────────────────────┼────────────┼───────────┼───────┼───────────┼───────────┼───────┤
+    │ Best move: centipawn loss²           │            │ 39        │ 25    │           │ 37        │ 22    │
+    ├──────────────────────────────────────┼────────────┼───────────┼───────┼───────────┼───────────┼───────┤
+    │ Principal variation: correct prefix³ │ 100%       │ 25%       │ 27%   │ 100%      │ 26%       │ 24%   │
+    ├──────────────────────────────────────┼────────────┼───────────┼───────┼───────────┼───────────┼───────┤
+    │ Control: exact                       │ 100%       │ 70%       │ 72%   │ 100%      │ 70%       │ 68%   │
+    ├──────────────────────────────────────┼────────────┼───────────┼───────┼───────────┼───────────┼───────┤
+    │ Control: F1                          │            │ 0.91      │ 0.93  │           │ 0.91      │ 0.90  │
+    ├──────────────────────────────────────┼────────────┼───────────┼───────┼───────────┼───────────┼───────┤
+    │ Attacks: exact                       │ 100%       │ 57%       │ 54%   │ 100%      │ 58%       │ 52%   │
+    ├──────────────────────────────────────┼────────────┼───────────┼───────┼───────────┼───────────┼───────┤
+    │ Attacks: F1                          │            │ 0.63      │ 0.59  │           │ 0.62      │ 0.56  │
+    ├──────────────────────────────────────┼────────────┼───────────┼───────┼───────────┼───────────┼───────┤
+    │ Phase: exact                         │ 100%       │ 94%       │ 90%   │ 100%      │ 94%       │ 90%   │
+    ├──────────────────────────────────────┼────────────┼───────────┼───────┼───────────┼───────────┼───────┤
+    │ Move facts: exact                    │ 100%       │ 92%       │ 89%   │ 100%      │ 85%       │ 73%   │
+    ├──────────────────────────────────────┼────────────┼───────────┼───────┼───────────┼───────────┼───────┤
+    │ Move facts: F1                       │            │ 0.94      │ 0.92  │           │ 0.88      │ 0.76  │
+    ├──────────────────────────────────────┼────────────┼───────────┼───────┼───────────┼───────────┼───────┤
+    │ Move attacks: exact                  │ 100%       │ 38%       │ 34%   │ 100%      │ 36%       │ 29%   │
+    ├──────────────────────────────────────┼────────────┼───────────┼───────┼───────────┼───────────┼───────┤
+    │ Move attacks: F1                     │            │ 0.58      │ 0.51  │           │ 0.52      │ 0.42  │
+    ├──────────────────────────────────────┼────────────┼───────────┼───────┼───────────┼───────────┼───────┤
+    │ Move board: exact                    │ 100%       │ 92%       │ 92%   │ 100%      │ 93%       │ 93%   │
+    ├──────────────────────────────────────┼────────────┼───────────┼───────┼───────────┼───────────┼───────┤
+    │ Move board: squares correct          │            │ 99.9%     │ 99.9% │           │ 99.9%     │ 99.9% │
+    ├──────────────────────────────────────┼────────────┼───────────┼───────┼───────────┼───────────┼───────┤
+    │ Multipv: eval error (pawns)⁴         │ 100%       │ 2.50      │ –     │ 100%      │ 2.42      │ –     │
+    ├──────────────────────────────────────┼────────────┼───────────┼───────┼───────────┼───────────┼───────┤
+    │ Multipv: eval bin correct            │            │ 53%       │ –     │           │ 55%       │ –     │
+    ├──────────────────────────────────────┼────────────┼───────────┼───────┼───────────┼───────────┼───────┤
+    │ Multipv: legal moves in lines        │            │ 99%       │ –     │           │ 98%       │ –     │
+    └──────────────────────────────────────┴────────────┴───────────┴───────┴───────────┴───────────┴───────┘
+
+1. Only parsed, legal answers count
+2. Averaged only over answers in the top 5.
+3. Average share of the 6 half-moves that match before the first wrong one, not the share of fully correct lines.
+4. For each line the model writes, Stockfish (depth 12) evaluates the position at the end of the line, stopping at the first illegal move. That is compared with the eval the model wrote next to the line. Mean absolute error in pawns, with evals capped at ±10.
+
+AO is slightly ahead on best move, principal variation and multipv, but behind on centipawn loss (32 vs 23). Everything else is level.
+
+**A big problem**: The LLM still doesn't know the side to move, so e.g. the moves are often flipped. 
+
+## Trying to reproduce the QUEEN paper
+
+Differences to us:
+1. Created their own piece (2x6=12) and square (64) tokens
+2. All layers
+3. Better model
+4. more positions, more steps
+5. Lots of other stuff
+
+The reproduction worked to a degree, but only to a degree mostly due to limited training data. 
+
+## Trying another curriculum
+
+Changes:
+1. Only UCI (SAN puts two things together)
+2. Side to move in the prompt
+3. Kept yes/no questions balanced (e.g. mate or check)
+
+v1 curriculum (v1_curr)
+1. inventory: count each side's pieces by type.
+2. lookup: say which piece is on a given square, or that it is empty.
+3. render: write out the whole board as the piece-placement part of a FEN.
+4. piece_moves: list the legal moves of the piece on a given square.
+5. legal_moves: list all legal moves in the position.
+6. apply_move: after a given UCI move, say what is now on the from-square and the to-square.
+7. result_fen: give the FEN (first 4 fields) after a given move.
+8. check: say whether the side to move is in check, and by which piece.
+9. mate1: list all moves that mate in one, or "None."
+
+### Results
+
+Works quite well
+
+
+## Focusing on the Present
+
+The idea is essentially to make the LLM learn like a human would. First the essentials, then we go on to the more difficult paths later.
+
+My guess is that if the LLM wants to look into the future, it should use a tool for that. 
+
+We don't try to get the language diverse, only test how good the LLM is at doing these simple tasks.
+
+1. List of pieces on the board
+2. List of pieces on the board including their squares
+2. Where is piece x
+3. Is line x open
+3. Which lines are open
+4. Render the board as 
+4. Which legal moves can piece x do (piece + square)
+5. Which legal moves can piece x do (just square)
+6. Which legal moves can piece x do (just piece)
+3. Which legal moves are there
+6. 
+7. Game phase
+
+### ChessQA
+
+ChessQA is an existing benchmark for LLMs.
+
+We use the structural questions as eval and build our own training on top including the Leela tokens.
+
+This should make our research more comparable. 
+
+
+General problem observed: the LLM is worse where certain features fundamentally increase the difficulty of a task but occur rarely. 
+The solution to this is increasing the replay of positions with that feature. 
+To automate this, one could build a classifier that detects that feature on the training data that fails.
+This makes good use of the fact that we have essentially infinite training data. 
+
+## Our DSL
+
+I built an annotation tool where I could annotate moves from random Lichess games. 
+
+What I noticed:
+1. No way to say complete and utter dominance (not as a rating but as a reason) -> best: space
+2. No clear way to say that the King is unsafe -> best: 
+3. Some not very clear definitions and some problems regarding the side an argument is talking about. 
+4. Failing to recapture a piece can't be described as losing the piece, but only with the new absolute value and instead
+
+### Experiment: Claude as the generator
+
+Annotating mistakes by hand was just too tedious, so I chose 120 mistakes and blunders from random lichess games and gave Sonnet the positions and the best SF line and eval and tasked to generate a reasoning in our DSL. Then it was tested in the minimal, simple evaluation engine: If the eval failed, Sonnet could try again using the result. 
+
+Important to note: selecting for mistakes and blunders from **random Lichess games** is of course introducing a bias and mostly not addressing the actually difficult explanations. 
+
+Average turns: 1.3
+
+    ┌───────┬───────┐
+    │ Tries │ Moves │
+    ├───────┼───────┤
+    │ 1     │ 92    │
+    ├───────┼───────┤
+    │ 2     │ 23    │
+    ├───────┼───────┤
+    │ 3     │ 3     │
+    ├───────┼───────┤
+    │ 4     │ 1     │
+    ├───────┼───────┤
+    │ 5     │ 1     │
+    └───────┴───────┘
+
+The Opus judge says many reasons are just true but not necessarily the actual reason for a move. 
+
+> What the DSL couldn't say:
+> - "Throws away a mate in N" or "throws away a winning position". (-> loses?)
+> - "Leaves a piece undefended by moving away". Removes and Loses don't fit a defender that moved.
+> - "The gambit pawn comes back."
+> - Tempo, which is the source of the 3 unknowns.
+>
+> Where the verifier was surprising:
+> - WinMaterial:
+>   - Inside Instead, it ignores the alternative move's own capture, so agents switched to Material(n).
+>   - It seems to measure net balance rather than the pawn actually won (n04msaiF-28).
+>   - It accepted a list of pieces that didn't match the captures (67XShG5Y-60).
+> - Squares at the end of a line: they name pieces where the line ends, so a fork in the middle of a line had to be split into two claims.
+> - Hole: it fails whenever any pawn could still guard the square.
+> - Bound: it accepts only opponent pieces.
+> A stricter rerun would need Because to check something and lines to be forced or best. 
+
+#### What needs to be verified more strictly
+
+Opus judge: 
+
+> Reported as holding, but only partly checked:
+>
+> 1. `Because(a, b)`. It checks that both parts hold, never that `b` explains `a` ("cause unchecked"). The biggest gap: almost every pass in the run went through it.
+>    - Possible check: undo `b` with `Suppose` or a counterfactual line and see whether the rating changes.
+> 2. The lines in `Allows`, `After` and `Instead`. Any legal line is accepted. Nothing checks that the replies are forced, best or even reasonable, and the agents picked convenient lines on purpose. `Threatens` already checks that its threat is real; these three don't.
+>    - Possible check: each reply in the line must be within a margin of the engine's best move.
+> 3. `Degree(level, r)`. It checks `r` but ignores `Slight`, `Clear` and `Decisive` ("degree unchecked").
+> 4. `Rated`. `Dubious`, `Mistake` and `Blunder` all pass at the same threshold (`gap > RATED_BAD`), so a blunder labelled `Dubious`, or a dubious move labelled `Blunder`, both hold.
+>    - Possible check: the Lichess winning-chance thresholds the annotator already uses.
+> 5. `But(a, b)`. It checks that both hold but not that `b` goes against what `a` suggests ("contrast unchecked").
+> 6. `Outweighs(a, b)`. It checks that both hold but not which counts for more ("weighing unchecked").
+> 7. `Balances(a, b)`. It checks that both hold but not that they cancel out ("balance unchecked").
+> 8. `Simplify` and `Not(Simplify)`. Both always hold ("simpler unchecked").
+>
+> Come back as unknown:
+>
+> 9. `Tempo(n)`. "Tempo count not modelled". This caused all 3 unknowns in the run.
+> 10. `More(r)`. "Comparison not modelled", so "more developed" and "more space" can't be checked.
+> 11. `Faster(a, b)`. "Race not modelled".
+> 12. `Zugzwang`. "Repeated passing not modelled".
+> 13. `Permanent(r)`. Only checked for structural claims.
+> 14. `Practical`. Not modelled.
+> 15. `Rated(Interesting)` and `Rated(Brilliant)`. "Judgement not checked".
+
+### Experiment: Does a stricter eval make for better explanations?
+
+Solutions:
+
+1. `Because` is the most difficult. Even for a human it is extremely difficult to prove something is because of something else (it's an open problem in philosophy)
+2. The lines should be almost forced
+3. Mostly subjective, could be checked for individual claims that output a numeric value for example
+4. Use the Lichess/chess.com definitions
+5. We need an evaluation (e.g. this is good for White, and this is bad, etc.). That would solve many problems
+6. dito
+7. dito (also `Outweighs` and `Balances` are just different types of `Comparison`)
+8. Simplify is mostly subjective, but we could find some complexity check
+9. Tempo is very difficult
+10. This More is still not normalised, for example we also have WinMaterial which is essnetially gaining more material, etc.
+11. Faster same as tempo
+12. Fix repeated passing (also in the demo)
+13. Some advantages are structurally permanent and others aren't
+14. Same as 4.
+
+### Human evaluation
+
+Only few of these solutions were actually implemented immediately. Instead, I went for a grading process were I graded explanations in 4 categories:
+
+1. Correct: Essentially a perfect explanations. Exactly hitting the point
+2. Partially: Does explain the move a bit, but fails to explain a crucial point
+3. Doesn't explain: The statement is correct but doesn't explain the moves evaluation
+4. Wrong: A claim that is flat-out wrong, that the verifier didn't catch (very rare)
+
+I did not look at language. 
+
+### Results
+
+Some findings:
+1. `Simplify` as used by human annotators almost always involves pieces coming off the board. So, it's fair to reduce it to that
+2. where Black ends up winning decisively with mate threats
+3. Difficult to say: "where Black ends up winning decisively with mate threats" or "which leads to a winning rook endgame.
+4. Sonnet is actually surprisingly good at writing the DSL. Most are accepted first try, and most are correct (this is more than accepted by the verifier). 
+5. The verifier actually helps Sonnet where it hallucinates. This happens mostly in dynamic situations where Sonnet has to judge about a position in the future. 
+6. Sometimes the verifier also makes explanations more convoluted, where for example ending on a fork and concluding it has a certain benefit is not accepted by the verifier. Same for: Trading a pawn for a knight is winning a knight but the verifier only allows "two pawns". Same for: Inititative
+7. Generally, the DSL has problems describing problems where there is not one concrete thing that is the problem but it's just the position falling apart: the opponent controls important lines, your pieces are extremely restricted and can't move, the opponent has lots of targets like pawns that drop one by one, or the queen and the king that are attacked or under threat. 
+8. Perpetual check and repeated positions is missing as a concept
+9. Sonnet is also good at gaming the system
+
+We can see a correlation between how many tries Sonnet needs and how well it does. The common factor likely is the difficulty. 
+
+![Votes by tries in the last round](./image/journey/Annotation%20votes%20by%20tries.png)
+
+My working hypothesis: explaining tactical mistakes and blunders is actually relatively easy given the engine lines and evaluation especially when provided with a reliable, forgiving verifier. 
+
+#### Example: Sonnet hallucinates but the DSL is correct
+
+![Sonnet hallucinates but the DSL is fine](./image/journey/Sonnet%20hallucination.png)
+
+
+<!-- 
+### Ideas on how to measure specificity
+
+Specification
+1. A 
+2.  -->

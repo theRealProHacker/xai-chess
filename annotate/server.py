@@ -6,10 +6,11 @@ GET  /api/game[?id=ID]  a game (no id: a random one with no annotations), its an
                         Stockfish evals of every position, White's view: {cp} or {mate}, mate 0 = mated,
                         and pv, the best line in SAN
 GET  /review            the agent run: cases from cases.py, tries from attempt.py
-GET  /api/review        {cases, attempts}
+GET  /api/review        {cases, attempts, votes}: votes by "case/n": wrong, irrelevant (does not explain), partial or correct
 GET  /api/schema        the DSL's types, read from dsl_verifier/src/dsl_claude.rs, for the editor
 POST /api/annotation    {game, ply, fen, mov, dsl, ...}; appended, the latest per (game, ply) wins;
                         an empty dsl deletes
+POST /api/vote          {case, round, n, vote: "wrong" | "irrelevant" | "partial" | "correct" | null}; appended to data/votes.jsonl, the latest wins
 """
 import argparse, json, random, re, sys, threading, time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -22,6 +23,7 @@ GAMES = HERE / "data/games.jsonl"
 ANNOTATIONS = HERE / "data/annotations.jsonl"
 EVALS = HERE / "data/evals.jsonl"
 CASES, ATTEMPTS = HERE / "data/cases.jsonl", HERE / "data/attempts.jsonl"  # the agent run, see attempt.py
+VOTES = HERE / "data/votes.jsonl"  # my votes on the agent's tries
 DSL = HERE.parent / "dsl_verifier/src/dsl_claude.rs"
 STOCKFISH = HERE.parent / "vendor/stockfish/stockfish-ubuntu-x86-64-avx2"
 NODES = 300_000
@@ -92,10 +94,41 @@ def schema():
 
 
 PV = 10  # plies of the principal variation kept
-# Entries from before the PV was stored are evaluated again.
-_evals = {e["id"]: e["evals"] for e in map(json.loads, EVALS.open()) if all("pv" in x for x in e["evals"])} \
+# Searched like dsl_verifier: 1 thread, default hash, cleared before each position, given as a bare FEN,
+# NODES nodes. Same position, same numbers, so the annotator's grading and the verifier's Rated agree.
+# Entries from an older search are evaluated again.
+SEARCH = 3
+_evals = {e["id"]: e["evals"] for e in map(json.loads, EVALS.open()) if e.get("search") == SEARCH} \
     if EVALS.exists() else {}
 _engine, _lock = None, threading.Lock()
+
+
+def search(engine, board):
+    """One position as dsl_verifier searches it: White's view, {cp} or {mate}, and pv in SAN."""
+    if board.is_checkmate():
+        return {"mate": 0, "pv": []}
+    if board.is_stalemate() or board.is_insufficient_material():
+        return {"cp": 0, "pv": []}
+    b = chess.Board(board.fen())  # no move history, as the verifier sends it
+    # The last info line that is not a bound, as dsl_verifier reads it; new game: hash cleared.
+    info = {}
+    with engine.analysis(b, chess.engine.Limit(nodes=NODES), game=object()) as an:
+        for i in an:
+            if "score" in i and not i.get("upperbound") and not i.get("lowerbound"):
+                info = i
+    s, pv = info["score"].white(), []
+    for mv in info.get("pv", [])[:PV]:
+        pv.append(b.san(mv)); b.push(mv)
+    return {"mate": s.mate(), "pv": pv} if s.is_mate() else {"cp": s.score(), "pv": pv}
+
+
+def search_game(engine, moves):
+    """Evals of the position before each move and after the last."""
+    board, out = chess.Board(), [search(engine, chess.Board())]
+    for m in moves:
+        board.push_san(m)
+        out.append(search(engine, board))
+    return out
 
 
 def evals(game):
@@ -108,24 +141,11 @@ def evals(game):
             return _evals.get(game["id"])
         if _engine is None:
             _engine = chess.engine.SimpleEngine.popen_uci(str(STOCKFISH))
-            _engine.configure({"Threads": 4, "Hash": 128})
-        board, out = chess.Board(), []
-        for m in [None] + game["moves"]:
-            if m:
-                board.push_san(m)
-            if board.is_checkmate():
-                out.append({"mate": 0, "pv": []})
-            elif board.is_game_over():
-                out.append({"cp": 0, "pv": []})
-            else:
-                info = _engine.analyse(board, chess.engine.Limit(nodes=NODES))
-                s, b, pv = info["score"].white(), board.copy(), []
-                for mv in info.get("pv", [])[:PV]:
-                    pv.append(b.san(mv)); b.push(mv)
-                out.append({"mate": s.mate(), "pv": pv} if s.is_mate() else {"cp": s.score(), "pv": pv})
+            _engine.configure({"Threads": 1})
+        out = search_game(_engine, game["moves"])
         _evals[game["id"]] = out
         with EVALS.open("a") as f:
-            f.write(json.dumps({"id": game["id"], "evals": out}) + "\n")
+            f.write(json.dumps({"id": game["id"], "search": SEARCH, "evals": out}) + "\n")
         return out
 
 
@@ -157,7 +177,10 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json(schema())
         if u.path == "/api/review":
             read = lambda f: [json.loads(l) for l in f.open()] if f.exists() else []
-            return self.send_json({"cases": read(CASES), "attempts": read(ATTEMPTS)})
+            votes = {f"{v['case']}/{v['round']}/{v['n']}" if v.get("round", 1) > 1 else f"{v['case']}/{v['n']}": v["vote"]
+                     for v in read(VOTES)}
+            return self.send_json({"cases": read(CASES), "attempts": read(ATTEMPTS),
+                                   "votes": {k: v for k, v in votes.items() if v}})
         if u.path != "/api/game":
             return super().do_GET()
         gs, ann = games(), annotations()
@@ -173,9 +196,17 @@ class Handler(SimpleHTTPRequestHandler):
                         "left": sum(g not in ann for g in gs)})
 
     def do_POST(self):
-        if urlparse(self.path).path != "/api/annotation":
+        path = urlparse(self.path).path
+        if path not in ("/api/annotation", "/api/vote"):
             return self.send_json({"error": "not found"}, 404)
         a = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        if path == "/api/vote":
+            if not {"case", "n", "vote"} <= a.keys() or a["vote"] not in ("wrong", "irrelevant", "partial", "correct", None):
+                return self.send_json({"error": "needs case, n, vote: wrong, irrelevant, partial, correct or null"}, 400)
+            with VOTES.open("a") as f:
+                f.write(json.dumps({"case": a["case"], "round": a.get("round", 1), "n": a["n"], "vote": a["vote"],
+                                    "at": time.strftime("%Y-%m-%dT%H:%M:%S")}) + "\n")
+            return self.send_json({"ok": True})
         if not {"game", "ply", "fen", "mov", "dsl"} <= a.keys():
             return self.send_json({"error": "needs game, ply, fen, mov, dsl"}, 400)
         a["saved_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")

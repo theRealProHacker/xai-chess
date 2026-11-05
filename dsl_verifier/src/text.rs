@@ -106,11 +106,13 @@ fn json(n: &Node) -> Result<String, String> {
 /// Parses DSL text. The text is leaked: the DSL holds `&'static str`.
 pub(crate) fn parse(src: &str) -> Result<Reason, String> {
     let j: &'static str = Box::leak(json(&tree(src)?)?.into_boxed_str());
-    serde_json::from_str(j).map_err(|e| {
+    let r: Reason = serde_json::from_str(j).map_err(|e| {
         let e = e.to_string();
         // serde lists every variant after "expected one of"; the name alone is enough.
         e.split(", expected").next().unwrap_or(&e).split(" at line").next().unwrap_or(&e).to_string()
-    })
+    })?;
+    crate::dsl_claude::check_names(&r)?;
+    Ok(r)
 }
 
 fn flat(n: &Node) -> String {

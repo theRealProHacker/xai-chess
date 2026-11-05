@@ -15,14 +15,19 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--blunders", type=int, default=80)
 ap.add_argument("--mistakes", type=int, default=40)
 ap.add_argument("--seed", type=int, default=0)
+ap.add_argument("--refresh", action="store_true",
+                help="keep the cases, but take their evals and grading from the current evals.jsonl")
 a = ap.parse_args()
 
 games = [json.loads(l) for l in (HERE / "data/games.jsonl").open()]
 evals = {}
 for l in (HERE / "data/evals.jsonl").open():
     e = json.loads(l)
-    if all("pv" in x for x in e["evals"]):
-        evals[e["id"]] = e["evals"]
+    evals[e["id"]] = e["evals"]
+
+
+def grade(loss):
+    return "Blunder" if loss >= 0.3 else "Mistake" if loss >= 0.2 else "Inaccuracy" if loss >= 0.1 else "Good"
 
 
 def chances(e, ply):
@@ -31,6 +36,21 @@ def chances(e, ply):
         return (1 if ply % 2 else -1) if e["mate"] == 0 else math.copysign(1, e["mate"])
     return 2 / (1 + math.exp(-0.00368208 * e["cp"])) - 1
 
+
+if a.refresh:
+    path = HERE / "data/cases.jsonl"
+    cases = [json.loads(l) for l in path.open()]
+    for c in cases:
+        E, p = evals[c["game"]], c["ply"]
+        c["before"], c["after"] = E[p], E[p + 1]
+        c["loss"] = round((chances(E[p], p) - chances(E[p + 1], p + 1)) * (-1 if p % 2 else 1), 3)
+        c["kind"] = grade(c["loss"])
+    with path.open("w") as f:
+        for c in cases:
+            f.write(json.dumps(c) + "\n")
+    from collections import Counter
+    print(Counter(c["kind"] for c in cases))
+    sys.exit()
 
 rng = random.Random(a.seed)
 pools = {"Blunder": [], "Mistake": []}
