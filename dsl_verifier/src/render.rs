@@ -442,10 +442,7 @@ fn render(r: &Reason, rx: &Rx) -> Vec<Part> {
             }
             _ => no_longer(render(r, &rx.before().flip())),
         },
-        Loses(r) => match &**r {
-            Tempo(n) => vec![rx.side_c(vp("lose", tempi(*n)))],
-            _ => no_longer(render(r, &rx.before())),
-        },
+        Loses(r) => no_longer(render(r, &rx.before())),
         Gains(r) => now(render(r, rx)),
         Concedes(r) => now(render(r, &rx.flip())),
         Only(r) => {
@@ -632,7 +629,7 @@ fn render(r: &Reason, rx: &Rx) -> Vec<Part> {
             });
             vec![rx.side_c(if castled { perfect("castled") } else { can("castle", "") })]
         }
-        Tempo(n) => vec![rx.side_c(vp("be", if *n >= 0 { format!("{} ahead", tempi(*n)) } else { format!("{} behind", tempi(-n)) }))],
+        Tempo(ms) => vec![rx.side_c(vp("get", format!("{} for free", list(&ms.iter().map(|m| m.to_string()).collect::<Vec<_>>(), "and"))))],
         Initiative => vec![rx.side_c(vp("have", "the initiative"))],
         Space => vec![rx.side_c(vp("have", "more space"))],
         BishopPair => vec![rx.side_c(vp("have", "the bishop pair"))],
@@ -660,7 +657,6 @@ fn render(r: &Reason, rx: &Rx) -> Vec<Part> {
     }
 }
 
-fn tempi(n: i8) -> String { if n == 1 { "a tempo".into() } else { format!("{} tempi", count_word(n as usize)) } }
 
 fn no_longer(parts: Vec<Part>) -> Vec<Part> {
     modify(parts, |c| c.vp.adv = Some("no longer"), |t| format!("it is no longer the case that {t}"))
@@ -750,7 +746,7 @@ mod tests {
             Develop(Pieces::On(g)) => region(g, out),
             Better { pieces, than } => { sqs(pieces, out); sqs(than, out) }
             Coordinate(ss) | SameColour(ss) => sqs(ss, out),
-            Enables(l) | Options(l) => mvs(l, out),
+            Enables(l) | Options(l) | Tempo(l) => mvs(l, out),
             _ => {}
         }
     }
@@ -795,7 +791,7 @@ mod tests {
         assert_eq!(
             by_fen("rn1qk2r/ppp1b1p1/2b1Bn1p/8/3PPP2/2N5/PP4PP/R1BQK2R b KQkq - 0 11"),
             "11...Nxe4 is a blunder: Black allows 12.Qh5+ g6 13.Qxg6+ Kf8 14.Qf7#, mate. 11...Bd7 was stronger: Black controls h5. \
-             11...Nbd7 was stronger: Black develops the knight on d7 and controls h5, and White is a tempo ahead."
+             11...Nbd7 was stronger: Black develops the knight on d7 and controls h5."
         );
         assert_eq!(
             by_fen("4r1k1/2pq2Bp/1pNp2n1/1P4R1/8/1b2P1P1/6BP/R5K1 w - - 1 31"),
@@ -814,7 +810,7 @@ mod tests {
         assert_eq!(
             by_fen("rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2"),
             "2.Bg5: White threatens Bxf6 exf6, after which White trades the c1-bishop for the f6-knight, and the pawns on f6 and f7 are doubled. \
-             White allows 2...Ne4, after which the knight on e4 attacks the bishop on g5, and Black loses a tempo. \
+             White allows 2...Ne4, attacking the bishop on g5. \
              White allows 2...e6, after which the queen on d8 defends the knight on f6. White allows 2...c5, attacking the pawn on d4. \
              White allows 2...d5, after which Black controls c4 and e4."
         );

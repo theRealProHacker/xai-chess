@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tempo examples &middot; xai-chess</title>
+<link rel="stylesheet" href="vendor/chessground/chessground.base.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.brown.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.cburnett.css">
+<style>
+  :root{
+    --shadow-s:
+      inset 0 1px 2px #ffffff30,
+      0 1px 2px #00000030,
+      0 2px 4px #00000015;
+    --shadow-m:
+      inset 0 1px 2px #ffffff50,
+      0 2px 4px #00000030,
+      0 4px 8px #00000015;
+    --accent:#0b5fa5; --line:#e4e4e4;
+    --yes:#0b7a2f; --no:#b00020; --unk:#6b6b6b;
+    --mono:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  body{max-width:1000px;margin:2rem auto 4rem;padding:0 1.5rem;background:#fff;color:#1a1a1a;
+      font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+  header{display:flex;align-items:center;gap:.6rem;margin:0 0 1.25rem}
+  h1{font-size:1.25rem;font-weight:600;margin:0 auto 0 0}
+  #pos{color:#6b6b6b;font-size:.9rem;min-width:3.5rem;text-align:center}
+  main{display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);gap:2rem;align-items:start}
+  @media (max-width:760px){main{grid-template-columns:minmax(0,1fr)}}
+  #board{width:100%;aspect-ratio:1/1;box-shadow:var(--shadow-s);border-radius:4px}
+  #board .cg-shapes{z-index:3;opacity:1}
+  #board coords.files{text-transform:lowercase}
+  #board coords coord{color:#2b2b2b !important;text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff;font-weight:600}
+  h2{font-size:1.25rem;font-weight:600;margin:0 0 .2rem}
+  .src{color:#6b6b6b;font-size:.85rem;margin:0 0 .9rem;overflow-wrap:anywhere}
+  .intent{margin:0 0 .6rem}
+  code{display:block;font:var(--mono);background:#f7f7f7;border-radius:6px;padding:.45rem .6rem;
+      overflow-wrap:anywhere;white-space:pre-wrap;margin:0 0 .6rem}
+  .var{border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;margin:0 0 .7rem;box-shadow:var(--shadow-s)}
+  h3{font-size:.9rem;font-weight:600;margin:0 0 .35rem}
+  .rendered{color:#444;font-size:.92rem;margin:0 0 .3rem}
+  .verdict{font-size:.92rem;margin:0}
+  .fit{color:#8a6d00}
+  .holds{color:var(--yes)} .unknown,.wait{color:var(--unk)} .fails,.error{color:var(--no)}
+  button{font:inherit;font-size:.8rem;line-height:1;padding:.4rem .65rem;border:1px solid var(--line);border-radius:6px;
+      background:#fff;color:#444;cursor:pointer;box-shadow:var(--shadow-s)}
+  button:hover{background:#f2f6fa;color:#1a1a1a;box-shadow:var(--shadow-m)}
+  button:disabled{opacity:.4;cursor:default;box-shadow:none;background:#fff}
+  .vote{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:1rem}
+  .vote button.on{color:#fff;border-color:transparent}
+  .vote button.on.wrong{background:var(--no)}
+  .vote button.on.irrelevant{background:#8a6d00}
+  .vote button.on.partial{background:var(--accent)}
+  .vote button.on.correct{background:var(--yes)}
+</style>
+</head>
+<body>
+  <header>
+    <h1>Tempo examples</h1>
+    <button id="prev" aria-label="Previous">&larr;</button>
+    <span id="pos"></span>
+    <button id="next" aria-label="Next">&rarr;</button>
+  </header>
+  <main>
+    <div id="board"></div>
+    <section>
+      <h2 id="head"></h2>
+      <p class="src" id="src"></p>
+      <p class="intent" id="intent"></p>
+      <div id="variants"></div>
+      <div class="vote" id="vote"></div>
+    </section>
+  </main>
+
+<script type="module">
+import { Chess } from './vendor/chess.js';
+import { Chessground } from './vendor/chessground/chessground.min.js';
+
+const $ = id => document.getElementById(id);
+const el = (tag, props = {}) => Object.assign(document.createElement(tag), props);
+const ground = Chessground($('board'), {coordinates: true, viewOnly: true, drawable: {enabled: false}, animation: {enabled: false}});
+const VOTES = [['wrong', 'Wrong'], ['irrelevant', "Doesn't explain"], ['partial', 'Part of the explanation'], ['correct', 'Correct']];
+
+const {examples, votes} = await (await fetch('/api/tempo')).json();
+const checked = {};  // id -> the verifier's answer, fetched once per page load
+let i = Math.max(0, examples.findIndex(x => x.id === new URLSearchParams(location.search).get('id')));
+
+function show(){
+  const x = examples[i], g = new Chess(x.fen), side = g.turn(), mv = g.move(x.mov, {sloppy: true});
+  history.replaceState(null, '', '?id=' + x.id);
+  ground.set({fen: x.fen, orientation: side === 'w' ? 'white' : 'black', lastMove: undefined});
+  ground.setAutoShapes([{orig: mv.from, dest: mv.to, brush: 'blue'}]);
+  const n = x.fen.split(' ')[5];
+  $('head').textContent = `${n}${side === 'w' ? '.' : '...'}${x.mov}`;
+  $('src').textContent = x.source;
+  $('intent').textContent = x.english;
+  const [old, skip] = x.variants.map(v => card(v.name, v.dsl, v.v === "doesn't fit" ? 'fit' : v.v, v.why ? `${v.v}: ${v.why}` : v.v));
+  $('variants').replaceChildren(old, card('Free moves', x.dsl, 'cur'), skip);
+  $('pos').textContent = `${i + 1} / ${examples.length}`;
+  $('prev').disabled = i === 0;
+  $('next').disabled = i === examples.length - 1;
+  drawVotes();
+  verdict(x);
+}
+
+// One definition's claim; Free moves is checked by the verifier, the old verdict is recorded, Skippable move is judged by hand.
+function card(name, dsl, cls, text = 'Checking…'){
+  const cur = cls === 'cur', box = el('div', {className: 'var'});
+  box.append(el('h3', {textContent: name}), el('code', {textContent: dsl}),
+    el('p', {className: 'rendered', ...(cur && {id: 'rendered'})}),
+    el('p', {className: 'verdict ' + (cur ? 'wait' : cls), textContent: text, ...(cur && {id: 'verdict'})}));
+  return box;
+}
+
+async function verdict(x){
+  if (!checked[x.id]) {
+    checked[x.id] = await (await fetch('/api/tempo/check', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({fen: x.fen, mov: x.mov, dsl: x.dsl})})).json();
+  }
+  if (examples[i] !== x) return;
+  const r = checked[x.id];
+  $('rendered').textContent = r.english || '';
+  $('verdict').className = 'verdict ' + (r.error ? 'error' : r.v);
+  $('verdict').textContent = r.error ? r.error : r.v + (r.why ? `: ${r.why}` : '');
+}
+
+// Clicking the chosen vote again clears it; choosing one moves on.
+function drawVotes(){
+  const id = examples[i].id;
+  $('vote').replaceChildren(...VOTES.map(([v, label]) => {
+    const b = el('button', {className: v + (votes[id] === v ? ' on' : ''), textContent: label});
+    b.setAttribute('aria-pressed', votes[id] === v);
+    b.onclick = async () => {
+      const vote = votes[id] === v ? null : v;
+      const r = await fetch('/api/tempo/vote', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id, vote})});
+      if (!r.ok) return;
+      if (vote) votes[id] = vote; else delete votes[id];
+      drawVotes();
+      if (vote) go(1);
+    };
+    return b;
+  }));
+}
+
+function go(d){
+  if (i + d < 0 || i + d >= examples.length) return false;
+  i += d; show(); return true;
+}
+$('prev').onclick = () => go(-1);
+$('next').onclick = () => go(1);
+document.addEventListener('keydown', e => {
+  const d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+  if (d && go(d)) e.preventDefault();
+});
+show();
+</script>
+</body>
+</html>

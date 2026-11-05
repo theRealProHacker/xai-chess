@@ -217,9 +217,9 @@ pub(crate) enum Reason {
     /// The pieces work together.
     Coordinate(Vec<Sq>),
     Castle,
-    /// The owner is this many tempi ahead (negative: behind). `Loses(Tempo(1))` wastes one: the move is
-    /// worth no more than passing (measured against the owner passing once, twice, ...).
-    Tempo(i8),
+    /// The owner gets these moves for free: since the position before the annotated move, the opponent
+    /// spent at least one move per free move that left no piece on a new square ("Bb5+ c6 Bc4": Black gets c6).
+    Tempo(Vec<Move_>),
     /// The owner makes the forcing moves and the opponent keeps answering.
     Initiative,
     /// The owner controls more squares in the opponent's half than the opponent does in the owner's.
@@ -355,7 +355,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             reason: And(vec![
                 because(Rated(Blunder), allows(vec!["Qh5+", "g6", "Qxg6+", "Kf8", "Qf7#"], Mate)),
                 instead("Bd7", because(Rated(Stronger), Control(Squares(vec!["h5"])))),
-                instead("Nbd7", because(Rated(Stronger), And(vec![Develop(At("d7")), Control(Squares(vec!["h5"])), allows(vec![], Tempo(1))]))),
+                instead("Nbd7", because(Rated(Stronger), And(vec![Develop(At("d7")), Control(Squares(vec!["h5"]))]))),
             ]),
             // Before Rated: the consequences, but neither "blunders" nor "stronger".
             // reason: And(vec![
@@ -370,7 +370,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             mov: "d3",
             comment: r#"The attempt to protect this pawn with 8...Bc5 would be nothing but a waste of time. The advantage of the move played in the text is that the immediate capture of the pawn will close the "d" file preventing White from attacking the weak Pd5 with the Rooks"#,
             reason: And(vec![
-                instead("Bc5", loses(Tempo(1))),
+                instead("Bc5", allows(vec!["Nb3", "Bd6"], Tempo(vec!["Nb3"]))),
                 sacrifice(vec![Pawn], after(vec!["exd3"], And(vec![
                     Block { line: ("d1", "d5"), by: "d3" },
                 ]))),
@@ -523,7 +523,6 @@ pub(crate) fn examples() -> Vec<Reasoning> {
                     Attack { by: "f4", targets: vec!["e5"] },
                     Decoy { from: "e5", to: "f4" },
                     Enables(vec!["d4"]),
-                    Tempo(1),
                 ])),
                 concedes(Weakened(Squares(vec!["e3", "g3"]))),
             ]),
@@ -536,8 +535,8 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             reason: And(vec![
                 Develop(At("c6")),
                 Attack { by: "c6", targets: vec!["d4"] },
-                Tempo(5),
-                after(vec!["Qc4", "Be6"], And(vec![Develop(At("e6")), Attack { by: "e6", targets: vec!["c4"] }, Tempo(6)])),
+                after(vec!["Qc4", "Be6"], And(vec![Develop(At("e6")), Attack { by: "e6", targets: vec!["c4"] }])),
+                after(vec!["Qc4", "Be6", "Qc2"], Tempo(vec!["Be6"])),
             ]),
         },
         // train-0629: Castle
@@ -587,7 +586,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             comment: r#"In this position, white prepares to trade knight for bishop inflicting doubled pawns upon Black in the process. Black has tons of ways to counter this. 2... Ne4 is the most common reply. Black does break one of the opening rules (do not move a piece twice) but it attacks white's bishop. 2... e6 also avoids doubled pawns since the queen can recapture if White plays Bxf6. d5 and c5 can also be played to attack the center."#,
             reason: And(vec![
                 threatens(vec!["Bxf6", "exf6"], And(vec![Trade { give: vec!["c1"], get: vec!["f6"] }, Doubled(Squares(vec!["f6", "f7"]))])),
-                allows(vec!["Ne4"], And(vec![Attack { by: "e4", targets: vec!["g5"] }, loses(Tempo(1))])),
+                allows(vec!["Ne4"], Attack { by: "e4", targets: vec!["g5"] }),
                 allows(vec!["e6"], Defend { by: "d8", target: "f6" }),
                 allows(vec!["c5"], Attack { by: "c5", targets: vec!["d4"] }),
                 allows(vec!["d5"], Control(Squares(vec!["c4", "e4"]))),
@@ -657,10 +656,8 @@ pub(crate) fn examples() -> Vec<Reasoning> {
                 Options(vec!["Bb4", "Bc5"]),
                 allows(vec!["Nb5", "d6"], removes(Enables(vec!["Bc5"]))),
                 threatens(vec!["a6"], after(vec!["Nb5"], Hanging(Squares(vec!["b5"])))),
-                threatens(vec!["a6", "--", "Nge7", "--", "Nxd4", "Qxd4", "Nc6"], And(vec![
-                    Attack { by: "c6", targets: vec!["d4"] },
-                    Tempo(1),
-                ])),
+                threatens(vec!["a6", "--", "Nge7", "--", "Nxd4", "Qxd4", "Nc6"], Attack { by: "c6", targets: vec!["d4"] }),
+                threatens(vec!["a6", "--", "Nge7", "--", "Nxd4", "Qxd4", "Nc6", "Qd1"], Tempo(vec!["Nc6"])),
             ]),
         },
         // train-0837: Suppose
@@ -671,7 +668,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             reason: And(vec![
                 after(vec!["Ra5"], Hanging(Squares(vec!["a5"]))),
                 suppose(vec![("g5", None), ("g6", Some('r'))],
-                    after(vec!["a5", "a4", "axb4", "cxb4"], sacrifice(vec![Bishop], Tempo(1)))),
+                    after(vec!["a5", "a4", "axb4", "cxb4"], sacrifice(vec![Bishop], Initiative))),
                 allows(vec!["c5", "dxc5", "dxc5", "Ba3"], And(vec![
                     Open(("d8", "d1")),
                     Quality("d3", Grade::Good),

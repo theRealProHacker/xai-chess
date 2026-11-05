@@ -30,6 +30,23 @@ function getStringFromWasm0(ptr, len) {
     return decodeText(ptr, len);
 }
 /**
+ * The message of the panic that trapped the last call.
+ * @returns {string}
+ */
+export function last_panic() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.last_panic();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
  * @returns {string}
  */
 export function examples() {
@@ -99,16 +116,28 @@ function passStringToWasm0(arg, malloc, realloc) {
     return ptr;
 }
 /**
- * The `info` lines of the search `evaluate` asked for.
- * @param {string} key
- * @param {string} lines
+ * @param {string} fen
+ * @param {string} mov
+ * @param {string} dsl
+ * @returns {string}
  */
-export function searched(key, lines) {
-    const ptr0 = passStringToWasm0(key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passStringToWasm0(lines, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len1 = WASM_VECTOR_LEN;
-    wasm.searched(ptr0, len0, ptr1, len1);
+export function render(fen, mov, dsl) {
+    let deferred4_0;
+    let deferred4_1;
+    try {
+        const ptr0 = passStringToWasm0(fen, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(mov, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(dsl, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ret = wasm.render(ptr0, len0, ptr1, len1, ptr2, len2);
+        deferred4_0 = ret[0];
+        deferred4_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+    }
 }
 
 /**
@@ -138,45 +167,16 @@ export function evaluate(fen, mov, dsl) {
 }
 
 /**
- * @param {string} fen
- * @param {string} mov
- * @param {string} dsl
- * @returns {string}
+ * The `info` lines of the search `evaluate` asked for.
+ * @param {string} key
+ * @param {string} lines
  */
-export function render(fen, mov, dsl) {
-    let deferred4_0;
-    let deferred4_1;
-    try {
-        const ptr0 = passStringToWasm0(fen, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(mov, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passStringToWasm0(dsl, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len2 = WASM_VECTOR_LEN;
-        const ret = wasm.render(ptr0, len0, ptr1, len1, ptr2, len2);
-        deferred4_0 = ret[0];
-        deferred4_1 = ret[1];
-        return getStringFromWasm0(ret[0], ret[1]);
-    } finally {
-        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
-    }
-}
-
-/**
- * The message of the panic that trapped the last call.
- * @returns {string}
- */
-export function last_panic() {
-    let deferred1_0;
-    let deferred1_1;
-    try {
-        const ret = wasm.last_panic();
-        deferred1_0 = ret[0];
-        deferred1_1 = ret[1];
-        return getStringFromWasm0(ret[0], ret[1]);
-    } finally {
-        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-    }
+export function searched(key, lines) {
+    const ptr0 = passStringToWasm0(key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(lines, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    wasm.searched(ptr0, len0, ptr1, len1);
 }
 
 const EXPECTED_RESPONSE_TYPES = new Set(['basic', 'cors', 'default']);

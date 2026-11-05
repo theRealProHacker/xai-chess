@@ -13,7 +13,8 @@
 //! - `Only(r)` and `NoMove(r)` ignore moves that achieve `r` but score `ONLY_MARGIN` or more below the played move.
 //! - `WinMaterial` follows the engine's line (`SETTLE_NODES`) until the exchanges settle. `Sacrifice` uses static exchange evaluation.
 //! - `But(a, b)`: a and b point opposite ways for the owner (`polarity`).
-//! - `Zugzwang`, `Loses(Tempo(n))` and `Faster` are measured by passing (`zugzwang`, `tempo_cost`, `faster`).
+//! - `Zugzwang` and `Faster` are measured by passing (`zugzwang`, `faster`).
+//! - `Tempo(moves)` counts the opponent's moves since the position before the annotated move (`tempo`).
 //! - Lines in `After` and `Allows` must be best play: each move within `LINE_MARGIN` of its mover's best.
 //! - `Prevents`, `Loses`, `Gains` and `Concedes` compare with the position before the enclosing move or line.
 
@@ -30,7 +31,7 @@ use shakmaty::fen::Fen;
 use shakmaty::san::San;
 use shakmaty::uci::UciMove;
 use shakmaty::{
-    Bitboard, CastlingMode, Chess, Color, EnPassantMode, Move, Piece, Position, Rank, Role, Square, attacks,
+    Bitboard, CastlingMode, CastlingSide, Chess, Color, EnPassantMode, Move, Piece, Position, Rank, Role, Square, attacks,
 };
 
 use crate::dsl_claude::{Annotation, Grade, Move_, Pieces, QUESTIONABLE, Reason, Reason::*, Region, Sq, examples};
@@ -68,11 +69,6 @@ const RELOC_MIN: usize = 5;
 
 /// Search size for settling exchanges in `WinMaterial`.
 const SETTLE_NODES: u64 = 1_000_000;
-
-/// `Loses(Tempo(n))`: at most this many rungs on the free-move ladder; a first pass costing more than
-/// `TEMPO_GUARD` winning chances loses material rather than time.
-const TEMPO_RUNGS: usize = 4;
-const TEMPO_GUARD: f64 = 0.5;
 
 /// `Simplify`: how far along the engine's line the material may come off.
 const SIMPLIFY_PLIES: usize = 4;
@@ -240,6 +236,27 @@ fn play(p: &Chess, owner: Option<Color>, line: &[Move_]) -> Result<Chess, String
         p = if *m == "--" { pass(p)? } else { let mv = san(&p, m)?; p.play(mv).map_err(|_| format!("illegal {m}"))? };
     }
     Ok(p)
+}
+
+/// The position after `hist` from `start` (None: a pass).
+fn replay(start: &Chess, hist: &[Option<Move>]) -> Option<Chess> {
+    hist.iter().try_fold(start.clone(), |q, m| match m { Some(m) => q.play(m.clone()).ok(), None => q.swap_turn().ok() })
+}
+
+fn side(c: Color) -> &'static str { if c.is_white() { "White" } else { "Black" } }
+
+/// The moves `play` makes, a pass as None.
+fn moves(p: &Chess, owner: Option<Color>, line: &[Move_]) -> Option<Vec<Option<Move>>> {
+    let mut p = p.clone();
+    let mut out = vec![];
+    if owner.is_some_and(|c| c != p.turn()) { p = p.swap_turn().ok()?; out.push(None); }
+    for m in line {
+        if *m == "--" { p = p.swap_turn().ok()?; out.push(None); continue; }
+        let mv = san(&p, m).ok()?;
+        p = p.play(mv.clone()).ok()?;
+        out.push(Some(mv));
+    }
+    Some(out)
 }
 
 /// Lichess's winning chances in [-1, 1] for a score in centipawns.
@@ -496,10 +513,21 @@ struct Cx {
     p: Chess,
     prev: Chess,
     owner: Color,
+    /// `hist` from `start` (None: a pass) reaches `p`; `Tempo` counts the moves in it.
+    start: Chess,
+    hist: Vec<Option<Move>>,
 }
 
 impl Cx {
-    fn at(&self, p: Chess, owner: Color) -> Cx { Cx { p, prev: self.p.clone(), owner } }
+    /// A position with no history behind it.
+    fn bare(p: Chess, prev: Chess, owner: Color) -> Cx { Cx { start: p.clone(), hist: vec![], p, prev, owner } }
+    /// After `line` from `self.p`, as played by `play` with the same `first`.
+    fn at(&self, p: Chess, owner: Color, first: Option<Color>, line: &[Move_]) -> Cx {
+        match moves(&self.p, first, line) {
+            Some(ms) => Cx { p, prev: self.p.clone(), owner, start: self.start.clone(), hist: [self.hist.clone(), ms].concat() },
+            None => Cx::bare(p, self.p.clone(), owner),
+        }
+    }
 }
 
 pub struct Ev {
@@ -564,7 +592,7 @@ impl Ev {
         self.root = root.clone();
         self.claims.clear();
         self.played = root.clone().play(mov.clone()).unwrap();
-        let cx = Cx { p: self.played.clone(), prev: root.clone(), owner: root.turn() };
+        let cx = Cx { p: self.played.clone(), prev: root.clone(), owner: root.turn(), start: root.clone(), hist: vec![Some(mov.clone())] };
         self.eval(reason, &cx)
     }
 
@@ -607,13 +635,13 @@ impl Ev {
                     if starts.is_empty() { return fail("mated"); }
                     return self.quietly(|ev| all(starts.iter().map(|q| match play(q, None, line) {
                         Err(e) => fail(format!("after {}: {e}", reply(p, q))),
-                        Ok(z) => ev.eval(r, &cx.at(z, owner)),
+                        Ok(z) => ev.eval(r, &Cx::bare(z, p.clone(), owner)),
                     }).collect::<Vec<_>>()));
                 }
                 match play(p, Some(owner), line) {
                     Err(e) => fail(e),
                     Ok(q) => {
-                        let v = self.eval(r, &cx.at(q, owner));
+                        let v = self.eval(r, &cx.at(q, owner, Some(owner), line));
                         if v.v == V::Holds { self.threat_is_real(p, owner, line).unwrap_or(v) } else { v }
                     }
                 }
@@ -622,7 +650,7 @@ impl Ev {
                 Err(e) => fail(e),
                 Ok(q) => {
                     let who = if matches!(node, After(..)) { owner } else { !owner };
-                    let v = self.eval(r, &cx.at(q, who));
+                    let v = self.eval(r, &cx.at(q, who, None, line));
                     if v.v == V::Holds { self.line_is_played(p, line).unwrap_or(v) } else { v }
                 }
             },
@@ -637,7 +665,6 @@ impl Ev {
                     _ => unknown(format!("{} / {}", before.why, now.why)),
                 }
             }),
-            Loses(r) if matches!(&**r, Tempo(_)) => { let Tempo(n) = &**r else { unreachable!() }; self.tempo_cost(cx, *n) }
             Loses(r) => self.quietly(|ev| ev.before_after(r, cx, owner, false)),
             Gains(r) => self.quietly(|ev| ev.before_after(r, cx, owner, true)),
             Concedes(r) => self.quietly(|ev| ev.before_after(r, cx, !owner, true)),
@@ -652,7 +679,7 @@ impl Ev {
                     for m in cx.prev.legal_moves() {
                         let q = cx.prev.clone().play(m.clone()).unwrap();
                         if q.board() == cx.p.board() { continue; }
-                        let alt = ev.eval(r, &Cx { p: q.clone(), prev: cx.prev.clone(), owner });
+                        let alt = ev.eval(r, &Cx::bare(q.clone(), cx.prev.clone(), owner));
                         match alt.v {
                             V::Holds => match (played, ev.owner_score(&q, owner)) {
                                 (Some(a), Some(z)) if a - z < ONLY_MARGIN =>
@@ -672,7 +699,7 @@ impl Ev {
                 let mut undecided = false;
                 for m in cx.prev.legal_moves() {
                     let q = cx.prev.clone().play(m.clone()).unwrap();
-                    match ev.eval(r, &Cx { p: q.clone(), prev: cx.prev.clone(), owner }).v {
+                    match ev.eval(r, &Cx::bare(q.clone(), cx.prev.clone(), owner)).v {
                         V::Holds => match (played, ev.owner_score(&q, owner)) {
                             (Some(a), Some(z)) if a - z < ONLY_MARGIN =>
                                 return fail(format!("{} does it ({:+} vs {a:+})", San::from_move(&cx.prev, m), z)),
@@ -687,7 +714,16 @@ impl Ev {
             }),
             Instead(m, r) => match play(&cx.prev, None, &[m]) {
                 Err(e) => fail(e),
-                Ok(q) => self.eval(r, &Cx { p: q, prev: cx.prev.clone(), owner }),
+                Ok(q) => {
+                    // The history with the last move replaced, when that move was played from `cx.prev`.
+                    let mut hist = cx.hist.clone();
+                    let replaced = matches!(hist.pop(), Some(Some(_))) && replay(&cx.start, &hist).is_some_and(|z| z.board() == cx.prev.board() && z.turn() == cx.prev.turn());
+                    let alt = if replaced {
+                        hist.push(Some(san(&cx.prev, m).unwrap()));
+                        Cx { p: q, prev: cx.prev.clone(), owner, start: cx.start.clone(), hist }
+                    } else { Cx::bare(q, cx.prev.clone(), owner) };
+                    self.eval(r, &alt)
+                }
             },
             Sacrifice(roles, _) if roles.is_empty() => fail("no material named"),
             Sacrifice(roles, r) => {
@@ -752,7 +788,7 @@ impl Ev {
                 if q.board() == p.board() { return unknown("no engine line"); }
                 TRACK.with(|t| *t.borrow_mut() = Some(map));
                 GONE.set(false);
-                let v = self.eval(r, &cx.at(q, owner));
+                let v = self.eval(r, &Cx::bare(q, p.clone(), owner));
                 let gone = GONE.replace(false);
                 TRACK.with(|t| *t.borrow_mut() = outer);
                 if gone { fail("the piece is captured along the line") } else { v }
@@ -768,7 +804,7 @@ impl Ev {
                 }
                 match setup.position::<Chess>(CastlingMode::Standard).or_else(|e| e.ignore_invalid_castling_rights()) {
                     Err(_) => fail("supposed position is illegal"),
-                    Ok(q) => self.eval(r, &Cx { p: q, ..cx.clone() }),
+                    Ok(q) => self.eval(r, &Cx::bare(q, cx.prev.clone(), owner)),
                 }
             }
 
@@ -938,8 +974,7 @@ impl Ev {
             Zugzwang => self.zugzwang(p),
             Simplify => self.simplify(cx),
             Initiative => self.initiative(p, owner),
-            // Only `Loses(Tempo(n))`, a move's cost, is measured (`tempo_cost`).
-            Tempo(_) => unknown("tempo count not modelled"),
+            Tempo(free) => self.tempo(cx, free),
 
             // ---------------------------------------------------------------- tier 3: heuristics
             Isolated(reg) | Doubled(reg) | Backward(reg) | Hole(reg) | Weakened(reg) | Hanging(reg) => {
@@ -1015,32 +1050,44 @@ impl Ev {
         check(off > 0 || both, format!("{off} pieces off within {SIMPLIFY_PLIES} plies of the engine's line"))
     }
 
-    /// `Loses(Tempo(n))`: the move from `cx.prev` to `cx.p` costs at least n − ½ tempi on the free-move
-    /// ladder. Rung 0 is the owner's best move; rung i is the owner passing i times while the opponent plays
-    /// the engine's moves. The move's value falls between two rungs; its cost is where, interpolated.
-    fn tempo_cost(&mut self, cx: &Cx, n: i8) -> Verdict {
-        let owner = cx.owner;
-        if cx.prev.turn() != owner || cx.p.turn() == owner { return unknown("not a move of the owner"); }
-        let k = (n.max(1) as usize + 1).min(TEMPO_RUNGS);
-        let Some(v) = self.owner_score(&cx.p, owner).map(chances) else { return unknown("no engine") };
-        let Some(r0) = self.owner_score(&cx.prev, owner).map(chances) else { return unknown("no engine") };
-        let mut rungs = vec![r0];
-        let mut q = cx.prev.clone();
-        for _ in 0..k {
-            let Ok(passed) = q.clone().swap_turn() else { return unknown("cannot pass in check") };
-            let Some((s, pv)) = self.eng.as_mut().map(|e| e.analyse(&passed)) else { return unknown("no engine") };
-            rungs.push(chances(-s));
-            let Some(m) = pv.first().and_then(|u| u.parse::<UciMove>().ok()).and_then(|u| u.to_move(&passed).ok()) else { break };
-            q = passed.play(m).unwrap();
+    /// `Tempo(free)`: in the moves since the position before the annotated move, the opponent spends more
+    /// moves than it has pieces on new squares, at least one per free move, and the free moves are the owner's.
+    /// A castle moves one piece; a captured piece is not counted.
+    fn tempo(&self, cx: &Cx, free: &[Move_]) -> Verdict {
+        if free.is_empty() { return fail("names no move"); }
+        let (owner, them) = (cx.owner, !cx.owner);
+        // Each of the opponent's pieces by where it stands now, with where it started.
+        let mut at: std::collections::HashMap<Square, Square> = cx.start.board().by_color(them).into_iter().map(|s| (s, s)).collect();
+        let (mut spent, mut castles, mut mine) = (0, 0, vec![]);
+        let mut q = cx.start.clone();
+        for m in &cx.hist {
+            let Some(m) = m else { q = match q.swap_turn() { Ok(z) => z, Err(_) => return unknown("history does not replay") }; continue };
+            if q.turn() == them {
+                spent += 1;
+                if let Move::Castle { king, rook } = m {
+                    let side = if rook.file() > king.file() { CastlingSide::KingSide } else { CastlingSide::QueenSide };
+                    let (k, r) = (at.remove(king), at.remove(rook));
+                    if let Some(k) = k { at.insert(side.king_to(them), k); }
+                    if let Some(r) = r { at.insert(side.rook_to(them), r); }
+                    castles += 1;
+                } else if let Some(o) = at.remove(&m.from().unwrap()) {
+                    at.insert(m.to(), o);
+                }
+            } else {
+                mine.push(San::from_move(&q, m.clone()).to_string());
+                let taken = if let Move::EnPassant { from, to } = m { Square::from_coords(to.file(), from.rank()) } else { m.to() };
+                if m.is_capture() { at.remove(&taken); }
+            }
+            q = match q.play(m.clone()) { Ok(z) => z, Err(_) => return unknown("history does not replay") };
         }
-        if rungs.len() > 1 && rungs[0] - rungs[1] > TEMPO_GUARD { return unknown("a pass loses material: the ladder measures the threat, not time"); }
-        let mut cost = (rungs.len() - 1) as f64;
-        for i in 0..rungs.len() - 1 {
-            if v >= rungs[i] { cost = i as f64; break; }
-            if v >= rungs[i + 1] { cost = i as f64 + (rungs[i] - v) / (rungs[i] - rungs[i + 1]).max(1e-9); break; }
+        let moved = (at.iter().filter(|(now, from)| now != from).count() as i32 - castles).max(0);
+        let wasted = spent - moved;
+        let bare = |s: &str| s.trim_end_matches(['+', '#']).to_string();
+        if let Some(m) = free.iter().find(|m| !mine.iter().any(|x| bare(x) == bare(m))) {
+            return fail(format!("{m} is not a move of {} here", side(owner)));
         }
-        check(cost >= n as f64 - 0.5, format!("costs {cost:.2} tempi (ladder {})",
-            rungs.iter().map(|r| format!("{r:+.2}")).collect::<Vec<_>>().join(", ")))
+        let why = format!("{} spends {spent} {} for {moved} {} on new squares", side(them), if spent == 1 { "move" } else { "moves" }, if moved == 1 { "piece" } else { "pieces" });
+        Verdict { v: if wasted >= free.len() as i32 { V::Holds } else { V::Fails }, why }
     }
 
     /// `Faster(a, b)`: along the engine's line from `cx.p`, `a` holds for the owner before `b` holds
@@ -1049,8 +1096,8 @@ impl Ev {
         let Some((_, pv)) = self.eng.as_mut().map(|e| e.analyse(&cx.p)) else { return unknown("no engine") };
         let (mut q, mut prev) = (cx.p.clone(), cx.prev.clone());
         for ply in 0..=EVENTUALLY_PLIES {
-            let mine = self.eval(a, &Cx { p: q.clone(), prev: prev.clone(), owner: cx.owner }).v == V::Holds;
-            let theirs = self.eval(b, &Cx { p: q.clone(), prev: prev.clone(), owner: !cx.owner }).v == V::Holds;
+            let mine = self.eval(a, &Cx::bare(q.clone(), prev.clone(), cx.owner)).v == V::Holds;
+            let theirs = self.eval(b, &Cx::bare(q.clone(), prev.clone(), !cx.owner)).v == V::Holds;
             match (mine, theirs) {
                 (true, false) => return Verdict { v: V::Holds, why: format!("first, after {ply} plies") },
                 (false, true) => return fail(format!("the opponent's comes first, after {ply} plies")),
@@ -1080,7 +1127,7 @@ impl Ev {
 
     /// For `who`, the reason held before and does not hold now, or with `gained` the other way round.
     fn before_after(&mut self, r: &Reason, cx: &Cx, who: Color, gained: bool) -> Verdict {
-        let before = self.eval(r, &Cx { p: cx.prev.clone(), prev: cx.prev.clone(), owner: who });
+        let before = self.eval(r, &Cx::bare(cx.prev.clone(), cx.prev.clone(), who));
         let now = self.eval(r, &Cx { owner: who, ..cx.clone() });
         let (from, to) = if gained { (V::Fails, V::Holds) } else { (V::Holds, V::Fails) };
         match (before.v, now.v) {
@@ -1093,7 +1140,7 @@ impl Ev {
 
     /// `r` holds for `who` in `p`, or after some move of `who` from `p` (a pass first if `who` is not to move).
     fn reachable(&mut self, r: &Reason, p: &Chess, who: Color) -> Verdict {
-        if self.eval(r, &Cx { p: p.clone(), prev: p.clone(), owner: who }).v == V::Holds { return ok(); }
+        if self.eval(r, &Cx::bare(p.clone(), p.clone(), who)).v == V::Holds { return ok(); }
         let starts = movers(p, who);
         if starts.is_empty() { return fail("mated"); }
         // After a check: some move gets it whatever the reply.
@@ -1101,7 +1148,7 @@ impl Ev {
             let mut undecided = false;
             for m in q.legal_moves() {
                 let next = q.clone().play(m.clone()).unwrap();
-                match self.eval(r, &Cx { p: next, prev: q.clone(), owner: who }).v {
+                match self.eval(r, &Cx::bare(next, q.clone(), who)).v {
                     V::Holds => return Verdict { v: V::Holds, why: format!("{}", San::from_move(q, m)) },
                     V::Unknown => undecided = true,
                     V::Fails => {}
