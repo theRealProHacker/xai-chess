@@ -7,7 +7,7 @@ whose lower rating is under --min-elo. Appends; games already in the file are sk
   curl -s https://database.lichess.org/standard/lichess_db_standard_rated_2024-01.pgn.zst \
     | zstd -dc | python annotate/sample_games.py --games 500
 """
-import argparse, json, random, sys
+import argparse, json, os, random, sys
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / ".pylibs"))
@@ -22,7 +22,7 @@ ap.add_argument("--seed", type=int, default=None)
 a = ap.parse_args()
 
 rng = random.Random(a.seed)
-out = ROOT / "annotate/data/games.jsonl"
+out = ROOT / "annotate" / os.environ.get("ANNOTATE_DATA", "data") / "games.jsonl"
 out.parent.mkdir(exist_ok=True)
 have = {json.loads(l)["id"] for l in out.open()} if out.exists() else set()
 kept = 0

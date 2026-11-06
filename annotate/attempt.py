@@ -5,6 +5,7 @@
 
 A case is done when a try holds or is unknown, or after 5 tries, per round. ROUND (env, default 1)
 is the run: round 2 re-annotates the cases whose final try fails under a newer verifier.
+FRESH=1 hides earlier rounds from `show`, for a run from scratch.
 """
 import argparse, json, os, re, subprocess, sys, time
 from pathlib import Path
@@ -12,11 +13,13 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / ".pylibs"))
 import chess
 
-CASES = HERE / "data/cases.jsonl"
-ATTEMPTS = HERE / "data/attempts.jsonl"
+DATA = HERE / os.environ.get("ANNOTATE_DATA", "data")
+CASES = DATA / "cases.jsonl"
+ATTEMPTS = DATA / "attempts.jsonl"
 VERIFIER = HERE.parent / "dsl_verifier/target/release/dsl_verifier"
 TRIES = 5
 ROUND = int(os.environ.get("ROUND", 1))
+FRESH = os.environ.get("FRESH") == "1"  # a fresh run: `show` hides earlier rounds
 
 
 def case(cid):
@@ -80,7 +83,7 @@ def show(c):
     print(f"Eval (White's view) before {ev(c['before'])}, after {ev(c['after'])}")
     print(f"Best  {line(c['before']['pv'], c['ply'])}")
     print(f"Then  {line(c['after']['pv'], c['ply'] + 1)}")
-    for t in tries(c["id"], None):
+    for t in [] if FRESH else tries(c["id"], None):
         if t.get("round", 1) < ROUND:
             by = "the current verifier" if t.get("rechecked") else "an older verifier"
             print(f"\nRound {t.get('round', 1)}, try {t['n']} (checked by {by}): {t['dsl']}\n"

@@ -15,18 +15,19 @@ POST /api/tempo/check   {fen, mov, dsl}: the native verifier's verdict
 POST /api/tempo/vote    {id, vote}; appended to data/tempo_votes.jsonl, the latest wins
 POST /api/vote          {case, round, n, vote: "wrong" | "irrelevant" | "partial" | "correct" | null}; appended to data/votes.jsonl, the latest wins
 """
-import argparse, json, random, re, subprocess, sys, threading, time
+import argparse, json, os, random, re, subprocess, sys, threading, time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 HERE = Path(__file__).resolve().parent
 VENDOR = HERE.parent / "docs/vendor"
-GAMES = HERE / "data/games.jsonl"
-ANNOTATIONS = HERE / "data/annotations.jsonl"
-EVALS = HERE / "data/evals.jsonl"
-CASES, ATTEMPTS = HERE / "data/cases.jsonl", HERE / "data/attempts.jsonl"  # the agent run, see attempt.py
-VOTES = HERE / "data/votes.jsonl"  # my votes on the agent's tries
+DATA = HERE / os.environ.get("ANNOTATE_DATA", "data")  # another run: ANNOTATE_DATA=data_2800
+GAMES = DATA / "games.jsonl"
+ANNOTATIONS = DATA / "annotations.jsonl"
+EVALS = DATA / "evals.jsonl"
+CASES, ATTEMPTS = DATA / "cases.jsonl", DATA / "attempts.jsonl"  # the agent run, see attempt.py
+VOTES = DATA / "votes.jsonl"  # my votes on the agent's tries
 TEMPO, TEMPO_VOTES = HERE / "data/tempo.jsonl", HERE / "data/tempo_votes.jsonl"
 VERIFIER = HERE.parent / "dsl_verifier/target/release/dsl_verifier"
 DSL = HERE.parent / "dsl_verifier/src/dsl_claude.rs"
@@ -65,8 +66,10 @@ def split_top(s):
 def ty(t):
     """A Rust argument type as the editor names it: Box<Reason> → Reason, Vec<Sq> → [Sq]."""
     t = t.strip()
-    if m := re.match(r'#\[serde\(deserialize_with = "(\w+)"\)\]\s*(.*)', t):
+    if m := re.match(r'#\[serde\((?:default, )?deserialize_with = "(\w+)"\)\]\s*(.*)', t):
         return "[Role]" if m[1] == "roles" else "Role"
+    if m := re.match(r'#\[serde\(default\)\]\s*(.*)', t):
+        return ty(m[1])
     if m := re.fullmatch(r"Box<(.*)>", t):
         return ty(m[1])
     if m := re.fullmatch(r"Vec<(.*)>", t):
@@ -80,6 +83,8 @@ def schema():
     """{type: [{name, doc, group, args: [{name?, type}], fields: bool}]} for the DSL's enums."""
     out = {}
     for name, body in re.findall(r"pub\(crate\) enum (\w+) \{\n(.*?)\n\}", DSL.read_text(), re.S):
+        # A struct variant over several lines, as one line.
+        body = re.sub(r"\{\n(.*?)\n\s*\},", lambda m: "{ " + " ".join(m[1].split()) + " },", body, flags=re.S)
         vs, doc, group = [], [], 0
         for line in body.split("\n"):
             line = line.strip()
@@ -89,7 +94,9 @@ def schema():
                 doc.append(line[3:].strip())
             elif m := re.fullmatch(r"(\w+)\s*(?:\((.*)\)|\{(.*)\})?,?", line):
                 if m[3] is not None:
-                    args = [{"name": k.strip(), "type": ty(v)} for k, v in (f.split(":", 1) for f in split_top(m[3]))]
+                    # "#[serde(..)] get: Vec<Role>": the attribute goes with the type.
+                    fs = [re.fullmatch(r"\s*(#\[.*?\]\s*)?(\w+)\s*:\s*(.*)", f, re.S) for f in split_top(m[3])]
+                    args = [{"name": f[2], "type": ty((f[1] or "") + f[3])} for f in fs]
                 else:
                     args = [{"type": ty(a)} for a in split_top(m[2] or "")]
                 vs.append({"name": m[1], "doc": " ".join(doc).replace("`", ""), "group": group, "args": args, "fields": m[3] is not None})

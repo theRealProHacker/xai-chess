@@ -469,6 +469,25 @@ fn render(r: &Reason, rx: &Rx) -> Vec<Part> {
             let alt = Rx { p: q, mv: Some(t.clone()), past: true, ..rx.clone() };
             match &**r {
                 Because(a, b) if matches!(**a, Rated(_)) => vec![T(format!("{}: {}", join(&render(a, &alt)), join(&render(b, &alt))))],
+                // Like `Because(Rated, ..)`: "13.Ne5 was stronger: ..."
+                And(rs) if rs.len() > 1 && matches!(rs[0], Rated(_)) => {
+                    let rest: Vec<Part> = rs[1..].iter().flat_map(|x| render(x, &alt)).collect();
+                    vec![T(format!("{}: {}", join(&render(&rs[0], &alt)), join(&rest)))]
+                }
+                // "with 13.Ne5 instead, 13...Qxd6 does not win a pawn"
+                Not(a) if matches!(&**a, Allows(l, _) if !l.is_empty()) => {
+                    let Allows(l, r2) = &**a else { unreachable!() };
+                    let (t2, q2, _) = line(alt.p.as_ref(), None, l, alt.numbered);
+                    let inner = render(r2, &alt.at(q2, alt.opp()));
+                    match single(&inner) {
+                        Some(c) if c.subj == Subj::Side(alt.opp()) && c.prefix.is_none() && c.vp.action => {
+                            let mut v = c.vp.clone();
+                            v.negate();
+                            prefixed(vec![clause(Subj::Np(t2, false, None), v)], format!("with {t} instead"))
+                        }
+                        _ => prefixed(render(r, &alt), format!("with {t} instead")),
+                    }
+                }
                 Rated(_) => render(r, &alt),
                 _ => prefixed(render(r, &alt), format!("with {t} instead")),
             }
@@ -501,6 +520,11 @@ fn render(r: &Reason, rx: &Rx) -> Vec<Part> {
             Develop(_) => vec![rx.side_c(vp("be", "ahead in development"))],
             _ => vec![T(format!("{}, more than {}", join(&render(r, rx)), side(opp)))],
         },
+        // "puts slight pressure", not "slightly puts pressure"
+        Degree(l, r) if matches!(**r, Pressure(_)) => {
+            let adj = match l { Level::Slight => "slight", Level::Clear => "clear", Level::Decisive => "decisive" };
+            modify(render(r, rx), |c| c.vp.rest = c.vp.rest.replacen("pressure", &format!("{adj} pressure"), 1), |t| t)
+        }
         Degree(l, r) => {
             let adv = match l { Level::Slight => "slightly", Level::Clear => "clearly", Level::Decisive => "decisively" };
             modify(render(r, rx), |c| c.vp.adv = Some(adv), |t| format!("{adv}, {t}"))
@@ -546,20 +570,27 @@ fn render(r: &Reason, rx: &Rx) -> Vec<Part> {
             let mv = rx.mv.clone().unwrap_or_else(|| "this line".into());
             vec![clause(Subj::Np(mv, false, None), Vp { past: rx.past, ..vp("be", what) })]
         }
+        // Not mated on this board: the owner's forced mate.
+        Mate if p.is_some_and(|p| !p.is_checkmate()) => vec![rx.side_c(vp("have", "a forced mate"))],
         Check | Mate | Zugzwang => {
             let to_move = p.map_or(opp, |p| p.turn());
             let state = match r { Check => "in check", Mate => "checkmated", _ => "in zugzwang" };
             vec![clause(Subj::Side(to_move), vp("be", state))]
         }
-        WinMaterial(roles) => vec![rx.side_c(act("win", material(roles)))],
-        Material(n) => vec![rx.side_c(vp("be", match n.signum() {
+        Material { get, give, total: false } => vec![rx.side_c(match (get.is_empty(), give.is_empty()) {
+            (true, true) => vp("keep", "material level"),
+            (false, true) => act("win", material(get)),
+            (true, false) => act("lose", material(give)),
+            _ => act("win", format!("{} for {}", material(get), material(give))),
+        })],
+        Material { get, give, total: true } => { let n = (get.iter().map(|r| crate::eval::val(*r)).sum::<i32>() - give.iter().map(|r| crate::eval::val(*r)).sum::<i32>()) as i8; vec![rx.side_c(vp("be", match n.signum() {
             0 => "level in material".into(),
             s => {
                 let k = n.unsigned_abs() as usize;
                 let amount = if k == 1 { "a pawn".into() } else { format!("{} pawns", count_word(k)) };
                 format!("{amount} {}", if s > 0 { "ahead" } else { "behind" })
             }
-        }))],
+        }))] }
         Trade { give, get } => {
             let origin = |s: &Sq| rx.root.board().role_at(square(s)).map_or(s.to_string(), |r| format!("the {s}-{}", role(r)));
             let names = |ss: &[Sq]| list(&ss.iter().map(origin).collect::<Vec<_>>(), "and");
@@ -567,7 +598,8 @@ fn render(r: &Reason, rx: &Rx) -> Vec<Part> {
         }
         Simplify => vec![clause(Subj::Np("the position".into(), false, None), vp("simplify", ""))],
         Attack { by, targets } => {
-            let verb = if targets.len() > 1 { "fork" } else { "attack" };
+            // Attacking only pawns is not a fork.
+            let verb = if targets.len() > 1 && targets.iter().any(|t| rx.role_at(t).is_some_and(|r| r != Role::Pawn)) { "fork" } else { "attack" };
             vec![clause(rx.the(by), act(verb, rx.pieces(targets)))]
         }
         Pin { by, front, behind } => {
@@ -637,7 +669,9 @@ fn render(r: &Reason, rx: &Rx) -> Vec<Part> {
         Imbalance => vec![rx.side_c(vp("unbalance", "the position"))],
         Closed => vec![clause(Subj::Np("the centre".into(), false, None), vp("be", "closed"))],
         Passer(s) => vec![clause(rx.the(s), vp("be", "a passed pawn"))],
-        Promote(s) => vec![clause(rx.the(s), can("promote", ""))],
+        // "the pawn on b6 promotes"; a queening square: "Black promotes on b8"
+        Promote(s) if rx.role_at(s) == Some(Role::Pawn) => vec![clause(rx.the(s), act("promote", ""))],
+        Promote(s) => vec![rx.side_c(act("promote", format!("on {s}")))],
         Majority(r) => vec![match r {
             Region::Squares(_) => clause(Subj::Np(format!("{}'s pawns on {}", side(owner), rx.region(r)), true, None),
                 vp("outnumber", format!("{}'s on those files", side(opp)))),
@@ -646,6 +680,7 @@ fn render(r: &Reason, rx: &Rx) -> Vec<Part> {
         Enables(l) => vec![rx.side_c(can("play", line(None, None, l, false).0))],
         Options(ms) => vec![rx.side_c(vp("keep", format!("the choice between {} open", list(&ms.iter().map(|m| m.to_string()).collect::<Vec<_>>(), "and"))))],
         Draw => vec![clause(Subj::Np("the position".into(), false, None), vp("be", "a draw"))],
+        Perpetual => vec![rx.side_c(vp("have", "a perpetual check"))],
         Win => vec![rx.side_c(vp("be", "winning"))],
         SameColour(ss) => {
             let on = match ss.first() {
@@ -813,6 +848,38 @@ mod tests {
              White allows 2...Ne4, attacking the bishop on g5. \
              White allows 2...e6, after which the queen on d8 defends the knight on f6. White allows 2...c5, attacking the pawn on d4. \
              White allows 2...d5, after which Black controls c4 and e4."
+        );
+    }
+
+    fn text(fen: &str, mov: Move_, dsl: &'static str) -> String {
+        let root: Chess = fen.parse::<shakmaty::fen::Fen>().unwrap().into_position(CastlingMode::Standard).unwrap();
+        render_reason(&root, mov, &crate::text::parse(Box::leak(dsl.to_string().into_boxed_str())).unwrap())
+    }
+
+    #[test]
+    fn instead_goldens() {
+        // eFugMq3R-80
+        assert_eq!(
+            text("2r1r1k1/1p1b3q/p3p3/3p3Q/3P2pP/B1P5/PP4P1/5RK1 w - - 1 41", "Qxg4+",
+                 "Because(Rated(Mistake), Instead(Qxh7+, And([Rated(Stronger), After([Kxh7, Rf7+, Kg6, Rxd7], Material { get: [Bishop], give: [], total: false })])))"),
+            "41.Qxg4+ is a mistake: 41.Qxh7+ was stronger: after 41...Kxh7 42.Rf7+ Kg6 43.Rxd7, White wins a bishop."
+        );
+        // kBYK5hDx-41 with a line
+        assert_eq!(
+            text("r3k1r1/3n1p2/p3p2p/1p4q1/2p3R1/2P2P2/Q4PBP/5K1R b q - 3 21", "Qc1+",
+                 "Because(Rated(Blunder), Instead(Qd5, Not(Allows([Rxg8+], Material { get: [Rook], give: [], total: false }))))"),
+            "21...Qc1+ is a blunder: with 21...Qd5 instead, 22.Rxg8+ does not win a rook."
+        );
+        // L9yEVzKf-78: throws away a forced mate
+        assert_eq!(
+            text("rnb2rk1/pp3pbp/2p3p1/8/4P3/1P1B1P2/P5PP/2RNK1NR b K - 2 13", "f5", "Because(Rated(Mistake), Loses(Mate))"),
+            "13...f5 is a mistake: Black no longer has a forced mate."
+        );
+        // C7mFRVmZ-25
+        assert_eq!(
+            text("rnb2rk1/pp3pbp/2p3p1/8/4P3/1P1B1P2/P5PP/2RNK1NR b K - 2 13", "f5",
+                 "Because(Rated(Mistake), Allows([Nf2, fxe4, Nxe4], Degree(Slight, Pressure(KingZone { opponent: true }))))"),
+            "13...f5 is a mistake: Black allows 14.Nf2 fxe4 15.Nxe4, after which White puts slight pressure on the squares around Black's king."
         );
     }
 

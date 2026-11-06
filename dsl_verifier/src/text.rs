@@ -79,8 +79,33 @@ fn tree(src: &str) -> Result<Node, String> {
     let mut p = P { t: tokens(src), i: 0 };
     let n = p.node()?;
     match p.peek() {
-        None => Ok(n),
+        None => Ok(legacy(n)),
         Some(t) => Err(format!("unexpected `{t}` after the reason")),
+    }
+}
+
+/// Older material claims as `Material { .. }`, so recorded tries still parse: `WinMaterial([..])` is
+/// `get`, `WinTrade { get, give }` the same fields, `Material(n)` a balance of n pawns (`total`).
+fn legacy(n: Node) -> Node {
+    let all = |xs: Vec<Node>| xs.into_iter().map(legacy).collect::<Vec<_>>();
+    match n {
+        Node::Call(f, xs) if f == "WinMaterial" && xs.len() == 1 => Node::Fields("Material".into(), vec![("get".into(), legacy(xs.into_iter().next().unwrap()))]),
+        Node::Fields(f, fs) if f == "WinTrade" => Node::Fields("Material".into(), fs.into_iter().map(|(k, v)| (k, legacy(v))).collect()),
+        Node::Call(f, xs) if f == "Material" && matches!(xs.as_slice(), [Node::Atom(a)] if a.parse::<i32>().is_ok()) => {
+            let Node::Atom(a) = &xs[0] else { unreachable!() };
+            let k: i32 = a.parse().unwrap();
+            let pawns = |n: i32| Node::List((0..n).map(|_| Node::Atom("Pawn".into())).collect());
+            let mut fs = vec![];
+            if k > 0 { fs.push(("get".into(), pawns(k))) }
+            if k < 0 { fs.push(("give".into(), pawns(-k))) }
+            fs.push(("total".into(), Node::Atom("true".into())));
+            Node::Fields("Material".into(), fs)
+        }
+        Node::Call(f, xs) => Node::Call(f, all(xs)),
+        Node::Fields(f, fs) => Node::Fields(f, fs.into_iter().map(|(k, v)| (k, legacy(v))).collect()),
+        Node::List(xs) => Node::List(all(xs)),
+        Node::Tuple(xs) => Node::Tuple(all(xs)),
+        a => a,
     }
 }
 

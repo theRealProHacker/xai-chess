@@ -5,9 +5,10 @@
 Lichess grading: a move losing ≥0.3 winning chances is a blunder, ≥0.2 a mistake. Cases are taken
 round-robin over the games, so every game is represented.
 """
-import argparse, json, math, random, sys
+import argparse, json, math, os, random, sys
 from pathlib import Path
 HERE = Path(__file__).resolve().parent
+DATA = HERE / os.environ.get("ANNOTATE_DATA", "data")
 sys.path.insert(0, str(HERE.parent / ".pylibs"))
 import chess
 
@@ -19,9 +20,9 @@ ap.add_argument("--refresh", action="store_true",
                 help="keep the cases, but take their evals and grading from the current evals.jsonl")
 a = ap.parse_args()
 
-games = [json.loads(l) for l in (HERE / "data/games.jsonl").open()]
+games = [json.loads(l) for l in (DATA / "games.jsonl").open()]
 evals = {}
-for l in (HERE / "data/evals.jsonl").open():
+for l in (DATA / "evals.jsonl").open():
     e = json.loads(l)
     evals[e["id"]] = e["evals"]
 
@@ -38,7 +39,7 @@ def chances(e, ply):
 
 
 if a.refresh:
-    path = HERE / "data/cases.jsonl"
+    path = DATA / "cases.jsonl"
     cases = [json.loads(l) for l in path.open()]
     for c in cases:
         E, p = evals[c["game"]], c["ply"]
@@ -89,7 +90,7 @@ def pick(pool, n):
 
 cases = pick(pools["Blunder"], a.blunders) + pick(pools["Mistake"], a.mistakes)
 cases.sort(key=lambda c: (c["game"], c["ply"]))
-with (HERE / "data/cases.jsonl").open("w") as f:
+with (DATA / "cases.jsonl").open("w") as f:
     for c in cases:
         f.write(json.dumps(c) + "\n")
 print(f"{len(cases)} cases from {len({c['game'] for c in cases})} games "

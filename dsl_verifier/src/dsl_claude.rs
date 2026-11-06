@@ -164,11 +164,16 @@ pub(crate) enum Reason {
     Rated(Annotation),
     /// The side to move is in check.
     Check,
-    /// The side to move is checkmated.
+    /// The opponent is checkmated, or the owner has a forced mate. `Loses(Mate)`: throws away a forced mate.
     Mate,
-    WinMaterial(#[serde(deserialize_with = "roles")] Vec<Role>),
-    /// The owner is this many pawns ahead in material (N, B = 3, R = 5, Q = 9; negative: behind).
-    Material(i8),
+    /// The owner wins `get` for `give`, counted from before the move or line (before m under `Instead(m, ..)`):
+    /// each piece named comes off, and once the exchanges settle the net has the sign of get minus give
+    /// (ahead, level for an even trade, behind). `total`: the balance on the board equals get minus give.
+    Material {
+        #[serde(default, deserialize_with = "roles")] get: Vec<Role>,
+        #[serde(default, deserialize_with = "roles")] give: Vec<Role>,
+        #[serde(default)] total: bool,
+    },
     /// Pieces named by their squares before the move.
     Trade { give: Vec<Sq>, get: Vec<Sq> },
     /// Material comes off: within a few plies of the engine's line a piece, or a pawn of each side,
@@ -232,6 +237,7 @@ pub(crate) enum Reason {
     Passer(Sq),
     /// Owner pawns outnumbering the opponent's on the region's files.
     Majority(Region),
+    /// The pawn on this square, or the pawn queening on it, promotes: now, already in the line, or in the engine's line.
     Promote(Sq),
     /// The owner can legally play the line next. Whether it loses material is a separate claim (`Hanging`).
     Enables(Vec<Move_>),
@@ -240,6 +246,9 @@ pub(crate) enum Reason {
     /// The side to move would be better off passing, once or at every turn.
     Zugzwang,
     Draw,
+    /// The owner draws by perpetual check: along the engine's line every owner move checks, a position
+    /// repeats within 12 plies, and the score is level.
+    Perpetual,
     Win,
     /// A practical gain, not better on the board: harder for the opponent to play, or saves the owner's clock.
     Practical,
@@ -291,8 +300,8 @@ pub(crate) fn check_names(r: &Reason) -> Result<(), String> {
         Develop(Pieces::All | Pieces::Every(_)) => Ok(()),
         Better { pieces, than } => { sqs(pieces)?; sqs(than) }
         Coordinate(ss) | SameColour(ss) => sqs(ss),
-        Rated(_) | Check | Mate | WinMaterial(_) | Material(_) | Simplify | Castle | Tempo(_)
-        | Initiative | Space | Imbalance | Closed | BishopPair | Enables(_) | Options(_) | Zugzwang | Draw | Win
+        Rated(_) | Check | Mate | Material { .. } | Simplify | Castle | Tempo(_)
+        | Initiative | Space | Imbalance | Closed | BishopPair | Enables(_) | Options(_) | Zugzwang | Draw | Perpetual | Win
         | Practical => Ok(()),
     }
 }
@@ -382,7 +391,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             mov: "Rxd5",
             comment: r#"essentially forced, since after cxd5 the isolated queen pawn becomes a hugetarget and of course Nxd5 loses to the mate on g7."#,
             reason: And(vec![
-                only(WinMaterial(vec![Pawn])),
+                only(Material { get: vec![Pawn], give: vec![], total: false }),
                 instead("cxd5", allows(vec![], Isolated(Squares(vec!["d5"])))),
                 instead("Nxd5", allows(vec!["Qxg7#"], Mate)),
             ]),
@@ -428,7 +437,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             reason: And(vec![
                 removes(Enables(vec!["h6"])),
                 Pin { by: "g5", front: "g6", behind: "g8" },
-                threatens(vec!["h4", "--", "h5", "--", "hxg6"], WinMaterial(vec![Knight])),
+                threatens(vec!["h4", "--", "h5", "--", "hxg6"], Material { get: vec![Knight], give: vec![], total: false }),
             ]),
         },
         // train-0643: Pressure
@@ -440,7 +449,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
                 Pressure(Squares(vec!["d4"])),
                 Backward(Squares(vec!["d4"])),
                 Pin { by: "d8", front: "d4", behind: "d3" },
-                threatens(vec!["Nxe5"], WinMaterial(vec![Pawn])),
+                threatens(vec!["Nxe5"], Material { get: vec![Pawn], give: vec![], total: false }),
             ]),
         },
         // train-1010: Passer
@@ -547,7 +556,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             reason: And(vec![
                 Pressure(Squares(vec!["d4"])),
                 removes(Castle),
-                not(threatens(vec!["Nxd4"], WinMaterial(vec![Pawn]))),
+                not(threatens(vec!["Nxd4"], Material { get: vec![Pawn], give: vec![], total: false })),
                 Attack { by: "b4", targets: vec!["c3"] },
                 Attack { by: "c6", targets: vec!["d4"] },
             ]),
@@ -683,7 +692,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             comment: r#"This quite paradoxical king move to the center of the board was found by me back in 1988, while I was preparing for the aforementioned game against Kasparov. I was afraid of the queen shift to the kingside. The exchange of queens seemed to me to be a dull idea. It took me a long time before I found the correct decision. And so this important novelty remained a secret for five years! The idea of the king move is that black unexpectedly harmonizes the placement of his pieces, which were a bit out of sync only a move ago. But now the threat is g7-g5-g4, winning a piece. If white wants to maintain the opening advantage, he must act decisively."#,
             reason: And(vec![
                 Coordinate(vec!["e7", "d8", "h8"]),
-                threatens(vec!["g5"], eventually(WinMaterial(vec![Knight]))),
+                threatens(vec!["g5"], eventually(Material { get: vec![Knight], give: vec![], total: false })),
             ]),
         },
         // train-1687: Space, Because, Outweighs
@@ -748,12 +757,12 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             comment: r#"Uh oh, white is threatening my pawn at e5 (36. Pxe5 Pxe5?37. Qxe5 and white gains a pawn, forks both rooks, and forces black toget back on defense). But worse, he's threatening 36. Rb1!, skewering theblack queen against the b7 pawn. After 36. ... Qxa3, 37. Qxb7 Kmoves,38. Qb8 Kmoves, 39. Qxh8 and now white is right back in the game, materialis even, and black's kingside is going to crumble as the white queen attacksit from the rear. I search around for the move that prevents both eventualities,but there is none. So I take the a3 pawn, extending my material lead toa knight and 2 pawns, knowing I will lose a pawn in the center and haveto run back on defense."#,
             reason: And(vec![
                 no_move(And(vec![
-                    removes(threatens(vec!["dxe5", "fxe5", "Qxe5"], WinMaterial(vec![Pawn]))),
+                    removes(threatens(vec!["dxe5", "fxe5", "Qxe5"], Material { get: vec![Pawn], give: vec![], total: false })),
                     removes(threatens(vec!["Rb1"], Pin { by: "b1", front: "b2", behind: "b7" })),
                 ])),
-                WinMaterial(vec![Pawn]),
+                Material { get: vec![Pawn], give: vec![], total: false },
                 allows(vec!["dxe5", "fxe5", "Qxe5"], And(vec![
-                    WinMaterial(vec![Pawn]),
+                    Material { get: vec![Pawn], give: vec![], total: false },
                     Attack { by: "e5", targets: vec!["d6", "h8"] },
                 ])),
             ]),
@@ -784,7 +793,7 @@ pub(crate) fn examples() -> Vec<Reasoning> {
                 Attack { by: "c4", targets: vec!["d5", "c5"] },
                 after(vec!["Qxc4", "dxc4"], because(
                     And(vec![Trade { give: vec!["f4"], get: vec!["d5"] }, Simplify]),
-                    Material(3),
+                    Material { get: vec![Pawn, Pawn, Pawn], give: vec![], total: true },
                 )),
                 // Every Black move trades queens, leaves the trade on offer, or loses material.
                 allows(vec![], no_move(not(Either(vec![
@@ -816,12 +825,12 @@ pub(crate) fn examples() -> Vec<Reasoning> {
             comment: r#"Black threatens to win the White Queen by way of a discoveredcheck: 28...Rd2+ (the Rook move uncovers the Bishop check, forcing the WhiteKing to move) 29.Kh1 Rxe2 30.Rxe2 (winning the Queen for a Rook)."#,
             reason: threatens(vec!["Rd2+"], And(vec![
                 gains(Attack { by: "c5", targets: vec!["g1"] }),
-                after(vec!["Kh1", "Rxe2", "Rxe2"], WinMaterial(vec![Queen])),
+                after(vec!["Kh1", "Rxe2", "Rxe2"], Material { get: vec![Queen], give: vec![], total: false }),
             ])),
             // Before Gains: the check, but not that the rook move uncovers it.
             // reason: threatens(vec!["Rd2+"], And(vec![
             //     Attack { by: "c5", targets: vec!["g1"] },
-            //     after(vec!["Kh1", "Rxe2", "Rxe2"], WinMaterial(vec![Queen])),
+            //     after(vec!["Kh1", "Rxe2", "Rxe2"], Material { get: vec![Queen], give: vec![], total: false }),
             // ])),
         },
         // train-0121: Concedes
@@ -1004,9 +1013,10 @@ fn examples_are_legal() {
             Trade { give, get } => give.iter().chain(get).for_each(|s| assert!(root.board().piece_at(sq(s)).is_some(), "empty {s}")),
             Better { pieces, than } => pieces.iter().chain(than).for_each(|s| occ(s)),
             Coordinate(ps) => ps.iter().for_each(|s| occ(s)),
-            Material(n) => {
+            Material { get, give, total: true } => {
+                let n = (get.iter().map(|r| crate::eval::val(*r)).sum::<i32>() - give.iter().map(|r| crate::eval::val(*r)).sum::<i32>()) as i8;
                 let v = |c: Color| { let b = p.board(); (b.pawns() & b.by_color(c)).count() + 3 * ((b.knights() | b.bishops()) & b.by_color(c)).count() + 5 * (b.rooks() & b.by_color(c)).count() + 9 * (b.queens() & b.by_color(c)).count() };
-                assert_eq!(v(owner) as i8 - v(!owner) as i8, *n, "material");
+                assert_eq!(v(owner) as i8 - v(!owner) as i8, n, "material");
             }
             SameColour(ss) => assert!(ss.iter().all(|s| sq(s).is_light() == sq(ss[0]).is_light()), "colours {ss:?}"),
             Passer(s) | Promote(s) => assert_eq!(p.board().role_at(sq(s)), Some(Pawn)),

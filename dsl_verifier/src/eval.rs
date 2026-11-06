@@ -4,14 +4,16 @@
 //! binary). Tier 3: heuristics ported from commentary_gen/board_tools.py and positional.py.
 //!
 //! Caveats:
-//! - `Because(a, b)` holds when `a` and `b` both hold. Under `Rated(Dubious/Mistake/Blunder)` `b` must also
-//!   not hold after the engine's best move, and the material it names must explain half the loss (`explains`).
-//!   Otherwise that `b` causes `a` is not checked.
-//! - `Outweighs(a, b)` holds when both hold. The weighing is not checked.
+//! - `Because(a, b)` holds when `a` and `b` both hold. Under `Rated(Dubious/Mistake/Blunder)` the material `b`
+//!   names must net the mover a loss; a named gain fails (`explains`). Otherwise that `b` causes `a` is not checked.
+//! - Under `Instead(m, ..)` material counts from before m, so what m itself takes counts.
+//! - `Outweighs(a, b)` and `Balances(a, b)` hold when both hold. The weighing is not checked.
+//! - `Mate` holds on a mate on the board or the engine's forced mate for the owner.
+//! - `Promote(s)` follows the engine's line `PROMOTE_PLIES` ahead. `Pin` needs something to win behind the front piece.
 //! - `Quality` is the eval minus the median eval with the piece on its other safe squares (`relocated`); `Better` compares that.
 //! - `Eventually(r)` holds when `r` fails now and holds after the engine's line, `EVENTUALLY_PLIES` ahead.
 //! - `Only(r)` and `NoMove(r)` ignore moves that achieve `r` but score `ONLY_MARGIN` or more below the played move.
-//! - `WinMaterial` follows the engine's line (`SETTLE_NODES`) until the exchanges settle. `Sacrifice` uses static exchange evaluation.
+//! - `Material` follows the engine's line (`SETTLE_NODES`) until the exchanges settle. `Sacrifice` uses static exchange evaluation.
 //! - `But(a, b)`: a and b point opposite ways for the owner (`polarity`).
 //! - `Zugzwang` and `Faster` are measured by passing (`zugzwang`, `faster`).
 //! - `Tempo(moves)` counts the opponent's moves since the position before the annotated move (`tempo`).
@@ -41,6 +43,14 @@ const ONLY_MARGIN: i32 = 30;
 
 // Thresholds in centipawns, set leniently: a comment's claim should hold unless the board clearly disagrees.
 const WIN: i32 = 200;
+/// `Promote`: how far along the engine's line the pawn may queen.
+const PROMOTE_PLIES: usize = 20;
+/// `Permanent` for reasons other than pawn structure: how far along the engine's line they must still hold.
+const PERMANENT_PLIES: usize = 8;
+/// `Perpetual`: how far along the engine's line a position must repeat.
+const PERPETUAL_PLIES: usize = 12;
+/// The engine's score for a forced mate.
+const MATE: i32 = 10000;
 const DRAW: i32 = 100;
 /// A threat's first move may score this far below the position as it stands.
 const THREAT_MARGIN: i32 = 50;
@@ -67,7 +77,7 @@ const LINE_MARGIN: f64 = INACCURACY;
 const RELOC_NODES: u64 = 50_000;
 const RELOC_MIN: usize = 5;
 
-/// Search size for settling exchanges in `WinMaterial`.
+/// Search size for settling exchanges in `Material`.
 const SETTLE_NODES: u64 = 1_000_000;
 
 /// `Simplify`: how far along the engine's line the material may come off.
@@ -156,7 +166,7 @@ fn track(map: &mut [Option<Square>; 64], m: &Move) {
     }
 }
 
-fn val(r: Role) -> i32 {
+pub(crate) fn val(r: Role) -> i32 {
     match r {
         Role::Pawn => 1,
         Role::Knight | Role::Bishop => 3,
@@ -177,6 +187,7 @@ fn cp(r: Role) -> i32 {
     }
 }
 
+fn worth(rs: &[Role]) -> i32 { rs.iter().map(|r| val(*r)).sum() }
 fn material(p: &Chess, c: Color) -> i32 { p.board().by_color(c).into_iter().map(|s| val(p.board().role_at(s).unwrap())).sum() }
 fn count(p: &Chess, c: Color, r: Role) -> usize { (p.board().by_color(c) & p.board().by_role(r)).count() }
 fn attackers(p: &Chess, s: Square, c: Color) -> Bitboard { p.board().attacks_to(s, c, p.board().occupied()) }
@@ -516,16 +527,18 @@ struct Cx {
     /// `hist` from `start` (None: a pass) reaches `p`; `Tempo` counts the moves in it.
     start: Chess,
     hist: Vec<Option<Move>>,
+    /// Under `Instead(m, ..)`: the position before m. `Material` counts from here, so what m takes counts.
+    base: Option<Chess>,
 }
 
 impl Cx {
     /// A position with no history behind it.
-    fn bare(p: Chess, prev: Chess, owner: Color) -> Cx { Cx { start: p.clone(), hist: vec![], p, prev, owner } }
+    fn bare(p: Chess, prev: Chess, owner: Color) -> Cx { Cx { start: p.clone(), hist: vec![], p, prev, owner, base: None } }
     /// After `line` from `self.p`, as played by `play` with the same `first`.
     fn at(&self, p: Chess, owner: Color, first: Option<Color>, line: &[Move_]) -> Cx {
         match moves(&self.p, first, line) {
-            Some(ms) => Cx { p, prev: self.p.clone(), owner, start: self.start.clone(), hist: [self.hist.clone(), ms].concat() },
-            None => Cx::bare(p, self.p.clone(), owner),
+            Some(ms) => Cx { p, prev: self.p.clone(), owner, start: self.start.clone(), hist: [self.hist.clone(), ms].concat(), base: self.base.clone() },
+            None => Cx { base: self.base.clone(), ..Cx::bare(p, self.p.clone(), owner) },
         }
     }
 }
@@ -565,12 +578,12 @@ fn polarity(r: &Reason, mine: &dyn Fn(Sq) -> Option<bool>) -> i32 {
             A::Dubious | A::Mistake | A::Blunder | A::Weaker => -1,
             A::Interesting => 0,
         },
-        Material(n) => n.signum() as i32,
+        Material { get, give, .. } => (worth(get) - worth(give)).signum(),
         Quality(s, g) => {
             let good = if matches!(g, Grade::Good) { 1 } else { -1 };
             match mine(s) { Some(true) => good, Some(false) => -good, None => 0 }
         }
-        Trade { .. } | Check | Imbalance | Closed | Options(_) | Draw | SameColour(_) => 0,
+        Trade { .. } | Check | Imbalance | Closed | Options(_) | Draw | Perpetual | SameColour(_) => 0,
         _ => 1,
     }
 }
@@ -592,7 +605,7 @@ impl Ev {
         self.root = root.clone();
         self.claims.clear();
         self.played = root.clone().play(mov.clone()).unwrap();
-        let cx = Cx { p: self.played.clone(), prev: root.clone(), owner: root.turn(), start: root.clone(), hist: vec![Some(mov.clone())] };
+        let cx = Cx { p: self.played.clone(), prev: root.clone(), owner: root.turn(), start: root.clone(), hist: vec![Some(mov.clone())], base: None };
         self.eval(reason, &cx)
     }
 
@@ -720,8 +733,8 @@ impl Ev {
                     let replaced = matches!(hist.pop(), Some(Some(_))) && replay(&cx.start, &hist).is_some_and(|z| z.board() == cx.prev.board() && z.turn() == cx.prev.turn());
                     let alt = if replaced {
                         hist.push(Some(san(&cx.prev, m).unwrap()));
-                        Cx { p: q, prev: cx.prev.clone(), owner, start: cx.start.clone(), hist }
-                    } else { Cx::bare(q, cx.prev.clone(), owner) };
+                        Cx { p: q, prev: cx.prev.clone(), owner, start: cx.start.clone(), hist, base: Some(cx.prev.clone()) }
+                    } else { Cx { base: Some(cx.prev.clone()), ..Cx::bare(q, cx.prev.clone(), owner) } };
                     self.eval(r, &alt)
                 }
             },
@@ -752,21 +765,35 @@ impl Ev {
                     _ => fail("no contrast: both parts point the same way"),
                 }
             }
-            Outweighs(a, b2) => {
+            // a is the owner's, b the opponent's. They must point opposite ways for the owner, and the engine's
+            // score must side with a (`Outweighs`) or be level within `DRAW` (`Balances`).
+            Outweighs(a, b2) | Balances(a, b2) => {
                 let vb = self.eval(b2, &Cx { owner: !owner, ..cx.clone() });
                 let v = all([self.eval(a, cx), vb]);
-                if v.v == V::Holds { Verdict { v: V::Holds, why: "both hold; weighing unchecked".into() } } else { v }
+                if v.v != V::Holds { return v; }
+                let mine = |s: Sq| cx.p.board().color_at(sq(s)).map(|c| c == owner);
+                let theirs = |s: Sq| mine(s).map(|m| !m);
+                let (pa, pb) = (polarity(a, &mine), -polarity(b2, &theirs));
+                if pa == 0 || pb == 0 { return unknown("a part is neither for nor against the owner"); }
+                if pa * pb > 0 { return fail("both parts point the same way"); }
+                let Some(score) = self.owner_score(p, owner) else { return unknown("no engine") };
+                if matches!(node, Balances(..)) {
+                    check(score.abs() <= DRAW, format!("eval {score:+}, not level"))
+                } else {
+                    check(score * pa > 0, format!("eval {score:+} does not side with the first part"))
+                }
             }
             Permanent(r) => {
                 let v = self.eval(r, cx);
                 // Pawn structure cannot be undone: pawns do not move backward.
                 let structural = matches!(&**r, Isolated(_) | Doubled(_) | Backward(_) | Hole(_) | Weakened(_));
-                if v.v == V::Holds && !structural { unknown("permanence unchecked") } else { v }
-            }
-            Balances(a, b2) => {
-                let vb = self.eval(b2, &Cx { owner: !owner, ..cx.clone() });
-                let v = all([self.eval(a, cx), vb]);
-                if v.v == V::Holds { Verdict { v: V::Holds, why: "both hold; balance unchecked".into() } } else { v }
+                if v.v != V::Holds || structural { return v; }
+                // Anything else must still hold `PERMANENT_PLIES` along the engine's line.
+                match self.along(r, cx, PERMANENT_PLIES) {
+                    None => unknown("no engine line"),
+                    Some(w) if w.v == V::Holds => Verdict { v: V::Holds, why: format!("still holds after {PERMANENT_PLIES} plies") },
+                    Some(w) => fail(format!("gone after {PERMANENT_PLIES} plies: {}", w.why)),
+                }
             }
             More(_) => unknown("comparison not modelled"),
             Degree(_, r) => {
@@ -775,23 +802,7 @@ impl Ev {
             }
             Eventually(r) => {
                 if self.quietly(|ev| ev.eval(r, cx)).v == V::Holds { return fail("already holds"); }
-                let Some(eng) = self.eng.as_mut() else { return unknown("no engine") };
-                let (_, pv) = eng.analyse(p);
-                let outer = TRACK.with(|t| *t.borrow());
-                let mut map = outer.unwrap_or(std::array::from_fn(|i| Some(Square::new(i as u32))));
-                let mut q = p.clone();
-                for u in pv.iter().take(EVENTUALLY_PLIES) {
-                    let Ok(m) = u.parse::<UciMove>().map_err(|_| ()).and_then(|u| u.to_move(&q).map_err(|_| ())) else { break };
-                    track(&mut map, &m);
-                    q = q.play(m).unwrap();
-                }
-                if q.board() == p.board() { return unknown("no engine line"); }
-                TRACK.with(|t| *t.borrow_mut() = Some(map));
-                GONE.set(false);
-                let v = self.eval(r, &Cx::bare(q, p.clone(), owner));
-                let gone = GONE.replace(false);
-                TRACK.with(|t| *t.borrow_mut() = outer);
-                if gone { fail("the piece is captured along the line") } else { v }
+                self.along(r, cx, EVENTUALLY_PLIES).unwrap_or_else(|| unknown("no engine line"))
             }
             Faster(a, b) => self.quietly(|ev| ev.faster(a, b, cx)),
             Suppose(edits, r) => {
@@ -809,20 +820,24 @@ impl Ev {
             }
 
             // ---------------------------------------------------------------- tier 1: board facts
-            Mate => check(p.is_checkmate(), "no mate"),
+            // Mated on the board, or the owner has a forced mate (the engine's mate score).
+            Mate if p.is_checkmate() => check(p.turn() != owner, "the owner is mated"),
+            Mate => match self.owner_score(p, owner) {
+                None => unknown("no engine"),
+                Some(s) => check(s >= MATE, "no mate"),
+            },
             Check => check(p.is_check(), "no check"),
-            Material(n) => {
-                let d = material(p, owner) - material(p, !owner);
-                check(d == *n as i32, format!("material {d:+}"))
-            }
-            WinMaterial(roles) if roles.is_empty() => fail("no material named"),
-            WinMaterial(roles) => {
-                let before = cx.prev.clone();
-                let taken = roles.iter().all(|r| count(p, !owner, *r) < count(&before, !owner, *r));
+            Material { get, give, total } => {
+                let named = worth(get) - worth(give);
                 let diff = |q: &Chess| material(q, owner) - material(q, !owner);
                 let Some(settled) = self.settle(p) else { return unknown("no engine") };
+                if *total { let d = diff(&settled); return check(d == named, format!("material {d:+} once the exchanges settle")); }
+                let before = cx.base.clone().unwrap_or_else(|| cx.prev.clone());
+                let at = if std::env::var("MAT_AT").as_deref() == Ok("settled") { &settled } else { p };
+                let off = |c: Color, rs: &[Role]| rs.iter().all(|r| count(at, c, *r) + rs.iter().filter(|x| *x == r).count() <= count(&before, c, *r));
+                let (won, gave) = (off(!owner, get), off(owner, give));
                 let net = diff(&settled) - diff(&before);
-                check(taken && net > 0, format!("taken {taken}, net {net:+} once the exchanges settle"))
+                check(won && gave && net.signum() == named.signum(), format!("won {won}, gave {gave}, net {net:+} once the exchanges settle"))
             }
             Trade { give, get } if give.is_empty() || get.is_empty() => fail("a side of the trade is empty"),
             Trade { give, get } => {
@@ -856,8 +871,15 @@ impl Ev {
                 let (a, f, k) = (sq(by), sq(front), sq(behind));
                 let between = attacks::between(a, k) & b.occupied();
                 let role = b.role_at(a);
-                check(mine(a) && theirs(f) && theirs(k) && role.is_some_and(|r| slider_line(r, a, k))
-                    && between == Bitboard::from(f), format!("no pin {by}-{front}-{behind}"))
+                if !(mine(a) && theirs(f) && theirs(k) && role.is_some_and(|r| slider_line(r, a, k)) && between == Bitboard::from(f)) {
+                    return fail(format!("no pin {by}-{front}-{behind}"));
+                }
+                // The king counts as most valuable. A pin: the piece behind is worth more. A skewer (or equal
+                // values): the piece behind falls once the front one moves, being undefended or worth the attacker.
+                let worth = |s: Square| match b.role_at(s) { Some(Role::King) => 100, Some(r) => val(r), None => 0 };
+                let defended = (attackers(p, k, !owner) & !Bitboard::from(f)).any();
+                check(worth(k) > worth(f) || !defended || worth(k) >= worth(a),
+                      format!("{behind} is defended and worth less than {by}: nothing to win"))
             }
             XRay { by, through, target } => {
                 let (a, t, z) = (sq(by), sq(through), sq(target));
@@ -949,10 +971,24 @@ impl Ev {
                 let wing = |c: Color| pawns(p, c).into_iter().filter(|s| (lo..=hi).contains(&(s.file() as u32))).count();
                 check(wing(owner) > wing(!owner), format!("{} vs {}", wing(owner), wing(!owner)))
             }
+            // The pawn on s, or the pawn that queens on s: it has promoted in the line, can promote now,
+            // or promotes along the engine's line within `PROMOTE_PLIES`.
             Promote(s) => {
                 let s = sq(s);
-                let can = every_mover(p, owner, |q| q.legal_moves().iter().any(|m| m.from() == Some(s) && m.promotion().is_some()));
-                check(mine(s) && rank(s, owner) == Rank::Seventh as u32 && can, format!("{s} cannot promote"))
+                let last = rank(s, owner) == Rank::Eighth as u32;
+                let promoted = last && mine(s) && cx.hist.iter().flatten().any(|m| m.to() == s && m.promotion().is_some());
+                let can = every_mover(p, owner, |q| q.legal_moves().iter().any(|m| m.promotion().is_some() && (m.from() == Some(s) || (last && m.to() == s))));
+                // The pawn named, or for a queening square the owner's most advanced pawn on its file.
+                let pawn = if mine(s) && b.role_at(s) == Some(Role::Pawn) { Some(s) } else if last {
+                    (b.by_color(owner) & b.by_role(Role::Pawn)).into_iter().filter(|t| t.file() == s.file()).max_by_key(|t| rank(*t, owner))
+                } else { None };
+                if promoted || can { ok() }
+                else if let Some(from) = pawn {
+                    match self.promotes_along(p, from) {
+                        None => unknown("no engine"),
+                        Some(at) => check(at.is_some_and(|at| at == s || !last), format!("the pawn on {from} does not promote in the engine's line")),
+                    }
+                } else { fail(format!("no pawn promotes on {s}")) }
             }
             Enables(line) if line.is_empty() => fail("no moves"),
             Enables(line) => self.enables(p, owner, line),
@@ -966,6 +1002,7 @@ impl Ev {
                 None => unknown("no engine"),
                 Some(s) => check(s >= WIN, format!("eval {s:+}")),
             },
+            Perpetual => self.perpetual(p, owner),
             Draw => match self.owner_score(p, owner) {
                 None => unknown("no engine"),
                 Some(s) => check(s.abs() <= DRAW, format!("eval {s:+}")),
@@ -1094,21 +1131,25 @@ impl Ev {
     /// for the opponent. Neither within `EVENTUALLY_PLIES`: unknown.
     fn faster(&mut self, a: &Reason, b: &Reason, cx: &Cx) -> Verdict {
         let Some((_, pv)) = self.eng.as_mut().map(|e| e.analyse(&cx.p)) else { return unknown("no engine") };
+        // The first ply at which each side's reason holds along the engine's line.
         let (mut q, mut prev) = (cx.p.clone(), cx.prev.clone());
+        let (mut first, mut second) = (None, None);
         for ply in 0..=EVENTUALLY_PLIES {
-            let mine = self.eval(a, &Cx::bare(q.clone(), prev.clone(), cx.owner)).v == V::Holds;
-            let theirs = self.eval(b, &Cx::bare(q.clone(), prev.clone(), !cx.owner)).v == V::Holds;
-            match (mine, theirs) {
-                (true, false) => return Verdict { v: V::Holds, why: format!("first, after {ply} plies") },
-                (false, true) => return fail(format!("the opponent's comes first, after {ply} plies")),
-                (true, true) => return fail(format!("both at once, after {ply} plies")),
-                _ => {}
-            }
+            if first.is_none() && self.eval(a, &Cx::bare(q.clone(), prev.clone(), cx.owner)).v == V::Holds { first = Some(ply) }
+            if second.is_none() && self.eval(b, &Cx::bare(q.clone(), prev.clone(), !cx.owner)).v == V::Holds { second = Some(ply) }
+            if first.is_some() && second.is_some() { break }
             let Some(m) = pv.get(ply).and_then(|u| u.parse::<UciMove>().ok()).and_then(|u| u.to_move(&q).ok()) else { break };
             prev = q.clone();
             q = q.play(m).unwrap();
         }
-        unknown("neither along the engine's line")
+        let at = |x: Option<usize>| x.map_or("not along the engine's line".to_string(), |n| format!("after {n} plies"));
+        let why = format!("the owner's {}, the opponent's {}", at(first), at(second));
+        match (first, second) {
+            (Some(x), Some(y)) if x < y => Verdict { v: V::Holds, why },
+            (Some(_), None) => Verdict { v: V::Holds, why },
+            (None, None) => unknown(why),
+            _ => fail(why),
+        }
     }
 
     /// The side to move is in zugzwang: passing, once or at every turn, is worth `INACCURACY` more
@@ -1233,21 +1274,22 @@ impl Ev {
             match part {
                 Not(_) | Rated(_) => {}
                 Allows(line, r) if mentions(r, "Mate") => { let _ = line; return ok(); }
-                Allows(line, r) if mentions(r, "WinMaterial") => {
+                Allows(line, r) if mentions(r, "Material") => {
                     let Ok(end) = play(&cx.p, None, line) else { continue };
                     let Some(n) = self.net(&cx.p, &end, !owner) else { return unknown("no engine") };
                     v -= n;
                     material_named = true;
                 }
-                Instead(m, inner) if mentions(inner, "WinMaterial") => {
+                Instead(m, inner) if mentions(inner, "Material") => {
                     let (line, who): (&[Move_], Color) = match &**inner {
                         After(l, _) => (l, owner),
                         Allows(l, _) => (l, !owner),
                         _ => (&[], owner),
                     };
+                    // Counted from before m, so what m itself takes counts.
                     let Ok(start) = play(&cx.prev, None, &[m]) else { continue };
                     let Ok(end) = play(&start, None, line) else { continue };
-                    let Some(n) = self.net(&start, &end, who) else { return unknown("no engine") };
+                    let Some(n) = self.net(&cx.prev, &end, who) else { return unknown("no engine") };
                     // The owner missed what it would have won, or would have lost only this.
                     if who == owner { v -= n } else { v += n }
                     material_named = true;
@@ -1257,7 +1299,70 @@ impl Ev {
         }
         if !material_named { return ok(); }
         let why = format!("the material it names nets the mover {v:+} pawns, not a loss");
-        if v < 0 { ok() } else if other { unknown(why) } else { fail(why) }
+        // A named gain for the mover cannot explain a loss, whatever else the reason says.
+        if v < 0 { ok() } else if v > 0 || !other { fail(why) } else { unknown(why) }
+    }
+
+    /// `Perpetual`: the engine's line from `p`, searched again at its end until `PERPETUAL_PLIES`: every owner
+    /// move checks, a position repeats, and the owner's score is within `DRAW` of 0.
+    fn perpetual(&mut self, p: &Chess, owner: Color) -> Verdict {
+        let Some(score) = self.owner_score(p, owner) else { return unknown("no engine") };
+        if score.abs() > DRAW { return fail(format!("eval {score:+}, not level")); }
+        let key = |q: &Chess| (q.board().clone(), q.turn());
+        let (mut q, mut seen, mut plies) = (p.clone(), vec![key(p)], 0);
+        while plies < PERPETUAL_PLIES {
+            let Some((_, pv)) = self.eng.as_mut().map(|e| e.analyse(&q)) else { return unknown("no engine") };
+            if pv.is_empty() { break; }
+            for u in &pv {
+                let Some(m) = u.parse::<UciMove>().ok().and_then(|u| u.to_move(&q).ok()) else { break };
+                let next = q.clone().play(m.clone()).unwrap();
+                if q.turn() == owner && !next.is_check() { return fail(format!("{} is no check", San::from_move(&q, m))); }
+                q = next;
+                plies += 1;
+                if seen.contains(&key(&q)) { return ok(); }
+                seen.push(key(&q));
+                if plies >= PERPETUAL_PLIES { break; }
+            }
+        }
+        fail(format!("no repetition within {PERPETUAL_PLIES} plies"))
+    }
+
+    /// `r`, with its squares following their pieces, after `plies` of the engine's line from `cx.p`.
+    /// None without an engine line.
+    fn along(&mut self, r: &Reason, cx: &Cx, plies: usize) -> Option<Verdict> {
+        let p = &cx.p;
+        let (_, pv) = self.eng.as_mut()?.analyse(p);
+        let outer = TRACK.with(|t| *t.borrow());
+        let mut map = outer.unwrap_or(std::array::from_fn(|i| Some(Square::new(i as u32))));
+        let mut q = p.clone();
+        for u in pv.iter().take(plies) {
+            let Ok(m) = u.parse::<UciMove>().map_err(|_| ()).and_then(|u| u.to_move(&q).map_err(|_| ())) else { break };
+            track(&mut map, &m);
+            q = q.play(m).unwrap();
+        }
+        if q.board() == p.board() { return None; }
+        TRACK.with(|t| *t.borrow_mut() = Some(map));
+        GONE.set(false);
+        let v = self.eval(r, &Cx::bare(q, p.clone(), cx.owner));
+        let gone = GONE.replace(false);
+        TRACK.with(|t| *t.borrow_mut() = outer);
+        Some(if gone { fail("the piece is captured along the line") } else { v })
+    }
+
+    /// The pawn on `s` promotes within `PROMOTE_PLIES` of the engine's line from `p`.
+    /// Where it promotes, if it does.
+    fn promotes_along(&mut self, p: &Chess, s: Square) -> Option<Option<Square>> {
+        let (_, pv) = self.eng.as_mut()?.analyse(p);
+        let (mut q, mut at) = (p.clone(), s);
+        for u in pv.iter().take(PROMOTE_PLIES) {
+            let Some(m) = u.parse::<UciMove>().ok().and_then(|u| u.to_move(&q).ok()) else { break };
+            if m.from() == Some(at) {
+                if m.promotion().is_some() { return Some(Some(m.to())) }
+                at = m.to();
+            } else if m.to() == at { return Some(None) }
+            q = q.play(m).unwrap();
+        }
+        Some(None)
     }
 
     /// The position after the first `n` moves of the engine's line from `p`.
