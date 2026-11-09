@@ -362,7 +362,6 @@ impl Rx {
             Region::Centre => "the centre".into(),
             Region::GreaterCentre => "the greater centre".into(),
             Region::Half { opponent } => format!("{}'s half", side(self.who(*opponent))),
-            Region::KingWing { opponent } => format!("{}'s castled side", side(self.who(*opponent))),
             Region::KingZone { opponent } => format!("the squares around {}'s king", side(self.who(*opponent))),
             Region::Line(a, b) => line_name(a, b),
         }

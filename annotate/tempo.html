@@ -57,7 +57,7 @@
 </head>
 <body>
   <header>
-    <h1>Tempo examples</h1>
+    <h1 id="title"></h1>
     <button id="prev" aria-label="Previous">&larr;</button>
     <span id="pos"></span>
     <button id="next" aria-label="Next">&rarr;</button>
@@ -80,9 +80,19 @@ import { Chessground } from './vendor/chessground/chessground.min.js';
 const $ = id => document.getElementById(id);
 const el = (tag, props = {}) => Object.assign(document.createElement(tag), props);
 const ground = Chessground($('board'), {coordinates: true, viewOnly: true, drawable: {enabled: false}, animation: {enabled: false}});
-const VOTES = [['wrong', 'Wrong'], ['irrelevant', "Doesn't explain"], ['partial', 'Part of the explanation'], ['correct', 'Correct']];
+// The example set is the page's path: /tempo votes on the claim, /kingzone and /initiative on the label.
+const SET = location.pathname.slice(1) || 'tempo';
+const CONF = {
+  tempo: {title: 'Tempo examples', votes: [['wrong', 'Wrong'], ['irrelevant', "Doesn't explain"], ['partial', 'Part of the explanation'], ['correct', 'Correct']]},
+  kingzone: {title: 'King safety', votes: [['safe', 'King safe'], ['unsafe', 'King unsafe']], labels: ['king safe', 'king unsafe']},
+  initiative: {title: 'Initiative', votes: [['none', 'No initiative'], ['initiative', 'Initiative']], labels: ['no initiative', 'initiative']},
+}[SET];
+const VOTES = CONF.votes;
+document.title = `${CONF.title} · xai-chess`;
+$('title').textContent = CONF.title;
+const post = (what, body) => fetch(`/api/${SET}/${what}`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
 
-const {examples, votes} = await (await fetch('/api/tempo')).json();
+const {examples, votes} = await (await fetch(`/api/${SET}`)).json();
 const checked = {};  // id -> the verifier's answer, fetched once per page load
 let i = Math.max(0, examples.findIndex(x => x.id === new URLSearchParams(location.search).get('id')));
 
@@ -93,36 +103,55 @@ function show(){
   ground.setAutoShapes([{orig: mv.from, dest: mv.to, brush: 'blue'}]);
   const n = x.fen.split(' ')[5];
   $('head').textContent = `${n}${side === 'w' ? '.' : '...'}${x.mov}`;
-  $('src').textContent = x.source;
   $('intent').textContent = x.english;
-  const [old, skip] = x.variants.map(v => card(v.name, v.dsl, v.v === "doesn't fit" ? 'fit' : v.v, v.why ? `${v.v}: ${v.why}` : v.v));
-  $('variants').replaceChildren(old, card('Free moves', x.dsl, 'cur'), skip);
+  if (x.claims) {
+    // Every claim is checked by the verifier; the label is what the vote is about.
+    $('src').textContent = `${x.source} · labelled ${CONF.labels[x.expect === 'holds' ? 1 : 0]}`;
+    // Each claim, then the candidate definitions on it (computed offline). An example counts as
+    // accepted by a definition when any of its claims holds under it.
+    const pos = examples.filter(e => e.expect === 'holds');
+    // A claim with a mode (Loses against the best move) is not in the verifier: only its definitions are shown.
+    const head = (c, k) => c.mode ? el('h3', {textContent: c.name, style: 'margin:1.2rem 0 .5rem'}) : card(c.name, c.dsl, 'cur', 'Checking…', k);
+    const cards = x.claims.flatMap((c, k) => [head(c, k), ...(c.defs || []).map((d, j) => {
+      const accepted = pos.filter(e => e.claims.some(ec => ec.defs[j].v === 'holds')).length;
+      const box = el('div', {className: 'var'});
+      box.append(el('h3', {textContent: `${d.name} · accepts ${accepted} of ${pos.length} with initiative`}),
+        el('p', {className: 'rendered', textContent: d.rule}),
+        el('p', {className: 'verdict ' + d.v, textContent: `${d.v}: ${d.why}`}));
+      return box;
+    })]);
+    $('variants').replaceChildren(...cards);
+    x.claims.forEach((c, k) => c.mode || verdict(x, c.dsl, k));
+  } else {
+    $('src').textContent = x.source;
+    const [old, skip] = x.variants.map(v => card(v.name, v.dsl, v.v === "doesn't fit" ? 'fit' : v.v, v.why ? `${v.v}: ${v.why}` : v.v));
+    $('variants').replaceChildren(old, card('Free moves', x.dsl, 'cur', 'Checking…', 0), skip);
+    verdict(x, x.dsl, 0);
+  }
   $('pos').textContent = `${i + 1} / ${examples.length}`;
   $('prev').disabled = i === 0;
   $('next').disabled = i === examples.length - 1;
   drawVotes();
-  verdict(x);
 }
 
 // One definition's claim; Free moves is checked by the verifier, the old verdict is recorded, Skippable move is judged by hand.
-function card(name, dsl, cls, text = 'Checking…'){
+function card(name, dsl, cls, text = 'Checking…', k = 0){
   const cur = cls === 'cur', box = el('div', {className: 'var'});
   box.append(el('h3', {textContent: name}), el('code', {textContent: dsl}),
-    el('p', {className: 'rendered', ...(cur && {id: 'rendered'})}),
-    el('p', {className: 'verdict ' + (cur ? 'wait' : cls), textContent: text, ...(cur && {id: 'verdict'})}));
+    el('p', {className: 'rendered', ...(cur && {id: 'rendered' + k})}),
+    el('p', {className: 'verdict ' + (cur ? 'wait' : cls), textContent: text, ...(cur && {id: 'verdict' + k})}));
   return box;
 }
 
-async function verdict(x){
-  if (!checked[x.id]) {
-    checked[x.id] = await (await fetch('/api/tempo/check', {method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({fen: x.fen, mov: x.mov, dsl: x.dsl})})).json();
-  }
+// The verifier's answer for one claim, fetched once per page load.
+async function verdict(x, dsl, k){
+  const key = x.id + '\n' + dsl;
+  if (!checked[key]) checked[key] = await (await post('check', {fen: x.fen, mov: x.mov, dsl})).json();
   if (examples[i] !== x) return;
-  const r = checked[x.id];
-  $('rendered').textContent = r.english || '';
-  $('verdict').className = 'verdict ' + (r.error ? 'error' : r.v);
-  $('verdict').textContent = r.error ? r.error : r.v + (r.why ? `: ${r.why}` : '');
+  const r = checked[key];
+  $('rendered' + k).textContent = r.english || '';
+  $('verdict' + k).className = 'verdict ' + (r.error ? 'error' : r.v);
+  $('verdict' + k).textContent = r.error ? r.error : r.v + (r.why ? `: ${r.why}` : '');
 }
 
 // Clicking the chosen vote again clears it; choosing one moves on.
@@ -133,8 +162,7 @@ function drawVotes(){
     b.setAttribute('aria-pressed', votes[id] === v);
     b.onclick = async () => {
       const vote = votes[id] === v ? null : v;
-      const r = await fetch('/api/tempo/vote', {method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({id, vote})});
+      const r = await post('vote', {id, vote});
       if (!r.ok) return;
       if (vote) votes[id] = vote; else delete votes[id];
       drawVotes();

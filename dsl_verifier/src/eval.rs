@@ -6,8 +6,8 @@
 //! Caveats:
 //! - `Because(a, b)` holds when `a` and `b` both hold. Under `Rated(Dubious/Mistake/Blunder)` the material `b`
 //!   names must net the mover a loss; a named gain fails (`explains`). Otherwise that `b` causes `a` is not checked.
-//! - Under `Instead(m, ..)` material counts from before m, so what m itself takes counts.
-//! - `Outweighs(a, b)` and `Balances(a, b)` hold when both hold. The weighing is not checked.
+//! - `Material` counts from before the annotated move (before m under `Instead(m, ..)`), so what that move takes counts.
+//! - `Outweighs(a, b)` and `Balances(a, b)`: a and b point opposite ways for the owner (`polarity`); the weighing is not checked.
 //! - `Mate` holds on a mate on the board or the engine's forced mate for the owner.
 //! - `Promote(s)` follows the engine's line `PROMOTE_PLIES` ahead. `Pin` needs something to win behind the front piece.
 //! - `Quality` is the eval minus the median eval with the piece on its other safe squares (`relocated`); `Better` compares that.
@@ -17,7 +17,7 @@
 //! - `But(a, b)`: a and b point opposite ways for the owner (`polarity`).
 //! - `Zugzwang` and `Faster` are measured by passing (`zugzwang`, `faster`).
 //! - `Tempo(moves)` counts the opponent's moves since the position before the annotated move (`tempo`).
-//! - Lines in `After` and `Allows` must be best play: each move within `LINE_MARGIN` of its mover's best.
+//! - Lines in `After` and `Allows` must be best play: each move within `LINE_MARGIN` of its mover's best, widening to `LINE_MARGIN_EDGE` in decided positions.
 //! - `Prevents`, `Loses`, `Gains` and `Concedes` compare with the position before the enclosing move or line.
 
 #![cfg_attr(target_arch = "wasm32", allow(unused_imports, dead_code))]
@@ -43,6 +43,9 @@ const ONLY_MARGIN: i32 = 30;
 
 // Thresholds in centipawns, set leniently: a comment's claim should hold unless the board clearly disagrees.
 const WIN: i32 = 200;
+/// `Pressure` on a king: the attack measure (`king_attack`) it needs, and how far along the engine's line it may come.
+const KING_PRESSURE: i32 = 8;
+const KING_PLIES: usize = 8;
 /// `Promote`: how far along the engine's line the pawn may queen.
 const PROMOTE_PLIES: usize = 20;
 /// `Permanent` for reasons other than pawn structure: how far along the engine's line they must still hold.
@@ -69,7 +72,10 @@ const GRADE_MARGIN: f64 = 0.04;
 const BRILLIANT_WINNING: f64 = 0.8;
 const BRILLIANT_BAD: f64 = 0.2;
 /// Each move of a line in `After` and `Allows` may lose at most this many winning chances against its mover's best move.
-const LINE_MARGIN: f64 = INACCURACY;
+/// `LINE_MARGIN` in a level position; it widens linearly to `LINE_MARGIN_EDGE` as the best move's winning
+/// chances approach ±1, where a move costs little in winning chances that matter.
+const LINE_MARGIN: f64 = 0.15;
+const LINE_MARGIN_EDGE: f64 = 0.3;
 
 /// `Because(Rated(..), b)`: the material `b` names must explain at least this share of the winning chances lost.
 
@@ -197,12 +203,59 @@ fn fen(p: &Chess) -> String { Fen::from_position(p, EnPassantMode::Legal).to_str
 /// The king whose zone or wing `r` is: it does not count among the defenders of its own surroundings.
 fn zone_king(r: &Region, p: &Chess, owner: Color) -> Bitboard {
     match r {
-        Region::KingZone { opponent } | Region::KingWing { opponent } => {
+        Region::KingZone { opponent } => {
             let c = if *opponent { !owner } else { owner };
             p.board().kings() & p.board().by_color(c)
         }
         _ => Bitboard::EMPTY,
     }
+}
+
+/// How hard `owner` attacks the other king (CPW attack units): N and B 2, R 3, Q 5 for each piece aimed at
+/// the king's ring (the king's 3x3, moved off the edge), 1 per ring square the owner hits that only the king
+/// or queen defends, 2 per safe check. 0 with fewer than two pieces aimed; 99 when mated.
+fn king_attack(p: &Chess, owner: Color) -> i32 {
+    let them = !owner;
+    if p.is_checkmate() && p.turn() == them { return 99; }
+    let b = p.board();
+    let Some(k) = b.king_of(them) else { return 0 };
+    let c = Square::from_coords(shakmaty::File::new(k.file() as u32).min(shakmaty::File::G).max(shakmaty::File::B),
+                                shakmaty::Rank::new(k.rank() as u32).min(Rank::Seventh).max(Rank::Second));
+    let ring = attacks::king_attacks(c) | Bitboard::from(c);
+    let pieces = (b.knights() | b.bishops() | b.rooks() | b.queens()) & b.by_color(owner);
+    let aimed = ring.into_iter().fold(Bitboard::EMPTY, |acc, s| acc | (attackers(p, s, owner) & pieces));
+    if aimed.count() < 2 { return 0; }
+    let units: i32 = aimed.into_iter().map(|s| match b.role_at(s) { Some(Role::Queen) => 5, Some(Role::Rook) => 3, _ => 2 }).sum();
+    let guards = !(b.kings() | b.queens());
+    let weak = ring.into_iter().filter(|s| attackers(p, *s, owner).any() && (attackers(p, *s, them) & guards).is_empty()).count() as i32;
+    let checks = as_mover(p, owner).map_or(0, |q| q.legal_moves().into_iter()
+        .filter(|m| attackers(p, m.to(), them).is_empty() && q.clone().play(m.clone()).unwrap().is_check()).count() as i32);
+    units + weak + 2 * checks
+}
+
+/// Attackers minus defenders at the other king, the rule of thumb behind "decisive": the owner's N, B, R and Q
+/// aimed at the king's ring (through the owner's own sliders, so a battery counts twice), against the defender's
+/// N, B, R and Q within two squares of its king, plus 1 for an intact shelter (a pawn on each square directly in
+/// front of the king). Other pawns do not count.
+fn king_count(p: &Chess, owner: Color) -> i32 {
+    let them = !owner;
+    let b = p.board();
+    let Some(k) = b.king_of(them) else { return 0 };
+    let c = Square::from_coords(shakmaty::File::new(k.file() as u32).min(shakmaty::File::G).max(shakmaty::File::B),
+                                shakmaty::Rank::new(k.rank() as u32).min(Rank::Seventh).max(Rank::Second));
+    let ring = attacks::king_attacks(c) | Bitboard::from(c);
+    let pieces = |col: Color| (b.knights() | b.bishops() | b.rooks() | b.queens()) & b.by_color(col);
+    let sliders = (b.bishops() | b.rooks() | b.queens()) & b.by_color(owner);
+    let aimed = pieces(owner).into_iter().filter(|s| {
+        let occ = b.occupied() & !(sliders & !Bitboard::from(*s));
+        let piece = b.piece_at(*s).unwrap();
+        (attacks::attacks(*s, piece, occ) & ring).any()
+    }).count() as i32;
+    let defenders = pieces(them).into_iter().filter(|s| s.distance(k) <= 2).count() as i32;
+    let front = k.rank() as i32 + if them.is_white() { 1 } else { -1 };
+    let intact = (0..8).contains(&front) && (k.file() as i32 - 1..=k.file() as i32 + 1).filter(|f| (0..8).contains(f))
+        .all(|f| pawns(p, them).contains(Square::from_coords(shakmaty::File::new(f as u32), Rank::new(front as u32))));
+    aimed - defenders - intact as i32
 }
 
 /// Pass if `c` is not to move. None when that side is in check.
@@ -358,7 +411,7 @@ fn weakened(p: &Chess, s: Square, c: Color) -> bool {
 /// No pawn of `c` can ever guard `s`.
 fn hole(p: &Chess, s: Square, c: Color) -> bool { (pawns(p, c) & adjacent_files(s) & behind(s, c)).is_empty() }
 
-/// The squares of `r` for `owner`. Fails for `KingWing` while that king is on the d- or e-file.
+/// The squares of `r` for `owner`.
 fn region(r: &Region, p: &Chess, owner: Color) -> Result<Vec<Square>, String> {
     let files = |fs: std::ops::RangeInclusive<u32>| Bitboard::FULL.into_iter().filter(|s| fs.contains(&(s.file() as u32))).collect::<Vec<_>>();
     let box_ = |lo: u32, hi: u32| Bitboard::FULL.into_iter().filter(|s| (lo..=hi).contains(&(s.file() as u32)) && (lo..=hi).contains(&(s.rank() as u32))).collect();
@@ -373,14 +426,6 @@ fn region(r: &Region, p: &Chess, owner: Color) -> Result<Vec<Square>, String> {
         Region::Half { opponent } => {
             let c = side(*opponent);
             Bitboard::FULL.into_iter().filter(|s| rank(*s, c) <= 3).collect()
-        }
-        Region::KingWing { opponent } => {
-            let k = p.board().king_of(side(*opponent)).ok_or("no king")?;
-            match k.file() as u32 {
-                5..=7 => files(5..=7),
-                0..=2 => files(0..=2),
-                _ => return Err(format!("king on {k} is on neither wing")),
-            }
         }
         Region::KingZone { opponent } => {
             let k = p.board().king_of(side(*opponent)).ok_or("no king")?;
@@ -527,7 +572,8 @@ struct Cx {
     /// `hist` from `start` (None: a pass) reaches `p`; `Tempo` counts the moves in it.
     start: Chess,
     hist: Vec<Option<Move>>,
-    /// Under `Instead(m, ..)`: the position before m. `Material` counts from here, so what m takes counts.
+    /// The position before the annotated move, or before m under `Instead(m, ..)`. `Material` counts from
+    /// here, so what that move itself takes counts.
     base: Option<Chess>,
 }
 
@@ -605,8 +651,21 @@ impl Ev {
         self.root = root.clone();
         self.claims.clear();
         self.played = root.clone().play(mov.clone()).unwrap();
-        let cx = Cx { p: self.played.clone(), prev: root.clone(), owner: root.turn(), start: root.clone(), hist: vec![Some(mov.clone())], base: None };
+        let cx = Cx { p: self.played.clone(), prev: root.clone(), owner: root.turn(), start: root.clone(), hist: vec![Some(mov.clone())], base: Some(root.clone()) };
         self.eval(reason, &cx)
+    }
+
+    /// The highest `king_attack` and `king_count` over the engine's line from `p`, `KING_PLIES` long.
+    fn king_line(&mut self, p: &Chess, owner: Color) -> Option<(i32, i32)> {
+        let (_, pv) = self.eng.as_mut()?.analyse(p);
+        let (mut q, mut best, mut margin) = (p.clone(), 0, i32::MIN);
+        for k in 0..=KING_PLIES {
+            best = best.max(king_attack(&q, owner));
+            margin = margin.max(king_count(&q, owner));
+            let Some(m) = pv.get(k).and_then(|u| u.parse::<UciMove>().ok()).and_then(|u| u.to_move(&q).ok()) else { break };
+            q = q.play(m).unwrap();
+        }
+        Some((best, margin))
     }
 
     fn owner_score(&mut self, p: &Chess, owner: Color) -> Option<i32> {
@@ -765,8 +824,7 @@ impl Ev {
                     _ => fail("no contrast: both parts point the same way"),
                 }
             }
-            // a is the owner's, b the opponent's. They must point opposite ways for the owner, and the engine's
-            // score must side with a (`Outweighs`) or be level within `DRAW` (`Balances`).
+            // a is the owner's, b the opponent's: they must point opposite ways for the owner (sign only).
             Outweighs(a, b2) | Balances(a, b2) => {
                 let vb = self.eval(b2, &Cx { owner: !owner, ..cx.clone() });
                 let v = all([self.eval(a, cx), vb]);
@@ -775,13 +833,7 @@ impl Ev {
                 let theirs = |s: Sq| mine(s).map(|m| !m);
                 let (pa, pb) = (polarity(a, &mine), -polarity(b2, &theirs));
                 if pa == 0 || pb == 0 { return unknown("a part is neither for nor against the owner"); }
-                if pa * pb > 0 { return fail("both parts point the same way"); }
-                let Some(score) = self.owner_score(p, owner) else { return unknown("no engine") };
-                if matches!(node, Balances(..)) {
-                    check(score.abs() <= DRAW, format!("eval {score:+}, not level"))
-                } else {
-                    check(score * pa > 0, format!("eval {score:+} does not side with the first part"))
-                }
+                check(pa * pb < 0, "both parts point the same way")
             }
             Permanent(r) => {
                 let v = self.eval(r, cx);
@@ -898,6 +950,14 @@ impl Ev {
                 let (own, opp) = (attackers(p, s, owner), attackers(p, s, !owner));
                 check(own.any() && ((own & b.pawns()).any() || own.count() + 1 >= opp.count()), format!("{s}: {} vs {}", own.count(), opp.count()))
             }).collect::<Vec<_>>()),
+            // On a king: the attack measure along the engine's line. The count (`king_count`) is reported only.
+            Pressure(r @ Region::KingZone { .. }) => {
+                let them = if matches!(r, Region::KingZone { opponent: true }) { !owner } else { owner };
+                if them == owner { return fail("pressure on the owner's own king"); }
+                let Some((best, margin)) = self.king_line(p, owner) else { return unknown("no engine") };
+                let why = format!("attack {best} (needs {KING_PRESSURE}), {margin:+} attackers over defenders");
+                if best < KING_PRESSURE { fail(why) } else { Verdict { v: V::Holds, why } }
+            }
             Pressure(r) => {
                 let ss = match region(r, p, owner) { Err(e) => return fail(e), Ok(ss) => ss };
                 let attackers = |p: &Chess, s: Square, c: Color| attackers(p, s, c) & !zone_king(r, p, owner);
@@ -1002,7 +1062,7 @@ impl Ev {
                 None => unknown("no engine"),
                 Some(s) => check(s >= WIN, format!("eval {s:+}")),
             },
-            Perpetual => self.perpetual(p, owner),
+            Perpetual => self.perpetual(cx, owner),
             Draw => match self.owner_score(p, owner) {
                 None => unknown("no engine"),
                 Some(s) => check(s.abs() <= DRAW, format!("eval {s:+}")),
@@ -1010,7 +1070,7 @@ impl Ev {
             // Needs the stuck side to pass repeatedly, not once.
             Zugzwang => self.zugzwang(p),
             Simplify => self.simplify(cx),
-            Initiative => self.initiative(p, owner),
+            Initiative => self.initiative(cx, owner),
             Tempo(free) => self.tempo(cx, free),
 
             // ---------------------------------------------------------------- tier 3: heuristics
@@ -1276,7 +1336,8 @@ impl Ev {
                 Allows(line, r) if mentions(r, "Mate") => { let _ = line; return ok(); }
                 Allows(line, r) if mentions(r, "Material") => {
                     let Ok(end) = play(&cx.p, None, line) else { continue };
-                    let Some(n) = self.net(&cx.p, &end, !owner) else { return unknown("no engine") };
+                    // Counted from before the move, so what the move itself takes counts.
+                    let Some(n) = self.net(&cx.prev, &end, !owner) else { return unknown("no engine") };
                     v -= n;
                     material_named = true;
                 }
@@ -1303,13 +1364,32 @@ impl Ev {
         if v < 0 { ok() } else if v > 0 || !other { fail(why) } else { unknown(why) }
     }
 
+    /// The owner's annotated move (or m under `Instead(m, ..)`) and the position before it, when it is the last
+    /// move played to reach `cx.p` (also under `Allows([], ..)`): line checks walk it as their first ply.
+    /// None after the moves of an `After`/`Allows` line and on the before side of `Loses`.
+    fn lead(cx: &Cx, owner: Color) -> Option<(Chess, Move)> {
+        let b = cx.base.as_ref()?;
+        let (last, rest) = cx.hist.split_last()?;
+        let m = last.clone()?;
+        let before = replay(&cx.start, rest)?;
+        if before.board() != b.board() || before.turn() != b.turn() || before.turn() != owner { return None; }
+        let after = before.clone().play(m.clone()).ok()?;
+        if after.board() != cx.p.board() || after.turn() != cx.p.turn() { return None; }
+        Some((before, m))
+    }
+
     /// `Perpetual`: the engine's line from `p`, searched again at its end until `PERPETUAL_PLIES`: every owner
-    /// move checks, a position repeats, and the owner's score is within `DRAW` of 0.
-    fn perpetual(&mut self, p: &Chess, owner: Color) -> Verdict {
-        let Some(score) = self.owner_score(p, owner) else { return unknown("no engine") };
-        if score.abs() > DRAW { return fail(format!("eval {score:+}, not level")); }
+    /// move checks and a position repeats.
+    fn perpetual(&mut self, cx: &Cx, owner: Color) -> Verdict {
+        let p = &cx.p;
         let key = |q: &Chess| (q.board().clone(), q.turn());
         let (mut q, mut seen, mut plies) = (p.clone(), vec![key(p)], 0);
+        // The annotated move is the line's first ply: it must check too, and a return to before it repeats.
+        if let Some((before, m)) = Self::lead(cx, owner) {
+            if !p.is_check() { return fail(format!("{} is no check", San::from_move(&before, m))); }
+            seen.insert(0, key(&before));
+            plies = 1;
+        }
         while plies < PERPETUAL_PLIES {
             let Some((_, pv)) = self.eng.as_mut().map(|e| e.analyse(&q)) else { return unknown("no engine") };
             if pv.is_empty() { break; }
@@ -1400,10 +1480,11 @@ impl Ev {
         for m in line {
             if *m == "--" { q = q.swap_turn().ok()?; continue; }
             let next = q.clone().play(san(&q, m).ok()?).ok()?;
-            let (lost, top) = self.loss(&q, &next)?;
+            let (lost, top, best) = self.loss(&q, &next)?;
             let top = top.map_or("?".to_string(), |b| San::from_move(&q, b).to_string());
-            if lost > LINE_MARGIN {
-                return Some(fail(format!("{m} is not the best play: {top} is {lost:.3} winning chances better")));
+            let margin = LINE_MARGIN + (LINE_MARGIN_EDGE - LINE_MARGIN) * best.abs();
+            if lost > margin {
+                return Some(fail(format!("{m} is not the best play: {top} is {lost:.3} winning chances better (margin {margin:.2})")));
             }
             q = next;
         }
@@ -1412,16 +1493,17 @@ impl Ev {
 
     /// Winning chances the move from `prev` to `next` loses against the engine's best move there, and
     /// that move. Both positions after a move are searched alike, so the best move itself loses 0.
-    fn loss(&mut self, prev: &Chess, next: &Chess) -> Option<(f64, Option<Move>)> {
-        let (_, pv) = self.eng.as_mut()?.analyse(prev);
+    /// Also the best move's winning chances for the mover.
+    fn loss(&mut self, prev: &Chess, next: &Chess) -> Option<(f64, Option<Move>, f64)> {
+        let (s, pv) = self.eng.as_mut()?.analyse(prev);
         let Some(top) = pv.first().and_then(|u| u.parse::<UciMove>().ok()).and_then(|u| u.to_move(prev).ok()) else {
-            return Some((0.0, None));
+            return Some((0.0, None, chances(s)));
         };
         let best = prev.clone().play(top.clone()).ok()?;
-        if best.board() == next.board() && best.turn() == next.turn() { return Some((0.0, Some(top))); }
+        if best.board() == next.board() && best.turn() == next.turn() { return Some((0.0, Some(top), chances(s))); }
         let b = -self.eng.as_mut()?.analyse(&best).0;
         let n = -self.eng.as_mut()?.analyse(next).0;
-        Some(((chances(b) - chances(n)).max(0.0), Some(top)))
+        Some(((chances(b) - chances(n)).max(0.0), Some(top), chances(b)))
     }
 
     /// The owner's best score in `prev` over the moves that do not lead to `not`.
@@ -1484,29 +1566,86 @@ impl Ev {
         }
     }
 
-    /// Two of the owner's first three moves in the engine line are checks, captures or attacks on a bigger or loose piece.
-    fn initiative(&mut self, p: &Chess, owner: Color) -> Verdict {
+    /// Along the whole engine line (the annotated move first, when it is the owner's) the owner's first forcing
+    /// move comes before the opponent's, or from the owner's first forcing move on the owner plays more forcing
+    /// moves than the opponent. Forcing: see `forcing`. A check that gains nothing is hollow when the reply is
+    /// forcing; otherwise it counts only if the same side's next move is forcing. The annotated move must itself be
+    /// forcing, not a hollow check, and followed by a forcing move of the owner's: a quiet move can't take the initiative.
+    fn initiative(&mut self, cx: &Cx, owner: Color) -> Verdict {
+        let lead = Self::lead(cx, owner);
         let Some(eng) = self.eng.as_mut() else { return unknown("no engine") };
-        let (_, pv) = eng.analyse(p);
-        let mut q = p.clone();
-        let (mut mine, mut forcing) = (0, 0);
-        for u in pv {
-            let Ok(m) = u.parse::<UciMove>().map_err(|_| ()).and_then(|u| u.to_move(&q).map_err(|_| ())) else { break };
+        let (_, pv) = eng.analyse(&cx.p);
+        // The move before the line's first ply, for recaptures.
+        let (mut q, mut last) = match &lead {
+            Some((b, _)) => (b.clone(), None),
+            None => (cx.p.clone(), cx.hist.last().cloned().flatten().filter(|_| replay(&cx.start, &cx.hist).is_some_and(|z| z.board() == cx.p.board()))),
+        };
+        // Per ply: the owner's, forcing, check, gains something besides the check.
+        let (mut own, mut f, mut chk, mut gain) = (vec![], vec![], vec![], vec![]);
+        let line = lead.as_ref().map(|(_, m)| m.clone()).into_iter().map(Ok).chain(pv.into_iter().map(Err));
+        for u in line {
+            let m = match u { Ok(m) => m, Err(u) => match u.parse::<UciMove>().ok().and_then(|u| u.to_move(&q).ok()) { Some(m) => m, None => break } };
             let next = q.clone().play(m.clone()).unwrap();
-            if q.turn() == owner {
-                let hits = next.board().attacks_from(m.to()) & next.board().by_color(!owner);
-                let threat = hits.into_iter().any(|t| {
-                    let r = next.board().role_at(t).unwrap();
-                    r != Role::King && (val(r) > val(m.role()) || attackers(&next, t, !owner).is_empty())
-                });
-                if m.is_capture() || next.is_check() || threat { forcing += 1; }
-                mine += 1;
-                if mine == 3 { break; }
-            }
+            let rec = m.is_capture() && last.as_ref().is_some_and(|l: &Move| l.is_capture() && l.to() == m.to());
+            own.push(q.turn() == owner);
+            f.push(forcing(&q, &m, &next, rec));
+            chk.push(next.is_check());
+            gain.push((m.is_capture() && !rec) || hits(&q, &m, &next));
+            last = Some(m);
             q = next;
         }
-        check(forcing >= 2, format!("{forcing} of {mine} forcing"))
+        let n = f.len();
+        let raw = f.clone();
+        for i in (0..n).rev() {
+            if !chk[i] || gain[i] { continue; }
+            if i + 1 < n && f[i + 1] { f[i] = false } else if i + 2 < n { f[i] = f[i + 2] }
+        }
+        if let Some((before, m)) = &lead {
+            let s = San::from_move(before, m.clone());
+            if !raw[0] { return fail(format!("{s} is quiet: a quiet move can't itself take the initiative")); }
+            if chk[0] && !gain[0] && ((n > 1 && f[1]) || (n > 2 && !f[2])) { return fail(format!("{s} is a hollow check")); }
+            if n > 2 && !f[2] { return fail(format!("{s} is hollow: the owner's next move is not forcing")); }
+        }
+        let Some(first) = (0..n).find(|&i| f[i]) else { return fail(format!("no forcing move in {n} plies")) };
+        if own[first] { return Verdict { v: V::Holds, why: format!("owner forces first, ply {} of {n}", first + 1) }; }
+        let Some(start) = (0..n).find(|&i| own[i] && f[i]) else { return fail(format!("opponent forces first, ply {} of {n}; the owner never forces", first + 1)) };
+        let me = (start..n).filter(|&i| own[i] && f[i]).count();
+        let them = (start..n).filter(|&i| !own[i] && f[i]).count();
+        let why = format!("opponent forces first, ply {} of {n}; from the owner's first forcing move: {me} against {them}", first + 1);
+        Verdict { v: if me > them { V::Holds } else { V::Fails }, why }
     }
+}
+
+/// Where the moved piece lands (the king's square for a castle).
+fn dest(q: &Chess, m: &Move) -> Square {
+    match m {
+        Move::Castle { king, rook } => (if rook.file() > king.file() { CastlingSide::KingSide } else { CastlingSide::QueenSide }).king_to(q.turn()),
+        _ => m.to(),
+    }
+}
+
+/// The moved piece attacks an opponent non-king piece bigger than itself or undefended.
+fn hits(q: &Chess, m: &Move, next: &Chess) -> bool {
+    let me = q.turn();
+    (next.board().attacks_from(dest(q, m)) & next.board().by_color(!me)).into_iter().any(|t| {
+        let r = next.board().role_at(t).unwrap();
+        r != Role::King && (val(r) > val(m.role()) || attackers(next, t, !me).is_empty())
+    })
+}
+
+/// Forcing for `Initiative`: a check; a capture, unless it takes back on the square the last move took on; an attack
+/// on a bigger or undefended non-king piece; aiming the piece at more of the opponent king's squares (its square and
+/// the ring) than before; a pawn attacking a pawn.
+fn forcing(q: &Chess, m: &Move, next: &Chess, recapture: bool) -> bool {
+    if next.is_check() || (m.is_capture() && !recapture) || hits(q, m, next) { return true; }
+    let me = q.turn();
+    let to = dest(q, m);
+    if let Some(k) = q.board().king_of(!me) {
+        let ring = attacks::king_attacks(k) | Bitboard::from_square(k);
+        let before = m.from().map_or(0, |s| (q.board().attacks_from(s) & ring).count());
+        if (next.board().attacks_from(to) & ring).count() > before { return true; }
+    }
+    m.role() == Role::Pawn && (next.board().attacks_from(to) & next.board().pawns() & next.board().by_color(!me)).any()
 }
 
 // --------------------------------------------------------------------------- report

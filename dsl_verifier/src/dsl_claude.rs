@@ -28,7 +28,7 @@ fn roles<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<Role>, D::Error> {
 /// `Control` every square, `Isolated`, `Doubled`, `Backward` and `Hanging` some such opponent pawn or piece,
 /// `Hole` some hole on the opponent's 3rd or 4th rank,
 /// `Pressure` more squares aimed at than the opponent aims at, `Outnumber` more squares outnumbering than outnumbered.
-/// On `KingZone` and `KingWing` the king they belong to does not count as a defender.
+/// On `KingZone` the king it belongs to does not count as a defender.
 #[derive(Debug, Deserialize)]
 #[serde(bound(deserialize = "'de: 'static"))]
 pub(crate) enum Region {
@@ -43,8 +43,6 @@ pub(crate) enum Region {
     GreaterCentre,
     /// Ranks 1-4 of the owner, or of the opponent.
     Half { opponent: bool },
-    /// The wing that king stands on: "Black's castled side". Neither wing while it is on the d- or e-file.
-    KingWing { opponent: bool },
     /// The king's square and its neighbours.
     KingZone { opponent: bool },
     /// A file, rank or diagonal from one square to the other, both included.
@@ -115,7 +113,7 @@ pub(crate) enum Reason {
     /// The owner plays `line` unopposed, then the reason holds. Also multi-move plans.
     Threatens(Vec<Move_>, Box<Reason>),
     /// After this continuation the reason holds (forced replies, traps, "if ... then").
-    /// Every move of the line must be (nearly) its mover's best: within 0.1 winning chances.
+    /// Every move of the line must be (nearly) its mover's best: within 0.15 winning chances, up to 0.3 in decided positions.
     After(Vec<Move_>, Box<Reason>),
     /// After `line` (empty: at once) the opponent has the reason. The line is checked as in `After`.
     Allows(Vec<Move_>, Box<Reason>),
@@ -196,7 +194,9 @@ pub(crate) enum Reason {
     /// The line holds no pawn of the owner.
     Open((Sq, Sq)),
     Control(Region),
-    /// Pieces aimed at these squares, short of a threat.
+    /// Pieces aimed at these squares, short of a threat. On a king's zone: an attack (2 per knight or
+    /// bishop, 3 per rook, 5 per queen aimed at the king's ring, 1 per weak ring square, 2 per safe check) of at
+    /// least 8 within 8 plies of the engine's line.
     Pressure(Region),
     /// More owner pieces bear on these squares than opponent pieces defend them.
     Outnumber(Region),
@@ -247,7 +247,7 @@ pub(crate) enum Reason {
     Zugzwang,
     Draw,
     /// The owner draws by perpetual check: along the engine's line every owner move checks, a position
-    /// repeats within 12 plies, and the score is level.
+    /// repeats within 12 plies.
     Perpetual,
     Win,
     /// A practical gain, not better on the board: harder for the opponent to play, or saves the owner's clock.
@@ -268,7 +268,7 @@ pub(crate) fn check_names(r: &Reason) -> Result<(), String> {
             Region::Squares(ss) => sqs(ss),
             Region::Line(a, b) => { sq(a)?; sq(b) }
             Region::Kingside | Region::Queenside | Region::Centre | Region::GreaterCentre
-            | Region::Half { .. } | Region::KingWing { .. } | Region::KingZone { .. } => Ok(()),
+            | Region::Half { .. } | Region::KingZone { .. } => Ok(()),
         }
     }
     match r {

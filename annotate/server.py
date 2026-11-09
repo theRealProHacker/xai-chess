@@ -10,9 +10,10 @@ GET  /api/review        {cases, attempts, votes}: votes by "case/n": wrong, irre
 GET  /api/schema        the DSL's types, read from dsl_verifier/src/dsl_claude.rs, for the editor
 POST /api/annotation    {game, ply, fen, mov, dsl, ...}; appended, the latest per (game, ply) wins;
                         an empty dsl deletes
-GET  /api/tempo         the tempo examples (data/tempo.jsonl) and my votes on them
-POST /api/tempo/check   {fen, mov, dsl}: the native verifier's verdict
-POST /api/tempo/vote    {id, vote}; appended to data/tempo_votes.jsonl, the latest wins
+GET  /tempo, /kingzone, /initiative  an example set (SETS): data/<set>.jsonl
+GET  /api/<set>         its examples and my votes on them
+POST /api/<set>/check   {fen, mov, dsl}: the native verifier's verdict
+POST /api/<set>/vote    {id, vote}; appended to data/<set>_votes.jsonl, the latest wins
 POST /api/vote          {case, round, n, vote: "wrong" | "irrelevant" | "partial" | "correct" | null}; appended to data/votes.jsonl, the latest wins
 """
 import argparse, json, os, random, re, subprocess, sys, threading, time
@@ -28,7 +29,10 @@ ANNOTATIONS = DATA / "annotations.jsonl"
 EVALS = DATA / "evals.jsonl"
 CASES, ATTEMPTS = DATA / "cases.jsonl", DATA / "attempts.jsonl"  # the agent run, see attempt.py
 VOTES = DATA / "votes.jsonl"  # my votes on the agent's tries
-TEMPO, TEMPO_VOTES = HERE / "data/tempo.jsonl", HERE / "data/tempo_votes.jsonl"
+# Example sets with their allowed votes: tempo votes on the claim, kingzone and initiative on the label.
+SETS = {"tempo": ("wrong", "irrelevant", "partial", "correct"), "kingzone": ("safe", "unsafe"),
+        "initiative": ("none", "initiative")}
+set_file = lambda name, suffix="": HERE / f"data/{name}{suffix}.jsonl"
 VERIFIER = HERE.parent / "dsl_verifier/target/release/dsl_verifier"
 DSL = HERE.parent / "dsl_verifier/src/dsl_claude.rs"
 STOCKFISH = HERE.parent / "vendor/stockfish/stockfish-ubuntu-x86-64-avx2"
@@ -168,7 +172,7 @@ class Handler(SimpleHTTPRequestHandler):
             return str(HERE / "lib" / p[len("/lib/"):])
         if p.startswith("/vendor/"):
             return str(VENDOR / p[len("/vendor/"):])
-        return str(HERE / {"/": "index.html", "/review": "review.html", "/tempo": "tempo.html"}.get(p, "_none"))
+        return str(HERE / {"/": "index.html", "/review": "review.html", **{f"/{k}": "tempo.html" for k in SETS}}.get(p, "_none"))
 
     def end_headers(self):
         # Revalidate every file, so a rebuilt wasm or edited page is picked up on reload.
@@ -193,10 +197,11 @@ class Handler(SimpleHTTPRequestHandler):
                      for v in read(VOTES)}
             return self.send_json({"cases": read(CASES), "attempts": read(ATTEMPTS),
                                    "votes": {k: v for k, v in votes.items() if v}})
-        if u.path == "/api/tempo":
+        if u.path.startswith("/api/") and u.path[5:] in SETS:
+            name = u.path[5:]
             read = lambda f: [json.loads(l) for l in f.open()] if f.exists() else []
-            votes = {v["id"]: v["vote"] for v in read(TEMPO_VOTES)}
-            return self.send_json({"examples": read(TEMPO), "votes": {k: v for k, v in votes.items() if v}})
+            votes = {v["id"]: v["vote"] for v in read(set_file(name, "_votes"))}
+            return self.send_json({"examples": read(set_file(name)), "votes": {k: v for k, v in votes.items() if v}})
         if u.path != "/api/game":
             return super().do_GET()
         gs, ann = games(), annotations()
@@ -213,18 +218,21 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
-        if path not in ("/api/annotation", "/api/vote", "/api/tempo/check", "/api/tempo/vote"):
+        parts = path.split("/")  # "", "api", set, check|vote
+        in_set = len(parts) == 4 and parts[2] in SETS and parts[3] in ("check", "vote")
+        if path not in ("/api/annotation", "/api/vote") and not in_set:
             return self.send_json({"error": "not found"}, 404)
         a = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-        if path == "/api/tempo/check":
+        if in_set and parts[3] == "check":
             r = subprocess.run([str(VERIFIER), "check"], input=json.dumps({k: a[k] for k in ("fen", "mov", "dsl")}),
                                capture_output=True, text=True, timeout=600)
             lines = r.stdout.strip().splitlines()
             return self.send_json(json.loads(lines[-1]) if lines else {"error": r.stderr.strip()[-500:]})
-        if path == "/api/tempo/vote":
-            if "id" not in a or a.get("vote") not in ("wrong", "irrelevant", "partial", "correct", None):
-                return self.send_json({"error": "needs id, vote: wrong, irrelevant, partial, correct or null"}, 400)
-            with TEMPO_VOTES.open("a") as f:
+        if in_set:
+            allowed = SETS[parts[2]]
+            if "id" not in a or a.get("vote") not in (*allowed, None):
+                return self.send_json({"error": f"needs id, vote: {', '.join(allowed)} or null"}, 400)
+            with set_file(parts[2], "_votes").open("a") as f:
                 f.write(json.dumps({"id": a["id"], "vote": a["vote"], "at": time.strftime("%Y-%m-%dT%H:%M:%S")}) + "\n")
             return self.send_json({"ok": True})
         if path == "/api/vote":
