@@ -1554,7 +1554,7 @@ Positional:
     - Which pieces are blocking it (seperated by own and opponents)
 - Centralisation
     - Manhattan distance to edge of the board (one-hot)
-- Weak/Strong square -> TODO: definition
+- Weak/Strong square
 - On which open file
 - On which half open file
 - On which long diagonal
@@ -2409,28 +2409,6 @@ v1 curriculum (v1_curr)
 
 Works quite well
 
-
-## Focusing on the Present
-
-The idea is essentially to make the LLM learn like a human would. First the essentials, then we go on to the more difficult paths later.
-
-My guess is that if the LLM wants to look into the future, it should use a tool for that. 
-
-We don't try to get the language diverse, only test how good the LLM is at doing these simple tasks.
-
-1. List of pieces on the board
-2. List of pieces on the board including their squares
-2. Where is piece x
-3. Is line x open
-3. Which lines are open
-4. Render the board as 
-4. Which legal moves can piece x do (piece + square)
-5. Which legal moves can piece x do (just square)
-6. Which legal moves can piece x do (just piece)
-3. Which legal moves are there
-6. 
-7. Game phase
-
 ### ChessQA
 
 ChessQA is an existing benchmark for LLMs.
@@ -2521,9 +2499,39 @@ The Opus judge says many reasons are just true but not necessarily the actual re
 > - Bound: it accepts only opponent pieces.
 > A stricter rerun would need Because to check something and lines to be forced or best. 
 
-#### What needs to be verified more strictly
+### Human evaluation
 
-Opus judge: 
+I graded explanations in 4 categories:
+
+1. Correct: Essentially a perfect explanations. Exactly hitting the point
+2. Partially: Does explain the move a bit, but fails to explain a crucial point
+3. Doesn't explain: The statement is correct but doesn't explain the moves evaluation
+4. Wrong: A claim that is flat-out wrong, that the verifier didn't catch (very rare)
+
+I did not look at language. 
+
+### Results
+
+Some findings:
+3. Difficult to say: "where Black ends up winning decisively with mate threats" or "which leads to a winning rook endgame.
+4. Sonnet is actually surprisingly good at writing the DSL. Most are accepted first try, and most are correct (this is more than accepted by the verifier). 
+5. The verifier actually helps Sonnet where it hallucinates. This happens mostly in dynamic situations where Sonnet has to judge about a position in the future. 
+6. Sometimes the verifier also makes explanations more convoluted, where for example ending on a fork and concluding it has a certain benefit is not accepted by the verifier. Same for: Trading a pawn for a knight is winning a knight but the verifier only allows "two pawns". Same for: Inititative
+7. Generally, the DSL has problems describing problems where there is not one concrete thing that is the problem but it's just the position falling apart: the opponent controls important lines, your pieces are extremely restricted and can't move, the opponent has lots of targets like pawns that drop one by one, or the queen and the king that are attacked or under threat. 
+8. Perpetual check and repeated positions is missing as a concept
+9. Sonnet is also good at gaming the system
+
+We can see a correlation between how many tries Sonnet needs and how well it does. The common factor likely is the difficulty and rare occasions where the verifier disallows a correct explanation. 
+
+![Votes by tries in the last round](./image/journey/Annotation%20votes%20by%20tries.png)
+
+My working hypothesis: explaining tactical mistakes and blunders is actually relatively easy given the engine lines and evaluation especially when provided with a reliable, forgiving verifier. 
+
+#### Example: Sonnet hallucinates but the DSL is correct
+
+![Sonnet hallucinates but the DSL is fine](./image/journey/Sonnet%20hallucination.png)
+
+#### Opus Judge findings
 
 > Reported as holding, but only partly checked:
 >
@@ -2549,58 +2557,114 @@ Opus judge:
 > 14. `Practical`. Not modelled.
 > 15. `Rated(Interesting)` and `Rated(Brilliant)`. "Judgement not checked".
 
-### Experiment: Does a stricter eval make for better explanations?
+> **DSL**
+> - There is no "at some point in the line": Allows is checked only at the line's end, so a fork that exists mid-line fails (8ahw0DRs-9).
+> - There is no causal "so" between parts. And lists "Bd5 blocks d6" and "Qxd6 wins a pawn" as two unrelated facts (xmsnYnSG-44).
+> - There is no net trade. "Wins knight and bishop for the rook" becomes WinMaterial([Knight, Bishop]), which leaves out the rook White gives (ctVHbW86-29).
+> - Passer can't say "one step from queening" (ctVHbW86-44).
+
+> **Sonnet**
+> - It retells the engine line instead of naming the point. Most partials are a long Allows line ending in WinMaterial. The idea itself is missing, e.g. the Qxg2# threat in sX5SL2HD-38.
+> - It doesn't say why material falls. It never uses Loses(Defend…) or Hanging for "this move leaves d3 undefended".
+> - Its Instead clauses only repeat the main claim negated: Instead(x, Not(Allows(same line, same win))). This happens 5 times, all voted partial.
+> - Some claims are true but irrelevant:
+>   - "the knight does not hang"
+>   - forks of two pawns, or of a defended piece
+>   - a bare Rated(Stronger)
+> - Its English and its DSL disagree. The English says "Nxf7 forks king and queen" while the DSL only claims an attack on the f7 pawn. One try explains the wrong move. One calls a queen in front of a knight a pin.
+> - The correlation with tries has a second cause besides difficulty. After a correct claim fails, Sonnet backs off to a weaker one that holds (eFugMq3R-41, CjWb3hXw-75).
+ 
+> **Verifier and renderer**
+> - Bug: the sign check measures the material for Instead(m, …) from the position after m. A capture on m itself counts as +0, so two tries you rated correct came back unknown (eval.rs:1201).
+> - Pin doesn't compare piece values. A queen in front of a knight holds and is rendered "skewers" (eFugMq3R-59, which you voted wrong).
+> - Claims with the wrong sign only reach unknown, not fails, as long as another part is non-material (wyjbVFbE-44, voted wrong).
+> - Pressure(KingZone) is not the same as "weakens the king". A correct claim failed with "aims at 0 squares" (eFugMq3R-41).
+> - Renderer wording:
+>   - "with 13.Ne5 instead, 13.Ne5 was stronger" repeats the move.
+>   - In Instead(x, Not(Allows(…))), it is unclear what "after which" refers to.
+>   - "Black slightly puts pressure" is awkward.
+>   - Two attacked pawns are called a fork.
+
+### Possible Solutions
 
 Solutions:
+1. At least enforce plausibility of `Because`, `But`, `Outweighs` and `Balances` by giving reasons a sign for which party they are better. Degrees could be fixed as well by also assigning an approximate value for a reason
+2. Check that the lines are almost forced
+3. `Simplify` as used by human annotators almost always involves pieces coming off the board. So, it's fair to reduce it to that. 
+4. Check `Rated` with bands and use the Lichess definitions
+5. Time-sensitive categories like `Tempo`, `Initiative`, `Faster` and `Permanent` are very difficult. 
+    - `Inititiative` currently checks for forcing moves, but it is not exactly what initiative means most of the time.
+    - `Permanent` modeled only for pawns is fine. Could add: still holds in x turns on top for other things. 
+    - Same for `Faster`: in how many plies each expected reason holds.  
+    - `Tempo`: `Lose(Tempo)` becomes just `Tempo` and checks if the last move could have been left-out to reach the same position after some moves.  
+        Currently, it checks if the move is not much better than passing, which is biased if passing is just horrible or even impossible  
+        Also, build a small test dataset to test `Tempo` specifically, if we need a different definition
+6. Fix `Zugzwang` with repeated passing -> also updated in the demo
+7. Normalise Material and WinMaterial and provide an option to add a positive "trade"
+8. Add `Perpetual`, which can end in the position where the `Perpetual` is forced (there is not better alternative than going into the perpetual for both sides with some small margin), not only where the `Draw` actually finishes
 
-1. `Because` is the most difficult. Even for a human it is extremely difficult to prove something is because of something else (it's an open problem in philosophy)
-2. The lines should be almost forced
-3. Mostly subjective, could be checked for individual claims that output a numeric value for example
-4. Use the Lichess/chess.com definitions
-5. We need an evaluation (e.g. this is good for White, and this is bad, etc.). That would solve many problems
-6. dito
-7. dito (also `Outweighs` and `Balances` are just different types of `Comparison`)
-8. Simplify is mostly subjective, but we could find some complexity check
-9. Tempo is very difficult
-10. This More is still not normalised, for example we also have WinMaterial which is essnetially gaining more material, etc.
-11. Faster same as tempo
-12. Fix repeated passing (also in the demo)
-13. Some advantages are structurally permanent and others aren't
-14. Same as 4.
+Also, of course, fix the clear issues in the verifier and renderer
 
-### Human evaluation
+The mentioned problems in the DSL, mostly aren't actually problems:
+1. At some point in a line can be described as `After(..., And(Reason, After(..., Reason)))`
+2. `Because` = so, just chain it
+3. A passer on the second row is enough to describe a passer "one step from queening"
 
-Only few of these solutions were actually implemented immediately. Instead, I went for a grading process were I graded explanations in 4 categories:
+A problem I am having: how do we describe and more importantly verify the King is weak (and also why?).  
+Currently we have different ways to do that but they are all not very clear. 
 
-1. Correct: Essentially a perfect explanations. Exactly hitting the point
-2. Partially: Does explain the move a bit, but fails to explain a crucial point
-3. Doesn't explain: The statement is correct but doesn't explain the moves evaluation
-4. Wrong: A claim that is flat-out wrong, that the verifier didn't catch (very rare)
+### More evals
+Generally, we need more evals. Essentially, I curate a list of positions-move-pairs where some trait X should be true and then try different approaches and thresholds until they are all green. Essentially, TDD: 
 
-I did not look at language. 
+1. `Tempo`
+    Using the `Tempo` evals I came to the following conclusion: Tempo([moves]) means that we got these moves for free where the opponent had to play a piece several times. It doesn't check that the move we made is beneficial necessarily. 
+2. `Pressure(KingZone)`
+    This is the way to say: "the king is under attack". I thought about building it more explicitly as its own Reason, but I concluded that `Pressure` should be a general term that can be used for different cases. Definition: `Pressure(KingZone)` is counted by different factors that count together: 
+    1. minimum two attackers
+    2. At least 8 points
+    3. Per attacker: Queen 5, Rook 3, minor piece 2
+    4. Weak squares: +1 for each ring square the attacker hits that the defender guards only with its king or queen, or not at all.
+    5. Checks: +2 for each checking move the attacker has that lands on a square the defender doesn't attack. If the defender is to move, the attacker is treated as moving next.
+3. `Initiative`
+    TODO
 
-### Results
+Problem: these are my subjective definitions which can be quite fatal, what chess.com's brilliant analysis shows. chess.com classifies moves it (TODO ...)
 
-Some findings:
-1. `Simplify` as used by human annotators almost always involves pieces coming off the board. So, it's fair to reduce it to that
-2. where Black ends up winning decisively with mate threats
-3. Difficult to say: "where Black ends up winning decisively with mate threats" or "which leads to a winning rook endgame.
-4. Sonnet is actually surprisingly good at writing the DSL. Most are accepted first try, and most are correct (this is more than accepted by the verifier). 
-5. The verifier actually helps Sonnet where it hallucinates. This happens mostly in dynamic situations where Sonnet has to judge about a position in the future. 
-6. Sometimes the verifier also makes explanations more convoluted, where for example ending on a fork and concluding it has a certain benefit is not accepted by the verifier. Same for: Trading a pawn for a knight is winning a knight but the verifier only allows "two pawns". Same for: Inititative
-7. Generally, the DSL has problems describing problems where there is not one concrete thing that is the problem but it's just the position falling apart: the opponent controls important lines, your pieces are extremely restricted and can't move, the opponent has lots of targets like pawns that drop one by one, or the queen and the king that are attacked or under threat. 
-8. Perpetual check and repeated positions is missing as a concept
-9. Sonnet is also good at gaming the system
 
-We can see a correlation between how many tries Sonnet needs and how well it does. The common factor likely is the difficulty. 
+<!-- For next week (seventh meeting) -->
 
-![Votes by tries in the last round](./image/journey/Annotation%20votes%20by%20tries.png)
+### Same run, only games by extremely strong players (2800+ on Lichess)
 
-My working hypothesis: explaining tactical mistakes and blunders is actually relatively easy given the engine lines and evaluation especially when provided with a reliable, forgiving verifier. 
+The idea behind this is that now their shouldn't be any easy wins anymore. However, we still select for blunders and mistakes.  
+This actually increases the average #tries from 1.3 to 1.55. Which might be an indicator for more difficult positions. 
 
-#### Example: Sonnet hallucinates but the DSL is correct
+This time the agents also reported what the DSL was missing or what problems the verifier has. After fixing some and re-running the average #tries went to 1.62.
 
-![Sonnet hallucinates but the DSL is fine](./image/journey/Sonnet%20hallucination.png)
+After some more improvements and updating the Sonnet-Prompt to include more information on how to use the DSL, it went to ...
+
+
+
+## Focusing on the Present
+
+The idea is essentially to make the LLM learn like a human would. First the essentials, then we go on to the more difficult paths later.
+
+My guess is that if the LLM wants to look into the future, it should use a tool for that. 
+
+We don't try to get the language diverse, only test how good the LLM is at doing these simple tasks.
+
+1. List of pieces on the board
+2. List of pieces on the board including their squares
+2. Where is piece x
+3. Is line x open
+3. Which lines are open
+4. Render the board as 
+4. Which legal moves can piece x do (piece + square)
+5. Which legal moves can piece x do (just square)
+6. Which legal moves can piece x do (just piece)
+3. Which legal moves are there
+6. 
+7. Game phase
+
 
 
 <!-- 
@@ -2609,3 +2673,18 @@ My working hypothesis: explaining tactical mistakes and blunders is actually rel
 Specification
 1. A 
 2.  -->
+
+
+## Next
+1. UCI to SAN
+2. Hard-case mining
+3. Shuffle in batches
+4. Replay based on difficulty
+5. Benchmark QUEEN and LLAMIA -> maybe biased
+6. Find out which features are relevant in which layer (i.e. used more)
+7. Eval on what changes the engines opinion (e.g. like pin intervention)
+8. Relevance of control over a region instead of control by a piece
+9. Translate DSL checks to features and check attribution (IG/SHAP), e.g. king safety
+10. Positional analysis to compare with QUEEN
+11. Match feature attribution with rule-level intervention to evaluate feature attribution 
+12. Multi-level (and vs or) IG
