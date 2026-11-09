@@ -1,0 +1,38 @@
+{
+ "without prediction": {
+  "L5 influence": 1.0493939381660327,
+  "L5 FVU, L5 swapped": 1.0804095473063395
+ },
+ "with prediction": {
+  "L5 influence": 0.007429470116338998,
+  "L5 FVU, L5 swapped": 0.024970434060315256
+ },
+ "pred_gate": {
+  "L5 influence": 1.0459575776942833,
+  "L5 FVU, L5 swapped": 1.0814999786359611
+ },
+ "pred_pen0.03": {
+  "L5 influence": 0.008262829966418894,
+  "L5 FVU, L5 swapped": 0.025955856386539602
+ },
+ "pred_pen0.1": {
+  "L5 influence": 0.011650041664678704,
+  "L5 FVU, L5 swapped": 0.030103288235170736
+ },
+ "pred_pen0.3": {
+  "L5 influence": 0.026738883741668128,
+  "L5 FVU, L5 swapped": 0.049976213644725896
+ },
+ "pred_pen1": {
+  "L5 influence": 0.11811333687148358,
+  "L5 FVU, L5 swapped": 0.17213872304028222
+ },
+ "pred_pen2": {
+  "L5 influence": 0.26312451364313416,
+  "L5 FVU, L5 swapped": 0.3634961918956028
+ },
+ "pred_pen3": {
+  "L5 influence": 0.38494608444051254,
+  "L5 FVU, L5 swapped": 0.5213354633578059
+ }
+}
