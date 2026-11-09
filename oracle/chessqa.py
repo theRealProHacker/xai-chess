@@ -10,10 +10,11 @@ the last "FINAL ANSWER:", exact match for single answers, set match on comma-sep
   python oracle/chessqa.py CHESSQA_JSON   checks every gold answer of the benchmark against this file's rules
 """
 import json, re, sys
-import chess
+import chess, numpy as np
 
 TASKS = ["cqa_arrangement", "cqa_legal_piece", "cqa_legal_all", "cqa_check_det", "cqa_check_in_1", "cqa_capture",
-         "cqa_control", "cqa_protect", "cqa_track_short", "cqa_track_mid", "cqa_track_long"]
+         "cqa_control", "cqa_protect", "cqa_track_short", "cqa_track_mid", "cqa_track_long",
+         "cqa_uci_san"]                         # not ChessQA's: one legal move's UCI to SAN, long SANs preferred
 CHESSQA = {"cqa_arrangement": "structural_piece_arrangement", "cqa_legal_piece": "structural_legal_move_piece",
            "cqa_legal_all": "structural_legal_move_all", "cqa_check_det": "structural_check_detection",
            "cqa_check_in_1": "structural_check_in_1", "cqa_capture": "structural_capture_squares",
@@ -21,7 +22,8 @@ CHESSQA = {"cqa_arrangement": "structural_piece_arrangement", "cqa_legal_piece":
            "cqa_track_short": "structural_state_tracking_short", "cqa_track_mid": "structural_state_tracking_mid",
            "cqa_track_long": "structural_state_tracking_long"}
 TRACK = {"cqa_track_short": (1, 5), "cqa_track_mid": (6, 10), "cqa_track_long": (11, 15)}
-SINGLE = {"cqa_arrangement", *TRACK}
+SINGLE = {"cqa_arrangement", "cqa_uci_san", *TRACK}
+SAN_BASE = 3                                    # cqa_uci_san: pick a SAN length L with prob ~ SAN_BASE**L, then a move of it
 NAME = {chess.KING: "King", chess.QUEEN: "Queen", chess.ROOK: "Rook", chess.BISHOP: "Bishop", chess.KNIGHT: "Knight",
         chess.PAWN: "Pawn"}
 COLOUR = {chess.WHITE: "White", chess.BLACK: "Black"}
@@ -58,6 +60,8 @@ def question(task, fen, sq=None, piece=None, moves=None):
         return (head(fen) + "In this position, the side to move is in check. Identify the piece(s) that is delivering the "
                 "check.\n" + TAIL + "List each checking piece with its color, type, and square (e.g., White Queen at e5). "
                 "Separate multiple pieces with commas and spaces if applicable.")
+    if task == "cqa_uci_san":
+        return head(fen) + f"Convert the move {moves[0]} from UCI to SAN.\n" + TAIL + EX.format(ex="Nbxd7+")
     p = f"{piece} on {sq}"
     if task == "cqa_capture":
         body = (f"Find all squares that the {p} can capture (i.e. every square that has an opponent piece such that the "
@@ -110,6 +114,7 @@ def answer(task, b, sq=None, moves=None):
     if task == "cqa_check_in_1": return sorted(m.uci() for m in b.legal_moves if b.gives_check(m))
     if task == "cqa_check_det":
         return [f"{COLOUR[b.color_at(s)]} {NAME[b.piece_type_at(s)]} at {chess.square_name(s)}" for s in b.checkers()]
+    if task == "cqa_uci_san": return b.san(chess.Move.from_uci(moves[0]))
     if task in TRACK:
         a = b.copy(stack=False)
         for u in moves: a.push_uci(u)
@@ -135,6 +140,15 @@ def sample(task, rng, fen, moves=None):
         lo, hi = TRACK[task]
         if not moves or len(moves) < lo: return None
         mv = list(moves[:int(rng.integers(lo, min(hi, len(moves)) + 1))])
+    elif task == "cqa_uci_san":
+        by = {}
+        for m in b.legal_moves: by.setdefault(len(b.san(m)), []).append(m.uci())
+        if not by: return None
+        ls = sorted(by); w = np.array([float(SAN_BASE) ** l for l in ls])
+        ms = by[ls[int(rng.choice(len(ls), p=w / w.sum()))]]
+        mv = [ms[int(rng.integers(len(ms)))]]
+        ans = answer(task, b, None, mv); t = ans
+        return dict(row, question=question(task, fen, moves=mv), target=t, answer="FINAL ANSWER: " + t, move=mv[0])
     elif task == "cqa_legal_piece":
         frm = sorted({m.from_square for m in b.legal_moves})
         if not frm: return None

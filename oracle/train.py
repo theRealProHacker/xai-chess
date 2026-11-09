@@ -77,6 +77,7 @@ ap.add_argument("--seed", type=int, default=0)
 ap.add_argument("--tasks", nargs="+", help="tasks.py tasks or eval: train on the last, replay the earlier ones")
 ap.add_argument("--sf", default=str(ROOT / "vendor/stockfish/stockfish-ubuntu-x86-64-avx2"), help="Stockfish for multipv scoring")
 ap.add_argument("--replay", type=float, default=0.2, help="--tasks: share of samples from the earlier tasks")
+ap.add_argument("--replay-failed", nargs="+", metavar="DIR", help="--tasks: replay only the rows these runs got wrong (their failed.jsonl)")
 ap.add_argument("--sched", choices=["onecycle", "cosine"], default="onecycle",
                 help="onecycle: 5%% warmup, cosine anneal, cycled momentum; cosine: cosine decay to 0")
 ap.add_argument("--warmup", type=int, default=0, help="--sched cosine: linear LR warmup over the first N steps (0 = none)")
@@ -141,12 +142,27 @@ if a.tasks:
     YES = {t: tr[[tasks.POOLED[t](chess.Board(str(fens[i]))) for i in tr]] for t in a.tasks if t in tasks.POOLED}
     for t, v in YES.items(): print(f"{t}: {len(v):,} of {len(tr):,} train positions answer yes", flush=True)
     tr = POOL[a.tasks[-1]]
+    FAILED = {}                                        # --replay-failed: {earlier task: rows an earlier run got wrong}
+    for d in a.replay_failed or []:
+        seen = set()
+        for l in open(Path(d) / "failed.jsonl") if (Path(d) / "failed.jsonl").exists() else []:
+            r = json.loads(l)
+            if r["task"] in a.tasks[:-1] and (k := (r["i"], r["question"])) not in seen: seen.add(k); FAILED.setdefault(r["task"], []).append(r)
+    if a.replay_failed: print("replay (failed rows):", {t: len(v) for t, v in FAILED.items()}, flush=True)
 
     def task_rows(name, n):
         """{task: first n rows} from tasks_{name}.jsonl, eval from {name}.jsonl."""
         rows = [json.loads(l) for l in open(Path(a.data[0]) / f"tasks_{name}.jsonl")]
         if "eval" in a.tasks: rows += [dict(json.loads(l), task="eval") for l in open(Path(a.data[0]) / f"{name}.jsonl")]
-        return {t: [r for r in rows if r["task"] == t][:n] for t in dict.fromkeys(a.tasks)}
+        got = {t: [r for r in rows if r["task"] == t][:n] for t in dict.fromkeys(a.tasks)}
+        for t, rs in got.items():                      # a task newer than the data dir: rows from the split's positions
+            if rs or t == "eval": continue
+            rng = np.random.default_rng(1)
+            for i in np.flatnonzero(split == (1 if name == "val" else 2)):
+                if len(rs) >= n: break
+                if t in tasks.chessqa.TASKS and (int(i) in MOVES) != (t in tasks.chessqa.TRACK): continue
+                if (r := tasks.sample(t, rng, str(fens[i]), sf.get(int(i)), MOVES.get(int(i)))) is not None: rs.append(dict(r, i=int(i)))
+        return got
     val = task_rows("val", a.eval_n)
     test = task_rows("test", a.test_n) if a.test_n else {}
 
@@ -363,25 +379,28 @@ def draw(rng):
 
 
 def sample_row(i, rng):
-    """(position, question, answer) of one training sample; a best/pv sample moves to a position with labels."""
-    if not a.tasks: return i, *qa.sample(rng, wdl[i], black[i])[3:]
-    prev = a.tasks[:-1]
+    """(position, question, answer, task) of one training sample; a best/pv sample moves to a position with labels."""
+    if not a.tasks: return i, *qa.sample(rng, wdl[i], black[i])[3:], None
+    prev = list(FAILED) if a.replay_failed else a.tasks[:-1]
     t = prev[int(rng.integers(len(prev)))] if prev and rng.random() < a.replay else a.tasks[-1]
-    if t == "eval": return i, *qa.sample(rng, wdl[i], black[i])[3:]
+    if t in FAILED:
+        r = FAILED[t][int(rng.integers(len(FAILED[t])))]
+        return r["i"], r["question"], r["answer"], t
+    if t == "eval": return i, *qa.sample(rng, wdl[i], black[i])[3:], t
     if (t in tasks.SF_TASKS and int(i) not in sf) or (t in tasks.chessqa.TASKS and t != a.tasks[-1]): i = int(rng.choice(POOL[t]))
     if t in YES and len(YES[t]) and rng.random() < tasks.POOL_SHARE: i = int(rng.choice(YES[t]))
     while (r := tasks.sample(t, rng, str(fens[i]), sf.get(int(i)), MOVES.get(int(i)))) is None: i = int(rng.choice(POOL[t]))
-    return i, r["question"], r["answer"]
+    return i, r["question"], r["answer"], t
 
 
 def prep(idx, rng):
     """The CPU half of a training batch: questions, token ids, labels and the stored vectors."""
     rows = []
     for i in idx:
-        i, qt, at = sample_row(i, rng)
+        i, qt, at, t = sample_row(i, rng)
         j, sq = draw(rng)
         p, pos = prompt_ids(qt, i, j, sq); y = tok(at + END, add_special_tokens=False)["input_ids"]
-        rows.append((p + y, [-100] * len(p) + y, pos, j, raw(i, j, sq_list(i, sq))))
+        rows.append((p + y, [-100] * len(p) + y, pos, j, raw(i, j, sq_list(i, sq)), dict(task=t, i=int(i), question=qt, answer=at)))
     return rows
 
 
@@ -416,10 +435,14 @@ def batch(rows):
     return x, mask, lab.to(dev), keep
 
 
-def loss_fn(x, mask, lab, keep):
+def loss_fn(x, mask, lab, keep, ok=False):
+    """Mean loss; with ok=True also, per row, whether every answer token is the argmax (= greedy decoding gets it right)."""
     logits = llm(inputs_embeds=x, attention_mask=mask, logits_to_keep=keep, use_cache=False).logits
-    y = lab[:, keep.start + 1:keep.stop + 1].flatten().to(logits.device)                  # with 2 GPUs the logits sit on the last one
-    return nn.functional.cross_entropy(logits.float().flatten(0, 1), y, ignore_index=-100)
+    y = lab[:, keep.start + 1:keep.stop + 1].to(logits.device)                            # with 2 GPUs the logits sit on the last one
+    loss = nn.functional.cross_entropy(logits.float().flatten(0, 1), y.flatten(), ignore_index=-100)
+    if not ok: return loss
+    with torch.no_grad(): right = ((logits.argmax(-1) == y) | (y == -100)).all(1).tolist()
+    return loss, right
 
 
 @torch.no_grad()
@@ -631,7 +654,13 @@ for ep in range(start, a.epochs):
     for s, (rows, st) in enumerate(prefetch(order, first, rng), first):
         if s == first and s and a.eval_every and s % a.eval_every == 0 and not reported(ep, s, out / "report.jsonl"):
             evaluate(ep, s, None, out / "report.jsonl")                                # killed during this eval
-        loss = loss_fn(*batch(rows))
+        if a.tasks and ep == a.epochs - 1:                                             # last epoch: log the rows it gets wrong
+            loss, right = loss_fn(*batch(rows), ok=True)
+            with open(out / "failed.jsonl", "a") as f:
+                for r, ok_ in zip(rows, right):
+                    if not ok_: f.write(json.dumps(dict(r[5], step=s)) + "\n")
+        else:
+            loss = loss_fn(*batch(rows))
         opt.zero_grad(set_to_none=True); loss.backward()
         torch.nn.utils.clip_grad_norm_([p for g in groups for p in g["params"]], 1.0)
         opt.step(); sched.step()
