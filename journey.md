@@ -2135,7 +2135,7 @@ Looking at the resulting attributions of L5 + L2 + L0, they are also much cleane
 
 ![Multi-layer feature attribution version 2](./image/journey/Multi-Layer%20Feature%20Attribution%20v2.png)
 
-This works as well giving us supreme performance with better explanations:
+This works as well giving us supreme performance:
 
     ┌──────────────────────────┬────────┬─────────┬───────────┐
     │                          │ L5 FVU │ WDL FVU │ value FVU │
@@ -2157,7 +2157,7 @@ This works as well giving us supreme performance with better explanations:
     │ with prediction input    │ 0.018  │ 0.008   │ 0.006     │
     └──────────────────────────┴────────┴─────────┴───────────┘
 
-However, this really just throws away L5 + L2 and just uses L0. 
+However, it also throws away L5 + L2 and just uses L0 again. 
 
 ## Notes
 
@@ -2195,7 +2195,7 @@ However, this really just throws away L5 + L2 and just uses L0.
         - Flamingo (TODO)
         - DeepSeek R1 (TODO)
 
-# Sixth meeting 
+# Sixth meeting 26.10.
 
 ## First Experiments
 
@@ -2616,64 +2616,21 @@ Currently we have different ways to do that but they are all not very clear.
 ### More evals
 Generally, we need more evals. Essentially, I curate a list of positions-move-pairs where some trait X should be true and then try different approaches and thresholds until they are all green. Essentially, TDD: 
 
-1. `Tempo`
+1. `Tempo`  
     Using the `Tempo` evals I came to the following conclusion: Tempo([moves]) means that we got these moves for free where the opponent had to play a piece several times. It doesn't check that the move we made is beneficial necessarily. 
-2. `Pressure(KingZone)`
+2. `Pressure(KingZone)`  
     This is the way to say: "the king is under attack". I thought about building it more explicitly as its own Reason, but I concluded that `Pressure` should be a general term that can be used for different cases. Definition: `Pressure(KingZone)` is counted by different factors that count together: 
     1. minimum two attackers
     2. At least 8 points
     3. Per attacker: Queen 5, Rook 3, minor piece 2
     4. Weak squares: +1 for each ring square the attacker hits that the defender guards only with its king or queen, or not at all.
     5. Checks: +2 for each checking move the attacker has that lands on a square the defender doesn't attack. If the defender is to move, the attacker is treated as moving next.
-3. `Initiative`
-    TODO
+3. `Initiative`  
+    Result: First to play a forcing or more forcing moves after first forcing move
 
-Problem: these are my subjective definitions which can be quite fatal, what chess.com's brilliant analysis shows. chess.com classifies moves it (TODO ...)
+Problem: these are my subjective definitions which can be quite fatal, what chess.com's brilliant analysis shows. chess.com can classify moves as brilliant, but even with many others trying to replicate it even the best alternative gets a 93% recall at 99.5% precision. If there was some obvious definition for brilliancy everyone agreed on, most approaches would get pretty close and at least one should probably replicate chess.com perfectly. 
 
-
-<!-- For next week (seventh meeting) -->
-
-### Same run, only games by extremely strong players (2800+ on Lichess)
-
-The idea behind this is that now their shouldn't be any easy wins anymore. However, we still select for blunders and mistakes.  
-This actually increases the average #tries from 1.3 to 1.55. Which might be an indicator for more difficult positions. 
-
-This time the agents also reported what the DSL was missing or what problems the verifier has. After fixing some and re-running the average #tries went to 1.62.
-
-After some more improvements and updating the Sonnet-Prompt to include more information on how to use the DSL, it went to ...
-
-
-
-## Focusing on the Present
-
-The idea is essentially to make the LLM learn like a human would. First the essentials, then we go on to the more difficult paths later.
-
-My guess is that if the LLM wants to look into the future, it should use a tool for that. 
-
-We don't try to get the language diverse, only test how good the LLM is at doing these simple tasks.
-
-1. List of pieces on the board
-2. List of pieces on the board including their squares
-2. Where is piece x
-3. Is line x open
-3. Which lines are open
-4. Render the board as 
-4. Which legal moves can piece x do (piece + square)
-5. Which legal moves can piece x do (just square)
-6. Which legal moves can piece x do (just piece)
-3. Which legal moves are there
-6. 
-7. Game phase
-
-
-
-<!-- 
-### Ideas on how to measure specificity
-
-Specification
-1. A 
-2.  -->
-
+# Seventh meeting 09.11.
 
 ## Next
 1. UCI to SAN
@@ -2688,3 +2645,196 @@ Specification
 10. Positional analysis to compare with QUEEN
 11. Match feature attribution with rule-level intervention to evaluate feature attribution 
 12. Multi-level (and vs or) IG
+13. Formalize the problem
+
+## Formalization
+
+When thinking about this I noticed that formalizing the problem of explainable AI is basically like defining the type of questions you need to answer i.e. defining the tasks. Which is quite difficult. 
+
+1. Move explanation and commentary
+    - What does this move do or, more generally, what is this move? (descriptive)
+        - "This blunders a queen."
+        - "A brilliant move that opens the c-file" -> contains an implicit explanation
+    - Why this move? (reasoning)
+        - Reasons for this move
+        - Comparing to alternatives
+        - Formally we could define a move reasoning as a set of outcomes a move has (i.e. features of the resulting position) that are relevant to its evaluation. 
+        - Perfect reasoning would clearly single out a class of moves with the same evaluation and be the cause for that evaluation. "It is good because it is," is not a valid reason. "e4, best by test." (quote by Bobby Fischer) might be.
+        - 
+2. Positional analysis
+    - Roughly: Evaluation + Explanation
+    - Ground truth for evaluation: engine
+    - Explanations are certain features of a position that cause the evaluation
+    - You could say this is essentially just feature attribution but focus is on the imbalances. 
+    - e.g. if both kings are safe it is likely not important to mention (only for very thorough explanations)
+
+
+## DSL
+
+### Agent test, but only classical games by grand masters
+
+The idea behind this is that now their shouldn't be any easy wins anymore. However, we still select for blunders and mistakes.  
+
+
+
+### Stricter reasoning requirements
+
+Now we test our formalization: It says that the reasoning is a list of resulting features that should single out a class of moves with the same evaluation. For example, a reason for a good move shouldn't also apply to a bad move. The other requirement was causality so we look at the feature attribution. 
+
+## AO
+
+The first thing I did was change the replay to only replay failed examples and just look at what happens plus I tested just UCI to SAN. These were just quick tests to take a look. 
+
+### Focusing on the Present
+
+The idea is essentially to make the LLM learn like a human would. First the essentials, then we go on to the more difficult paths later. Most first lessons start with a completely empty board where the pieces are introduced one by one: How do they move and what are the rules (e.g. check, castling), then you might start by teaching them a simple opening or how to checkmate with king and rook. 
+
+Also, my guess is that if the LLM wants to look into the future, it should use a tool for that. So focusing on the present seems like the most important. 
+
+We don't try to get the language diverse, only test how good the LLM is at doing these simple tasks.
+ChessQA is a starting point but we need more advanced and more diverse tasks + hard-case mining. 
+
+1. List of pieces on the board
+2. List of pieces on the board including their squares
+2. Where is piece x
+3. Is line x open
+3. Which lines are open
+4. Render the board as 
+4. Which legal moves can piece x do (piece + square)
+5. Which legal moves can piece x do (just square)
+6. Which legal moves can piece x do (just piece)
+3. Which legal moves are there
+6. 
+7. Game phase
+
+## Feature attribution
+
+The first thing I wanted to do was looking at which features contribute how.
+
+    ┌────────────────┬──────────────┬───────┬───────┬───────┐
+    │     family     │ share of all │ in L5 │ in L2 │ in L0 │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ occupant       │ 20.46%       │ 18.9% │ 47.9% │ 33.1% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ control        │ 10.95%       │ 20.7% │ 54.4% │ 24.9% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ route          │ 9.59%        │ 23.0% │ 48.2% │ 28.8% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ blocks         │ 7.86%        │ 15.8% │ 57.1% │ 27.2% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ square         │ 6.05%        │ 23.5% │ 69.2% │ 7.2%  │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ role           │ 5.04%        │ 26.7% │ 53.1% │ 20.2% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ pawn_cover     │ 4.34%        │ 22.2% │ 65.0% │ 12.8% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ mobility       │ 4.31%        │ 28.6% │ 59.5% │ 11.9% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ blocked_by     │ 4.23%        │ 22.1% │ 53.9% │ 24.0% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ material       │ 4.13%        │ 38.2% │ 59.7% │ 2.1%  │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ pawn_shield    │ 3.56%        │ 27.6% │ 57.8% │ 14.6% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ weak           │ 3.04%        │ 21.3% │ 62.8% │ 15.9% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ pawn           │ 2.97%        │ 16.4% │ 57.8% │ 25.8% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ rook           │ 2.53%        │ 24.5% │ 55.2% │ 20.3% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ xray           │ 2.17%        │ 27.8% │ 54.7% │ 17.5% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ stability      │ 2.00%        │ 27.4% │ 57.1% │ 15.5% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ material_win   │ 1.82%        │ 37.2% │ 59.5% │ 3.3%  │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ threat         │ 1.68%        │ 37.9% │ 55.5% │ 6.6%  │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ open_file      │ 1.42%        │ 18.6% │ 71.6% │ 9.9%  │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ king           │ 0.42%        │ 12.2% │ 71.2% │ 16.7% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ half_open_file │ 0.42%        │ 23.6% │ 61.4% │ 15.0% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ mate           │ 0.34%        │ 39.7% │ 55.5% │ 4.8%  │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ strong         │ 0.33%        │ 29.1% │ 55.1% │ 15.7% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ check          │ 0.14%        │ 40.3% │ 47.6% │ 12.1% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ bishop_pair    │ 0.13%        │ 23.3% │ 60.2% │ 16.5% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ unlike_bishops │ 0.06%        │ 20.8% │ 68.3% │ 10.9% │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ centralisation │ 0.00%        │ –     │ –     │ –     │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ long_diagonal  │ 0.00%        │ –     │ –     │ –     │
+    ├────────────────┼──────────────┼───────┼───────┼───────┤
+    │ all families   │ 100%         │ 23.0% │ 55.4% │ 21.6% │
+    └────────────────┴──────────────┴───────┴───────┴───────┘
+
+Comparing the different types of decoder setups, we see a stark difference:
+
+    ┌────────────────┬──────────┬──────────┬─────────┬─────────┬─────────┐
+    │     family     │ L5+L2+L0 │ L0+L2+L5 │ just L0 │ just L2 │ just L5 │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ occupant       │ 20.46%   │ 24.77%   │ 25.10%  │ 22.85%  │ 17.99%  │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ control        │ 10.95%   │ 13.12%   │ 13.20%  │ 7.78%   │ 7.80%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ route          │ 9.59%    │ 11.39%   │ 11.08%  │ 14.17%  │ 12.42%  │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ blocks         │ 7.86%    │ 10.67%   │ 10.70%  │ 11.23%  │ 4.57%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ square         │ 6.05%    │ 2.02%    │ 1.95%   │ 6.08%   │ 7.17%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ role           │ 5.04%    │ 6.28%    │ 6.31%   │ 3.87%   │ 5.06%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ pawn_cover     │ 4.34%    │ 2.52%    │ 2.53%   │ 3.31%   │ 3.71%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ mobility       │ 4.31%    │ 2.00%    │ 1.89%   │ 3.57%   │ 5.60%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ blocked_by     │ 4.23%    │ 6.59%    │ 6.63%   │ 2.84%   │ 2.56%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ material       │ 4.13%    │ 0.41%    │ 0.40%   │ 3.32%   │ 8.31%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ pawn_shield    │ 3.56%    │ 2.51%    │ 2.50%   │ 3.01%   │ 4.63%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ weak           │ 3.04%    │ 2.18%    │ 2.20%   │ 2.78%   │ 1.60%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ pawn           │ 2.97%    │ 4.57%    │ 4.55%   │ 3.59%   │ 2.42%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ rook           │ 2.53%    │ 4.65%    │ 4.78%   │ 1.81%   │ 1.33%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ xray           │ 2.17%    │ 2.44%    │ 2.43%   │ 1.49%   │ 1.34%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ stability      │ 2.00%    │ 1.38%    │ 1.35%   │ 2.43%   │ 3.34%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ material_win   │ 1.82%    │ 0.24%    │ 0.21%   │ 1.51%   │ 4.50%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ threat         │ 1.68%    │ 0.56%    │ 0.54%   │ 1.25%   │ 2.69%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ open_file      │ 1.42%    │ 0.41%    │ 0.40%   │ 1.60%   │ 0.91%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ king           │ 0.42%    │ 0.41%    │ 0.40%   │ 0.26%   │ 0.23%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ half_open_file │ 0.42%    │ 0.35%    │ 0.34%   │ 0.36%   │ 0.35%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ mate           │ 0.34%    │ 0.06%    │ 0.05%   │ 0.40%   │ 0.53%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ strong         │ 0.33%    │ 0.20%    │ 0.19%   │ 0.21%   │ 0.41%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ check          │ 0.14%    │ 0.12%    │ 0.12%   │ 0.15%   │ 0.33%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ bishop_pair    │ 0.13%    │ 0.10%    │ 0.10%   │ 0.11%   │ 0.15%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ unlike_bishops │ 0.06%    │ 0.04%    │ 0.04%   │ 0.03%   │ 0.04%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ centralisation │ 0.00%    │ 0.00%    │ 0.00%   │ 0.00%   │ 0.00%   │
+    ├────────────────┼──────────┼──────────┼─────────┼─────────┼─────────┤
+    │ long_diagonal  │ 0.00%    │ 0.00%    │ 0.00%   │ 0.00%   │ 0.00%   │
+    └────────────────┴──────────┴──────────┴─────────┴─────────┴─────────┘
+
+What we can see is that training L0 + L2 + L5 is mostly just L0, but also we can see that training the decoders as L5 + L2 + L0 actually seems to give us the best of all worlds. L0, L2 and L5 actually seem to use very different features which we had already assumed. Some features don't even appear in L0 at all. But in the joint model we get a high faithfulness with Leela while serving all relevant features. The problem is: if there is always an option to find a better attribution, how do we find the best possible one? In other words, it could be that our feature attribution is far away from the best possible one, and therefore unusable. 
+
+![Feature families per layer](./image/journey/Feature%20Families%20per%20Layer.png)

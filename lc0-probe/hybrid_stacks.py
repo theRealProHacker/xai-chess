@@ -14,7 +14,7 @@ sys.modules.update({"torchvision": tv, "torchvision.ops": tv.ops})
 import chess, numpy as np, onnx, torch
 from onnx2torch import convert
 
-def build(pred=False):
+def build(pred=False, gate=False):
     """-> namespace with forward_stack, deep_stack (on X), forward_h, deep_h (on Z = X @ Wcat), wl, keep, K, D_in, bits(white_fens) -> [X], SM (any-occupant mean)."""
     a = types.SimpleNamespace(pred=pred)
     D = ROOT / "lc0-probe/data"
@@ -22,7 +22,7 @@ def build(pred=False):
     rev = torch.load(D / "hybrid_reverse_games_n100000_adamw.pt", weights_only=False)
     l2 = torch.load(D / "hybrid_decoder_games_n100000_adamw_l2only.pt", weights_only=False)
     MM = D / "hybrid_rev_tmp_games_n100000_adamw_d0"
-    em = torch.load(MM / f"endmlp{'_pred' if a.pred else ''}.pt", weights_only=False)
+    em = torch.load(MM / f"endmlp{'_pred' if a.pred else ''}{'_gate' if gate else ''}.pt", weights_only=False)
     keep = fwd["keep"]
     assert all(np.array_equal(c["keep"], keep) for c in (rev, l2))
     K = len(keep); D_in = K + 65
@@ -54,7 +54,10 @@ def build(pred=False):
     class MLP(torch.nn.Module):
         def __init__(self, n_in, h):
             super().__init__(); self.a, self.b = torch.nn.Linear(n_in, h), torch.nn.Linear(h, 256)
-        def forward(self, x): return self.b(torch.nn.functional.gelu(self.a(x)))
+            if gate: self.g = torch.nn.Sequential(torch.nn.Linear(512, 64), torch.nn.GELU(), torch.nn.Linear(64, 1))
+        def forward(self, x):                                            # gate: sigmoid(g(F, prediction)) * h(F)
+            if not gate: return self.b(torch.nn.functional.gelu(self.a(x)))
+            return torch.sigmoid(self.g(x)) * self.b(torch.nn.functional.gelu(self.a(x[:, :256])))
     Ms = {}
     for k in ("L2", "L0"):
         st = em[k]; Ms[k] = MLP(st["a.weight"].shape[1], em["hidden"]); Ms[k].load_state_dict(st)
@@ -97,4 +100,4 @@ def build(pred=False):
         assert [r["fen"] for r in rs] == list(white)
         return [xs(r["squares"]) for r in rs]
     return types.SimpleNamespace(**{k: v for k, v in locals().items() if k in
-        ("forward_stack", "deep_stack", "forward_h", "deep_h", "Wcat", "wl", "keep", "K", "D_in", "bits", "SM", "xs")})
+        ("forward_stack", "deep_stack", "forward_h", "deep_h", "Wcat", "cuts", "dec", "split", "s05", "s35", "tail", "C", "wl", "keep", "K", "D_in", "bits", "SM", "xs")})
