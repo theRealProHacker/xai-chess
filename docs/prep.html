@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preparation &middot; xai-chess</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.base.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.brown.css">
+<link rel="stylesheet" href="vendor/chessground/chessground.cburnett.css">
+<style>
+  :root{
+    --shadow-s:
+      inset 0 1px 2px #ffffff30,
+      0 1px 2px #00000030,
+      0 2px 4px #00000015;
+    --shadow-m:
+      inset 0 1px 2px #ffffff50,
+      0 2px 4px #00000030,
+      0 4px 8px #00000015;
+    --refute:#a35c00; --answer:#0b3d6b;
+  }
+  a.back{color:#8a8a8a;text-decoration:none;font-size:.9rem}
+  a.back:hover{color:#0b5fa5}
+
+  button{font:inherit;font-size:.9rem;padding:.5rem .9rem;border:1px solid #e4e4e4;border-radius:8px;
+      background:#fff;color:#1a1a1a;cursor:pointer;box-shadow:var(--shadow-s);
+      transition:border-color .12s,background .12s,box-shadow .12s}
+  button:hover{border-color:#0b5fa5;background:#fafafa;box-shadow:var(--shadow-m)}
+  button.on{background:#0b5fa5;border-color:#0b5fa5;color:#fff}
+  button.on:hover{background:#0a5390;border-color:#0a5390}
+  button:disabled{opacity:.5;cursor:wait}
+
+  .gallery{display:flex;flex-wrap:wrap;gap:.4rem;margin:1.25rem 0 1rem}
+
+  .boards{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin:1rem 0 .5rem}
+  .boards figure{margin:0}
+  .boards figcaption{color:#555;font-size:.9rem;margin-bottom:.35rem}
+  .cg{width:100%;aspect-ratio:1/1;box-shadow:var(--shadow-s);border-radius:4px}
+  .cg .cg-shapes{z-index:3;opacity:1}
+  @media (max-width:520px){ .boards{grid-template-columns:1fr} }
+  .lines .pv span{white-space:nowrap}
+  .cg coords.files{text-transform:lowercase}
+  .cg coords coord{color:#2b2b2b !important;text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff;font-weight:600}
+
+  .legend{display:flex;flex-wrap:wrap;gap:.5rem 1.1rem;color:#555;font-size:.82rem;margin:.4rem 0 0}
+  .legend span{display:inline-flex;align-items:center;gap:.4rem}
+
+  .readout{border:1px solid #e4e4e4;border-radius:10px;padding:.9rem 1.05rem;
+      margin:1.25rem 0;box-shadow:var(--shadow-s)}
+  .verdict{font-size:1.2rem;font-weight:600;letter-spacing:-.01em;min-height:1.5em}
+  .lines{margin:.6rem 0 0;display:grid;grid-template-columns:auto auto 1fr;gap:.3rem .8rem;
+      font-size:.9rem;color:#333}
+  .lines .ev{font-variant-numeric:tabular-nums;text-align:right}
+  .lines .pv{color:#555}
+  .lines b.brk{color:var(--refute)}
+
+  .form{display:grid;grid-template-columns:auto 1fr;gap:.5rem .6rem;align-items:center;margin:1rem 0}
+  .form label{color:#8a8a8a;font-size:.85rem}
+  .form input{min-width:0;font:inherit;font-size:.9rem;padding:.45rem .6rem;border:1px solid #e4e4e4;
+      border-radius:8px;color:#1a1a1a}
+  .form input#fen{font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .form input:focus{outline:none;border-color:#0b5fa5}
+  .form .go{grid-column:2;justify-self:start}
+  .err{color:#b00020;font-size:.85rem;margin:0 0 .5rem}
+  .err:empty{display:none}
+  [hidden]{display:none !important}
+  #bStart{margin:.5rem 0 0}
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; xai-chess</a>
+  <h1>Preparation</h1>
+  <p class="intro">Why must one move wait for another?</p>
+
+  <div class="gallery" id="gallery"></div>
+
+  <div class="form" id="form" hidden>
+    <label for="fen">FEN</label><input id="fen" spellcheck="false">
+    <label for="pr">First</label><input id="pr" spellcheck="false" placeholder="Kg8">
+    <label for="mv">Then</label><input id="mv" spellcheck="false" placeholder="f6">
+    <button class="go" id="go">Explain</button>
+  </div>
+  <p class="err" id="err"></p>
+
+  <div class="cg" id="bStart"></div>
+
+  <div class="readout">
+    <div class="verdict" id="verdict">&nbsp;</div>
+    <div class="lines" id="lines"></div>
+  </div>
+
+  <div class="boards">
+    <figure><figcaption id="capNow">&nbsp;</figcaption><div class="cg" id="bNow"></div></figure>
+    <figure><figcaption id="capPrep">&nbsp;</figcaption><div class="cg" id="bPrep"></div></figure>
+  </div>
+  <div class="legend">
+    <span><svg width="26" height="10" aria-hidden="true"><path d="M1 5h24" stroke="var(--refute)" stroke-width="3"/></svg>Answer to the move</span>
+    <span><svg width="26" height="10" aria-hidden="true"><path d="M1 5h24" stroke="var(--answer)" stroke-width="3"/></svg>Best reply to it</span>
+  </div>
+
+<script type="module">
+import { Chess } from './vendor/chess.js';
+import { Chessground } from './vendor/chessground/chessground.min.js';
+
+const $ = id => document.getElementById(id);
+const DEPTH = 14, MAX_PLY = 8, GAP = 100;   // a refutation breaks when it costs its side >= 1 pawn more
+
+const fenAfter = moves => { const c = new Chess(); moves.split(' ').forEach(m => c.move(m)); return c.fen(); };
+const EXAMPLES = [
+  {name: 'Najdorf', fen: fenAfter('e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3'), mv: 'e5', pr: 'a6'},
+  {name: 'Sämisch', fen: fenAfter('d4 Nf6 c4 g6 Nc3 Bg7 e4 d6'), mv: 'Be3', pr: 'f3'},
+  {name: 'Ruy Lopez', fen: fenAfter('e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O'), mv: 'd4', pr: 'h3'},
+  {name: 'Italian', fen: fenAfter('e4 e5 Nf3 Nc6 Bc4 Bc5'), mv: 'd4', pr: 'c3'},
+  {name: 'Middlegame', fen: 'rbbq1k1r/pp3ppp/2n1p1n1/1N1pP3/1P6/P2B1NQ1/1BP2PPP/R3K2R b KQ - 12 14', mv: 'f6', pr: 'Kg8'},
+];
+
+// --- engine -----------------------------------------------------------------
+const engine = new Worker('vendor/stockfish/stockfish-18-lite-single.js');
+let onLine = () => {};
+engine.onmessage = e => onLine(typeof e.data === 'string' ? e.data : (e.data && e.data.data) || '');
+const until = (tag, lines) => new Promise(res => { onLine = l => { lines?.push(l); if (l.startsWith(tag)) res(lines); }; });
+const booted = (async () => {
+  engine.postMessage('uci'); await until('uciok');
+  engine.postMessage('isready'); await until('readyok');
+})();
+// Score for `pov` ('w'|'b') in centipawns (mate = ±10000) and the principal variation (UCI).
+let queue = Promise.resolve();   // one search at a time on the one engine
+function search(fen, pov, multi = 1) { const r = queue.then(() => search1(fen, pov, multi)); queue = r.catch(() => {}); return r; }
+async function search1(fen, pov, multi) {
+  await booted;
+  const c = new Chess(fen);
+  if (c.game_over()) return {cp: c.in_checkmate() ? (c.turn() === pov ? -10000 : 10000) : 0, pv: []};
+  engine.postMessage('setoption name MultiPV value ' + multi);
+  engine.postMessage('position fen ' + fen);
+  const done = until('bestmove', []);
+  engine.postMessage('go depth ' + DEPTH);
+  const lines = (await done).filter(l => / pv /.test(l) && / score /.test(l) && / depth /.test(l));
+  // first moves of the final depth's lines, best first
+  const firsts = [];
+  for (const l of lines.filter(l => l.includes(' depth ' + lines.at(-1)?.match(/ depth (\d+)/)[1] + ' ')))
+    firsts[+(l.match(/ multipv (\d+)/)?.[1] || 1) - 1] = l.split(' pv ')[1].split(' ')[0];
+  const info = lines.filter(l => !/ multipv /.test(l) || / multipv 1 /.test(l)).pop() || '';
+  const [, kind, n] = info.match(/score (cp|mate) (-?\d+)/) || [, 'cp', '0'];
+  let cp = kind === 'cp' ? +n : (+n > 0 ? 10000 : -10000);
+  if (c.turn() !== pov) cp = -cp;
+  return {cp, pv: (info.split(' pv ')[1] || '').trim().split(' ').filter(Boolean), firsts: firsts.filter(Boolean)};
+}
+
+// --- chess helpers ----------------------------------------------------------
+const uciObj = u => ({from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4]});
+const play = (c, u) => c.move(uciObj(u));           // null when illegal
+const toUci = m => m.from + m.to + (m.promotion || '');
+function sanLine(fen, ucis, mark = -1) {
+  const c = new Chess(fen), out = [];
+  for (const [i, u] of ucis.entries()) {
+    const num = c.turn() === 'w' ? c.fen().split(' ')[5] + '. ' : (i === 0 ? c.fen().split(' ')[5] + '… ' : '');
+    const m = play(c, u); if (!m) break;
+    out.push('<span>' + num + (i === mark ? `<b class="brk">${m.san}</b>` : m.san) + '</span>');
+  }
+  return out.join(' ');
+}
+const pawnsFor = (cp, me) => pawns(me === 'w' ? cp : -cp);
+const pawns = cp => Math.abs(cp) >= 10000 ? (cp > 0 ? 'mate' : '−mate')
+  : (cp >= 0 ? '+' : '−') + (Math.abs(cp) / 100).toFixed(1);
+
+// --- boards -----------------------------------------------------------------
+const brushes = {
+  refute: {key: 'pref', color: '#a35c00', opacity: 1, lineWidth: 9},
+  answer: {key: 'pans', color: '#0b3d6b', opacity: 1, lineWidth: 9},
+  plan:   {key: 'pplan', color: '#1f6b3a', opacity: 1, lineWidth: 10},
+};
+const mkBoard = el => Chessground(el, {viewOnly: true, coordinates: false, drawable: {enabled: false, brushes}});
+const bStart = mkBoard($('bStart')), bNow = mkBoard($('bNow')), bPrep = mkBoard($('bPrep'));
+function show(b, fen, orient, shapes, last) {
+  b.set({fen, orientation: orient, lastMove: last ? [last.slice(0, 2), last.slice(2, 4)] : null});
+  b.setAutoShapes(shapes);
+}
+const arrow = (u, brush) => u ? [{orig: u.slice(0, 2), dest: u.slice(2, 4), brush}] : [];
+
+// --- the explanation --------------------------------------------------------
+let gen = 0;
+async function explain(fen, mvSan, prSan) {
+  const g = ++gen;
+  $('err').textContent = ''; $('lines').innerHTML = ''; $('verdict').textContent = 'Searching…';
+  $('go').disabled = true;
+  try {
+    const p = new Chess(fen), me = p.turn(), orient = me === 'w' ? 'white' : 'black';
+    const a = new Chess(fen).move(mvSan), b = new Chess(fen).move(prSan);
+    if (!a || !b) throw new Error(`${a ? prSan : mvSan} is not legal here`);
+    show(bNow, fen, orient, []); show(bPrep, fen, orient, []);
+    // The starting position: the preparation as 1, the move as 2.
+    show(bStart, fen, orient, [{...arrow(toUci(b), 'plan')[0], label: {text: '1'}},
+                               {...arrow(toUci(a), 'plan')[0], label: {text: '2'}}]);
+
+    // 1. The move now, and the line that refutes it.
+    const now = new Chess(fen); now.move(mvSan);
+    const sNow = await search(now.fen(), me); if (g !== gen) return;
+
+    // 2. The preparation, the opponent's reply, then the move. The reply is the best one
+    //    that still lets the refutation's first move be played, so the replay below tests
+    //    the preparation and not the opponent moving the refuting piece away.
+    const prep = new Chess(fen); prep.move(prSan);
+    const sR = await search(prep.fen(), me, 5); if (g !== gen) return;
+    const keeps = r => { const c = new Chess(prep.fen()); return play(c, r) && c.move(mvSan) && sNow.pv[0] && play(c, sNow.pv[0]); };
+    const reply = sR.firsts.find(keeps) || sR.firsts[0];
+    if (reply) play(prep, reply);
+    const prepMove = prep.move(mvSan);
+    if (!prepMove) throw new Error(`${mvSan} is not legal after ${prSan} ${reply ? prep.history().slice(-1) : ''}`);
+    const sPrep = await search(prep.fen(), me); if (g !== gen) return;
+    const prepLine = [...sanOf(fen, [toUci(b), reply].filter(Boolean)), mvSan];
+
+    // 3. Replay the answer after the preparation; the first opponent move that is
+    //    illegal there, or costs the opponent a pawn more there, is where it breaks.
+    const x = new Chess(now.fen()), y = new Chess(prep.fen());
+    let brk = null;
+    for (let k = 0; k < Math.min(MAX_PLY, sNow.pv.length); k++) {
+      const u = sNow.pv[k], opp = k % 2 === 0;
+      const xFen = x.fen(), yFen = y.fen();
+      if (!y.move(uciObj(u))) { if (opp) brk = {k, u, xFen, yFen, illegal: true}; break; }
+      play(x, u);
+      if (!opp) continue;
+      const ex = await search(x.fen(), me); if (g !== gen) return;
+      const ey = await search(y.fen(), me); if (g !== gen) return;
+      if (ey.cp - ex.cp >= GAP) { brk = {k, u, xFen, yFen, ex, ey}; break; }
+    }
+
+    // --- render
+    const brkSan = brk && new Chess(brk.xFen).move(uciObj(brk.u)).san;
+    $('verdict').textContent = !brk
+      ? `${prSan} stops none of the answers to ${mvSan}`
+      : brk.illegal
+        ? `${brkSan} meets ${mvSan} now; after ${prSan} it is illegal`
+        : `${brkSan} meets ${mvSan} now; after ${prSan} it fails`;
+    $('lines').innerHTML =
+      `<span>${mvSan} now</span><span class="ev">${pawnsFor(sNow.cp, me)}</span>` +
+      `<span class="pv">${sanLine(now.fen(), sNow.pv.slice(0, 10), brk ? brk.k : -1)}</span>` +
+      `<span>After ${prSan}</span><span class="ev">${pawnsFor(sPrep.cp, me)}</span>` +
+      `<span class="pv">${sanLine(fen, [toUci(b), reply, toUci(prepMove), ...sPrep.pv].filter(Boolean).slice(0, 12))}</span>`;
+
+    if (brk) {
+      const yAfter = new Chess(brk.yFen);
+      const answer = !brk.illegal && play(yAfter, brk.u) ? brk.ey.pv[0] : null;
+      const xAfter = new Chess(brk.xFen); play(xAfter, brk.u);
+      $('capNow').textContent = `Without ${prSan}`;
+      $('capPrep').textContent = `With ${prSan}`;
+      show(bNow, brk.xFen, orient, arrow(brk.u, 'refute').concat(arrow(brk.ex?.pv[0], 'answer')));
+      show(bPrep, brk.yFen, orient, (brk.illegal ? [] : arrow(brk.u, 'refute')).concat(arrow(answer, 'answer')));
+    } else {
+      $('capNow').textContent = `${mvSan} now`; $('capPrep').textContent = `${prepLine.join(', ')}`;
+      show(bNow, now.fen(), orient, arrow(sNow.pv[0], 'refute'));
+      show(bPrep, prep.fen(), orient, arrow(sPrep.pv[0], 'refute'));
+    }
+  } catch (e) {
+    if (g === gen) { $('verdict').innerHTML = '&nbsp;'; $('err').textContent = e.message; }
+  } finally {
+    if (g === gen) $('go').disabled = false;
+  }
+}
+function sanOf(fen, ucis) {
+  const c = new Chess(fen);
+  return ucis.map(u => play(c, u)?.san);
+}
+
+// --- wiring -----------------------------------------------------------------
+function run() { explain($('fen').value.trim(), $('mv').value.trim(), $('pr').value.trim()); }
+function pick(i) {
+  [...$('gallery').children].forEach((el, j) => el.classList.toggle('on', j === i));
+  $('form').hidden = i < EXAMPLES.length;
+  if (i === EXAMPLES.length) return;             // own position: wait for Explain
+  const ex = EXAMPLES[i];
+  $('fen').value = ex.fen; $('mv').value = ex.mv; $('pr').value = ex.pr;
+  run();
+}
+[...EXAMPLES.map(ex => ex.name), 'Own position'].forEach((name, i) => {
+  const el = document.createElement('button'); el.textContent = name; el.onclick = () => pick(i);
+  $('gallery').append(el);
+});
+$('go').onclick = run;
+pick(0);
+</script>
+</body>
+</html>
