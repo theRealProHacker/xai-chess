@@ -98,6 +98,7 @@
   <div class="boards">
     <figure><figcaption id="capNow">&nbsp;</figcaption><div class="cg" id="bNow"></div></figure>
     <figure><figcaption id="capPrep">&nbsp;</figcaption><div class="cg" id="bPrep"></div></figure>
+    <figure id="figFollow" hidden><figcaption id="capFollow">&nbsp;</figcaption><div class="cg" id="bFollow"></div></figure>
   </div>
   <div class="legend">
     <span><svg width="26" height="10" aria-hidden="true"><path d="M1 5h24" stroke="var(--refute)" stroke-width="3"/></svg>Answer to the move</span>
@@ -136,6 +137,7 @@ async function search1(fen, pov, multi) {
   await booted;
   const c = new Chess(fen);
   if (c.game_over()) return {cp: c.in_checkmate() ? (c.turn() === pov ? -10000 : 10000) : 0, pv: []};
+  engine.postMessage('ucinewgame');   // fresh hash: same position, same answer
   engine.postMessage('setoption name MultiPV value ' + multi);
   engine.postMessage('position fen ' + fen);
   const done = until('bestmove', []);
@@ -151,6 +153,22 @@ async function search1(fen, pov, multi) {
   if (c.turn() !== pov) cp = -cp;
   return {cp, pv: (info.split(' pv ')[1] || '').trim().split(' ').filter(Boolean), firsts: firsts.filter(Boolean)};
 }
+// Static eval for `pov` in centipawns; null when in check (Stockfish gives none there).
+function staticEval(fen, pov) { const r = queue.then(() => static1(fen, pov)); queue = r.catch(() => {}); return r; }
+async function static1(fen, pov) {
+  await booted;
+  const c = new Chess(fen);
+  if (c.in_checkmate()) return c.turn() === pov ? -10000 : 10000;
+  if (c.game_over()) return 0;
+  if (c.in_check()) return null;
+  engine.postMessage('position fen ' + fen);
+  const done = until('Final evaluation', []);
+  engine.postMessage('eval');
+  const m = (await done).at(-1).match(/Final evaluation\s+([+-]?[\d.]+)/);
+  if (!m) return null;
+  const cp = Math.round(parseFloat(m[1]) * 100);
+  return pov === 'w' ? cp : -cp;
+}
 
 // --- chess helpers ----------------------------------------------------------
 const uciObj = u => ({from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4]});
@@ -165,7 +183,7 @@ function sanLine(fen, ucis, mark = -1) {
   }
   return out.join(' ');
 }
-const pawnsFor = (cp, me) => pawns(me === 'w' ? cp : -cp);
+const pawnsFor = cp => pawns(cp);   // search() already scores for the mover
 const pawns = cp => Math.abs(cp) >= 10000 ? (cp > 0 ? 'mate' : '−mate')
   : (cp >= 0 ? '+' : '−') + (Math.abs(cp) / 100).toFixed(1);
 
@@ -176,7 +194,7 @@ const brushes = {
   plan:   {key: 'pplan', color: '#1f6b3a', opacity: 1, lineWidth: 10},
 };
 const mkBoard = el => Chessground(el, {viewOnly: true, coordinates: false, drawable: {enabled: false, brushes}});
-const bStart = mkBoard($('bStart')), bNow = mkBoard($('bNow')), bPrep = mkBoard($('bPrep'));
+const bStart = mkBoard($('bStart')), bNow = mkBoard($('bNow')), bPrep = mkBoard($('bPrep')), bFollow = mkBoard($('bFollow'));
 function show(b, fen, orient, shapes, last) {
   b.set({fen, orientation: orient, lastMove: last ? [last.slice(0, 2), last.slice(2, 4)] : null});
   b.setAutoShapes(shapes);
@@ -188,7 +206,7 @@ let gen = 0;
 async function explain(fen, mvSan, prSan) {
   const g = ++gen;
   $('err').textContent = ''; $('lines').innerHTML = ''; $('verdict').textContent = 'Searching…';
-  $('go').disabled = true;
+  $('go').disabled = true; $('figFollow').hidden = true;
   try {
     const p = new Chess(fen), me = p.turn(), orient = me === 'w' ? 'white' : 'black';
     const a = new Chess(fen).move(mvSan), b = new Chess(fen).move(prSan);
@@ -251,6 +269,7 @@ async function explain(fen, mvSan, prSan) {
       $('capPrep').textContent = `With ${prSan}`;
       show(bNow, brk.xFen, orient, arrow(brk.u, 'refute').concat(arrow(brk.ex?.pv[0], 'answer')));
       show(bPrep, brk.yFen, orient, (brk.illegal ? [] : arrow(brk.u, 'refute')).concat(arrow(answer, 'answer')));
+      if (answer) await follow({g, me, orient, prSan, brk, answer});
     } else {
       $('capNow').textContent = `${mvSan} now`; $('capPrep').textContent = `${prepLine.join(', ')}`;
       show(bNow, now.fen(), orient, arrow(sNow.pv[0], 'refute'));
@@ -262,6 +281,51 @@ async function explain(fen, mvSan, prSan) {
     if (g === gen) $('go').disabled = false;
   }
 }
+// Past the break: play the answer that works after the preparation in the position
+// without it too, and follow the engine line there until the static eval is as bad
+// as the search says.
+async function follow({g, me, orient, prSan, brk, answer}) {
+  const a = new Chess(brk.xFen); play(a, brk.u);
+  const yb = new Chess(brk.yFen); play(yb, brk.u);
+  const ansSan = play(yb, answer).san;
+  const ans = play(a, answer);
+  if (!ans) {
+    $('lines').innerHTML += `<span>${ansSan} without ${prSan}</span><span class="ev"></span><span class="pv">illegal</span>`;
+    return;
+  }
+  const sA = await search(a.fen(), me); if (g !== gen) return;
+  const line = [...sA.pv];
+  let stop = -1, before = a.fen();
+  for (let k = 0; k < MAX_PLY; k++) {
+    if (k >= line.length) {
+      const s = await search(a.fen(), me); if (g !== gen) return;
+      if (!s.pv.length) break;
+      line.push(...s.pv);
+    }
+    const fenK = a.fen();
+    if (!play(a, line[k])) break;
+    const st = await staticEval(a.fen(), me); if (g !== gen) return;
+    if (st !== null && st <= sA.cp) { stop = k; before = fenK; break; }
+    if (a.game_over()) break;
+  }
+  if (stop % 2 === 1) {   // landed on our move: name the opponent's move before it
+    stop--;
+    const c = new Chess(brk.xFen); [brk.u, answer, ...line.slice(0, stop)].forEach(u => play(c, u)); before = c.fen();
+  }
+  const n = stop >= 0 ? stop + 1 : Math.min(MAX_PLY, line.length);
+  $('lines').innerHTML +=
+    `<span>${ans.san} without ${prSan}</span><span class="ev">${pawnsFor(sA.cp)}</span>` +
+    `<span class="pv">${sanLine(brk.xFen, [brk.u, answer, ...line.slice(0, n)], stop >= 0 ? 2 + stop : -1)}</span>`;
+  if (!n) return;
+  if (stop < 0) {   // no stop: show the line's last move
+    const c = new Chess(brk.xFen); [brk.u, answer, ...line.slice(0, n - 1)].forEach(u => play(c, u)); before = c.fen();
+  }
+  $('capFollow').textContent = `${ans.san} without ${prSan}`;
+  $('figFollow').hidden = false;
+  bFollow.redrawAll();   // it was laid out while hidden
+  show(bFollow, before, orient, arrow(line[n - 1], 'refute'));
+}
+
 function sanOf(fen, ucis) {
   const c = new Chess(fen);
   return ucis.map(u => play(c, u)?.san);
