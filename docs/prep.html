@@ -71,6 +71,9 @@
   .err:empty{display:none}
   [hidden]{display:none !important}
   #bStart{margin:.5rem 0 0}
+  .nodes{display:flex;align-items:center;gap:.6rem;margin:0 0 1rem;color:#8a8a8a;font-size:.85rem}
+  .nodes input{flex:0 1 14rem;accent-color:#0b5fa5;cursor:pointer}
+  .nodes output{color:#1a1a1a;font-variant-numeric:tabular-nums;min-width:3.5em}
 </style>
 </head>
 <body>
@@ -87,6 +90,7 @@
     <button class="go" id="go">Explain</button>
   </div>
   <p class="err" id="err"></p>
+  <div class="nodes"><label for="nodes">Nodes</label><input type="range" id="nodes" min="0" max="5" step="1" value="2" list="nodeTicks"><datalist id="nodeTicks"><option value="0"><option value="1"><option value="2"><option value="3"><option value="4"><option value="5"></datalist><output id="nodesOut" for="nodes"></output></div>
 
   <div class="cg" id="bStart"></div>
 
@@ -110,7 +114,7 @@ import { Chess } from './vendor/chess.js';
 import { Chessground } from './vendor/chessground/chessground.min.js';
 
 const $ = id => document.getElementById(id);
-const DEPTH = 14, MAX_PLY = 8, GAP = 100;   // a refutation breaks when it costs its side >= 1 pawn more
+const NODES = [1e4, 5e4, 2e5, 1e6, 3e6, 1e7], MAX_PLY = 8, GAP = 100;   // a refutation breaks when it costs its side >= 1 pawn more
 
 const fenAfter = moves => { const c = new Chess(); moves.split(' ').forEach(m => c.move(m)); return c.fen(); };
 const EXAMPLES = [
@@ -141,13 +145,13 @@ async function search1(fen, pov, multi) {
   engine.postMessage('setoption name MultiPV value ' + multi);
   engine.postMessage('position fen ' + fen);
   const done = until('bestmove', []);
-  engine.postMessage('go depth ' + DEPTH);
+  engine.postMessage('go nodes ' + NODES[$('nodes').value]);
   const lines = (await done).filter(l => / pv /.test(l) && / score /.test(l) && / depth /.test(l));
-  // first moves of the final depth's lines, best first
+  // first moves of each line's last report, best first (a node limit can stop mid-depth)
   const firsts = [];
-  for (const l of lines.filter(l => l.includes(' depth ' + lines.at(-1)?.match(/ depth (\d+)/)[1] + ' ')))
-    firsts[+(l.match(/ multipv (\d+)/)?.[1] || 1) - 1] = l.split(' pv ')[1].split(' ')[0];
-  const info = lines.filter(l => !/ multipv /.test(l) || / multipv 1 /.test(l)).pop() || '';
+  for (const l of lines) firsts[+(l.match(/ multipv (\d+)/)?.[1] || 1) - 1] = l.split(' pv ')[1].split(' ')[0];
+  const pv1 = lines.filter(l => !/ multipv /.test(l) || / multipv 1 /.test(l));
+  const info = pv1.filter(l => !/bound/.test(l)).pop() || pv1.pop() || '';   // a node limit can end on a bound
   const [, kind, n] = info.match(/score (cp|mate) (-?\d+)/) || [, 'cp', '0'];
   let cp = kind === 'cp' ? +n : (+n > 0 ? 10000 : -10000);
   if (c.turn() !== pov) cp = -cp;
@@ -346,6 +350,10 @@ function pick(i) {
   $('gallery').append(el);
 });
 $('go').onclick = run;
+const fmtNodes = n => n >= 1e6 ? n / 1e6 + 'M' : n / 1e3 + 'k';
+const showNodes = () => $('nodesOut').textContent = fmtNodes(NODES[$('nodes').value]);
+$('nodes').oninput = showNodes; showNodes();
+$('nodes').onchange = () => { if ($('fen').value.trim()) run(); };
 pick(0);
 </script>
 </body>
